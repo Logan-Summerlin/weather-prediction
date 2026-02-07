@@ -11,7 +11,7 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Data Pipeline | COMPLETE |
-| 2 | Baseline Models | NOT STARTED |
+| 2 | Baseline Models | COMPLETE |
 | 3 | Neural Network V1 | NOT STARTED |
 | 4 | Enhancements | NOT STARTED |
 | 5 | Confidence Intervals | NOT STARTED |
@@ -46,3 +46,27 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 - Chronological split (no shuffling) to avoid temporal leakage
 - Forward-fill ≤3 days, then impute remaining NaNs with training-set column means
 - All 61 tests pass; pipeline is end-to-end operational
+
+## Phase 2 — Baseline Models (COMPLETE)
+
+### Files Delivered
+- `src/baselines.py` — 4 models: Persistence, Climatology, Linear Regression, Ridge
+- `src/evaluate.py` — Full evaluation framework: metrics, seasonal breakdown, 5 plot types, report generation
+- `tests/test_baselines.py` — 61 tests
+- `tests/test_evaluate.py` — 55 tests
+- `run_baselines.py` — End-to-end evaluation script
+- `results/baselines/` — 17 PNG plots + evaluation report
+- `reports/phase2_pm_report.md` — PM completion report
+
+### Baseline Results (Test Set, n=274)
+- Persistence: MAE=5.06°F, R²=0.799
+- Climatology: MAE=6.15°F, R²=0.747
+- Linear Regression: MAE=4.35°F, R²=0.875
+- **Ridge (alpha=1.0): MAE=4.33°F, R²=0.876** (best baseline)
+
+### Key Findings
+- Ridge ≈ OLS: multicollinearity not causing instability
+- Surrounding stations add ~0.7°F MAE improvement over persistence
+- Winter/spring are hardest seasons (MAE 1-2°F higher)
+- Stretch goal (≤2°F) requires roughly halving best baseline error
+- 177 total tests pass (61 baselines + 55 evaluate + 61 Phase 1)
