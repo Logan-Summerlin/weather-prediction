@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Pytest
+.pytest_cache/
+
+# Raw data files (large, re-downloadable)
+data/raw/*.dly
+data/raw/*.csv
+data/processed/
+
+# Model checkpoints (large)
+models/*.pt
+models/*.pth
+
+# OS
+.DS_Store
+Thumbs.db
