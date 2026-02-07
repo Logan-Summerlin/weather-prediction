@@ -119,7 +119,33 @@ Output Layer: 1 neuron (predicted NYC TMAX at day t), linear activation
 **Loss function:** Mean Squared Error (MSE)
 **Optimizer:** Adam (lr=0.001)
 
-### 5.2 Enhanced: Multi-Feature Input
+### 5.2 Enhanced: Multi-Feature Input and Target Formulation
+
+#### 5.2a ΔT (Delta) Target — Highest-Leverage Change
+
+Switch the prediction target from raw TMAX(t) to the daily change:
+
+```
+ΔT(t) = TMAX_NYC(t) − TMAX_NYC(t−1)
+```
+
+Then reconstruct the absolute prediction:
+
+```
+TMAX_NYC_pred(t) = TMAX_NYC(t−1) + ΔT_pred(t)
+```
+
+**Why:** Persistence is already strong (MAE ≈ 5°F). Predicting deltas forces the model to learn the hard part — regime shifts and advection events — rather than re-learning climatology and persistence. Empirically, delta targets narrow the output range and stabilize training.
+
+**Implementation:**
+- Create target column `y = TMAX_NYC[t] − TMAX_NYC[t−1]`
+- Include `TMAX_NYC[t−1]` as an input feature
+- Train model to predict ΔT
+- Evaluate MAE on reconstructed TMAX (not on ΔT itself)
+
+**Training loss:** Use **Huber (SmoothL1)** or **MAE** loss (often better than MSE for MAE optimization). Track MAE for early stopping.
+
+#### 5.2b Per-Station Feature Expansion
 
 Instead of one feature per station, use multiple features per station:
 
@@ -131,16 +157,98 @@ Per station (at t-1):
 
 Total input features: N_stations × 3
 
-Optional additional inputs:
+Additional inputs:
   - Day of year (encoded as sin/cos for cyclical nature)
   - NYC's own TMAX at t-1 (autoregressive term)
 ```
 
-This gives the network more information to work with.
+#### 5.2c Sector Averages and Gradients (Physics-Shaped Features)
 
-### 5.3 Advanced: Sequence Model (LSTM/GRU)
+Group stations into directional sectors and compute aggregate features that proxy frontal passages and air-mass advection:
 
-For a later phase, feed the network a window of *k* days (e.g., t-3 through t-1) for each station, using an LSTM or GRU to capture temporal trends.
+**Sector definitions:**
+- W/NW (upstream cold-air advection): Scranton, Allentown, Albany, Poughkeepsie
+- SW (warm advection / pre-frontal): Philadelphia, Trenton
+- Coastal/E/SE (Atlantic moderation): Islip, JFK, Atlantic City, Bridgeport
+- Near-field (urban/local): Newark, LaGuardia, White Plains
+
+**Sector features:**
+- `mean_WNW(t−1)`, `mean_SW(t−1)`, `mean_coast(t−1)` — sector mean temperatures
+- `grad_upstream_vs_coast = mean_WNW(t−1) − mean_coast(t−1)` — cold-air advection proxy
+- `grad_SW_vs_NW = mean_SW(t−1) − mean_WNW(t−1)` — warm-front proxy
+
+**Why:** Gradients proxy "which air mass is arriving," especially in complex coastal terrain. They reduce dimensionality and increase signal-to-noise when scaling to many stations.
+
+#### 5.2d Trend Features (Front-Timing Proxy)
+
+Compute short differences per sector or per top stations:
+
+```
+Δ1 = T(t−1) − T(t−2)   # yesterday's change
+Δ2 = T(t−2) − T(t−3)   # day-before-yesterday's change
+```
+
+These capture direction and momentum of temperature changes, helping detect approaching fronts.
+
+#### 5.2e Static Station Metadata
+
+Add per-station metadata as features (especially useful with attention-based architectures):
+- Elevation (meters)
+- Distance to Central Park (km)
+- Bearing from Central Park (degrees)
+- Station type flag (airport vs. other)
+
+### 5.3 Advanced: Architecture Upgrades (Attention Pooling and Temporal Models)
+
+Test these architectures in order, stopping when gains plateau:
+
+#### 5.3a Station Embeddings + Attention Pooling (recommended for 20+ stations)
+
+**Motivation:** With many correlated stations, flattened MLPs learn fragile weights. Attention pooling lets the model learn "which stations matter today."
+
+```
+Architecture:
+1) Per-station encoder (shared weights):
+   - Inputs per station: TMAX, TMIN, diurnal, trend, station metadata
+   - Small MLP → station embedding (dim 16–64)
+2) Attention pooling across station embeddings:
+   - Mask missing stations (variable station count per day)
+   - Add layer norm for stability
+3) Output head: predict ΔT (or TMAX)
+```
+
+**Practical notes:**
+- Keep the model small enough to avoid overfitting
+- Attention pooling naturally handles missing stations (mask them out)
+- Evaluate with permutation importance grouped by sector
+
+#### 5.3b k-Day Window MLP
+
+Concatenate features from days [t−1, …, t−k] into a single flat input vector:
+
+```
+Input: k × (N_stations × features_per_station + engineered_features)
+     |
+MLP with 2–3 hidden layers
+     |
+Output: 1 neuron (ΔT or TMAX prediction)
+```
+
+Often surprisingly strong when combined with engineered gradient/trend features. Test before adding sequence model complexity.
+
+#### 5.3c 1D Temporal Convolution
+
+Lightweight and stable temporal modeling:
+
+```
+Input shape: (k_days, pooled_station_features)
+     |
+1D Conv layers (kernel size 2–3)
+     |
+Dense output head
+```
+
+#### 5.3d LSTM/GRU (use only if k-window models plateau)
 
 ```
 Input shape: (k_days, N_stations × features_per_station)
@@ -149,13 +257,14 @@ LSTM/GRU Layer: 64 units
      |
 Dense Layer: 32 neurons, ReLU
      |
-Output: 1 neuron (predicted NYC TMAX at day t)
+Output: 1 neuron (predicted ΔT or TMAX at day t)
 ```
 
+Predict ΔT with sequences of station-pooled features.
 
-**Additional advanced option: station embeddings + temporal attention**
+#### 5.3e Station Embeddings + Temporal Attention (Transformer-style)
 
-Instead of treating each station as a fixed input column, learn a small **embedding per station** and use a **temporal attention / Transformer-style encoder** over the last *k* days. This can capture time-varying “which stations matter today” behavior without requiring a spatial grid.
+Instead of treating each station as a fixed input column, learn a small **embedding per station** and use a **temporal attention / Transformer-style encoder** over the last *k* days. This can capture time-varying "which stations matter today" behavior without requiring a spatial grid.
 
 - Inputs: (station_id, features at t-1..t-k)
 - Model: station embedding + per-day feature projection → temporal attention → pooled representation → prediction head
@@ -170,6 +279,36 @@ Train two additional output heads that predict the 2.5th and 97.5th percentiles 
 
 **Approach B — MC Dropout:**
 Use dropout layers during both training and inference. At prediction time, run 100 forward passes with dropout active, producing a distribution of predictions. Use the 2.5th and 97.5th percentiles of that distribution.
+
+### 5.5 Residual Learning / Stacking Ensemble
+
+**Core idea:** Let simple models handle the "easy majority" and let a NN learn the residual.
+
+**Base models (fast priors):**
+- Persistence: `TMAX_NYC(t−1)`
+- Ridge/elastic net on station features
+
+**Meta model (residual corrector):**
+Train a small NN on:
+- Base model predictions
+- Engineered gradients and trends
+- Cyclical day features
+
+**Target:** TMAX residual or ΔT residual. This approach frequently reduces MAE by improving robustness, especially when the NN is tempted to overfit.
+
+### 5.6 Season/Regime Specialization
+
+If seasonal MAE disparity remains large after other enhancements, try specialization:
+
+**Option A — Two seasonal models:**
+- Cool season: DJF + MAM
+- Warm season: JJA + SON
+
+**Option B — Mixture-of-experts gate (single unified training):**
+- Small gating network uses day-of-year sin/cos + sector gradients
+- Gate blends two small expert sub-networks
+
+**Report:** Season-wise MAE and "transition months" performance (Apr/May, Sep/Oct).
 
 ---
 
@@ -373,13 +512,27 @@ Run experiments varying these dimensions:
 
 | Experiment | Variations |
 |-----------|-----------|
+| **Target formulation** | Raw TMAX vs. ΔT (daily change) |
+| **Loss function** | MSE, Huber (SmoothL1), MAE |
 | Input temperature type | TMAX only, TMIN only, both TMAX+TMIN, average of TMAX/TMIN |
-| Number of surrounding stations | 5, 10, 15, 20, 25 (assess marginal value of adding stations) |
-| Radius of stations | 50mi only, 100mi, 150mi, 200mi |
+| **Sector gradients** | With/without sector averages and inter-sector gradients |
+| **Trend features** | With/without Δ1/Δ2 short differences |
+| Number of surrounding stations | 20, 30, 40, 50, 70 (with imputation + masking for expansion) |
+| Radius of stations | 150mi, 200mi, 250mi |
 | Lag structure | t-1 only, t-1 and t-2, t-1 through t-3 |
-| Architecture | Linear regression baseline, 1-hidden-layer NN, 2-hidden-layer NN, LSTM/GRU, temporal attention (Transformer-style) |
+| Architecture | Ridge baseline, MLP, station-attention pooling, k-window MLP, 1D temporal conv, LSTM/GRU, Transformer-style attention |
+| **Autoregressive input** | With/without NYC's own TMAX at t−1 |
 | Cyclical date encoding | With/without sin/cos day-of-year features |
 | Month/season indicator | With/without one-hot month encoding |
+| **Stacking/residual** | Direct prediction vs. residual correction on base models |
+| **Season specialization** | Single model vs. two-expert seasonal vs. mixture-of-experts |
+
+**Reporting requirements** — for each experiment record:
+- Model type, target formulation, input features, station config
+- Training setup (loss, LR schedule, batch size, epochs, early stopping)
+- Overall MAE, Winter MAE, Summer MAE
+- MAE on "high-gradient days" (upstream-vs-coast gradient above 75th percentile)
+- Failure modes, stability notes, outlier behavior
 
 ---
 
@@ -454,10 +607,14 @@ nyc-temp-prediction/
 | 3.1 | Build feedforward NN (simple: TMAX-only inputs) | 2 hours |
 | 3.2 | Train, tune hyperparameters on validation set | 3 hours |
 | 3.3 | Evaluate on test set, compare to baselines | 1 hour |
-| **Phase 4** | **Enhancements** | |
-| 4.1 | Add multi-feature inputs (TMAX + TMIN + date encoding) | 2 hours |
-| 4.2 | Run sensitivity experiments (station count, radius, lag) | 4 hours |
-| 4.3 | Try LSTM/sequence model if warranted | 3 hours |
+| **Phase 4** | **Enhancements** (run in order; stop when gains plateau) | |
+| 4.1 | Switch to ΔT target + include NYC TMAX(t−1) as input; use Huber loss; evaluate MAE on reconstructed TMAX | 3 hours |
+| 4.2 | Feature engineering: add sector averages/gradients, trend features (Δ1/Δ2), TMIN, diurnal range, station metadata | 4 hours |
+| 4.3 | Station expansion: add ~50 stations (rings × sectors), implement imputation + missingness masking | 4 hours |
+| 4.4 | Sensitivity experiments: vary station count (20–70), radius (150–250 mi), lag (t−1 … t−3), input type, loss function, autoregressive input, date encoding | 4 hours |
+| 4.5 | Architecture upgrades: station embeddings + attention pooling → k-window MLP → 1D temporal conv → LSTM/GRU (only if earlier models plateau) | 5 hours |
+| 4.6 | Residual learning / stacking: train NN residual corrector on base-model predictions + engineered features | 3 hours |
+| 4.7 | Season/regime specialization: two-expert seasonal models or mixture-of-experts gate (only if seasonal MAE disparity remains large) | 2 hours |
 | **Phase 5** | **Confidence Intervals** | |
 | 5.1 | Implement quantile regression model | 2 hours |
 | 5.2 | Evaluate coverage (does 95% interval capture ~95% of actuals?) | 1 hour |
@@ -467,7 +624,7 @@ nyc-temp-prediction/
 | **Phase 7** | **Documentation and Reporting** | |
 | 7.1 | Write up results, generate final plots | 3 hours |
 
-**Total estimated effort: ~40 hours**
+**Total estimated effort: ~56 hours**
 
 ---
 
