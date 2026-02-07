@@ -129,10 +129,11 @@ class TestInitialization:
         )
         assert not has_dropout, "No Dropout layers should exist when dropout=0.0"
 
-    def test_dropout_present_when_nonzero(self, default_model):
+    def test_dropout_present_when_nonzero(self):
         """Dropout layers should be present when dropout > 0."""
+        model = TempPredictorV1(n_features=30, dropout=0.2)
         has_dropout = any(
-            isinstance(m, nn.Dropout) for m in default_model.network.modules()
+            isinstance(m, nn.Dropout) for m in model.network.modules()
         )
         assert has_dropout, "Dropout layers should exist when dropout > 0"
 

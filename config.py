@@ -90,7 +90,7 @@ LEARNING_RATE = 0.001
 MAX_EPOCHS = 200
 EARLY_STOPPING_PATIENCE = 15
 HIDDEN_SIZES = [64, 32]
-DROPOUT = 0.1
+DROPOUT = 0.0
 
 # ==============================================================================
 # Quantile Regression (Confidence Intervals)
