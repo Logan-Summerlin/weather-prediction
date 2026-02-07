@@ -1,0 +1,70 @@
+======================================================================
+NYC Temperature Prediction -- Phase 3 (NN V1) Test Summary
+======================================================================
+
+Date: 2026-02-07
+Python: 3.11.14
+pytest: 9.0.2
+Platform: Linux
+
+----------------------------------------------------------------------
+Test Files and Counts
+----------------------------------------------------------------------
+
+  File                            Tests  Status
+  ----                            -----  ------
+  tests/test_baselines.py            61  All PASSED
+  tests/test_evaluate.py             55  All PASSED
+  tests/test_train.py                54  All PASSED
+  tests/test_model.py                50  All PASSED
+  tests/test_data_preprocessing.py   32  All PASSED
+  tests/test_data_collection.py      29  All PASSED
+  tests/test_nn_integration.py       27  All PASSED  (NEW - Phase 3)
+  tests/test_run_nn.py               10  All PASSED  (NEW - Phase 3)
+  -----------------------------------------------
+  TOTAL                             318  All PASSED
+
+----------------------------------------------------------------------
+New Test Files (Phase 3)
+----------------------------------------------------------------------
+
+tests/test_nn_integration.py (27 tests)
+  Integration tests for the full Phase 3 NN V1 pipeline:
+    TestDataLoading (7 tests)
+      - Real data loading: types, feature count, row counts, alignment, NaNs, range
+    TestModelCreation (2 tests)
+      - TempPredictorV1 with real feature count; forward pass on real dimensions
+    TestDataLoaderIntegration (2 tests)
+      - DataLoader creation from real data; batch shapes and dtypes
+    TestTrainingIntegration (4 tests)
+      - 30-epoch training completes; history length; loss decreases; val MAE valid
+    TestPredictionQuality (4 tests)
+      - Predictions finite; in reasonable range; MAE within bounds; beats mean predictor
+    TestEvaluationIntegration (3 tests)
+      - compute_metrics returns valid dict; all 4 plot files created; seasonal metrics
+    TestPersistence (4 tests)
+      - Training history CSV round-trip; checkpoint saved; checkpoint reload gives
+        identical predictions; training curves plot created
+    TestMetricsTableIntegration (1 test)
+      - Combined NN + baseline metrics table formatting
+
+tests/test_run_nn.py (10 tests)
+  Tests for the run_nn.py end-to-end runner script:
+    TestBaselineResults (5 tests)
+      - BASELINE_RESULTS has 4 models; expected keys; required fields;
+        Ridge is best baseline; MAE values match Phase 2
+    TestMainFunction (2 tests)
+      - main() is callable; module has __main__ guard
+    TestComparisonLogic (3 tests)
+      - Positive improvement when NN beats Ridge; negative when worse;
+        stretch goal threshold logic
+
+----------------------------------------------------------------------
+Overall Status
+----------------------------------------------------------------------
+
+  All 37 new Phase 3 tests:        PASSED
+  All 281 existing tests:          PASSED
+  Combined (318 total):            ALL PASSED
+
+======================================================================
