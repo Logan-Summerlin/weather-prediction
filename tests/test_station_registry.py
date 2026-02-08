@@ -597,11 +597,15 @@ class TestStationSubsets:
             f"Only {len(overlap)} of 14 originals in 15-station subset"
         )
 
-    def test_subset_50_is_all(self):
-        """Size-50 subset should be all stations."""
+    def test_subset_50_covers_most(self):
+        """Size-50 subset should contain 50 stations from the full set."""
         subsets = get_station_subsets()
         all_ids = get_all_station_ids()
-        assert set(subsets[50]) == set(all_ids)
+        total = len(all_ids)
+        expected_size = min(50, total)
+        assert len(subsets[50]) == expected_size
+        # All subset stations must be valid station IDs
+        assert set(subsets[50]).issubset(set(all_ids))
 
 
 # ===========================================================================

@@ -68,12 +68,13 @@ SURROUNDING_STATIONS = {
     "USW00054793": "SUSSEX AP, NJ (45mi NW)",
     "USW00004781": "ISLIP-LI MACARTHUR AP, NY (45mi E)",
     "USW00054734": "DANBURY MUNI AP, CT (48mi NE)",
-    # --- Ring 2: Regional (50-100 mi) --- 20 stations
+    # --- Ring 2: Regional (50-100 mi) --- 21 stations
     "USW00094702": "IGOR I SIKORSKY MEM AP, CT (51mi NE)",
     "USW00004789": "MONTGOMERY ORANGE CO AP, NY (53mi N)",
     "USW00014792": "TRENTON-MERCER AP, NJ (56mi SW)",
     "USW00054790": "SHIRLEY BROOKHAVEN AP, NY (58mi E)",
     "USW00014757": "POUGHKEEPSIE AP, NY (59mi N)",
+    "USW00014780": "MCGUIRE AFB, NJ (62mi SW)",
     "USW00064707": "OXFORD WATERBURY, CT (65mi NE)",
     "USW00014758": "NEW HAVEN TWEED AP, CT (65mi NE)",
     "USW00054786": "DOYLESTOWN AP, PA (68mi SW)",
@@ -89,7 +90,7 @@ SURROUNDING_STATIONS = {
     "USW00093730": "ATLANTIC CITY INTL AP, NJ (97mi S)",
     "USW00014777": "WILKES-BARRE/SCRANTON INTL AP, PA (99mi NW)",
     "USW00013724": "ATLANTIC CITY MARINA, NJ (100mi S)",
-    # --- Ring 3: Extended (100-150 mi) --- 11 stations
+    # --- Ring 3: Extended (100-150 mi) --- 12 stations
     "USW00014740": "HARTFORD-BRADLEY INTL AP, CT (104mi NE)",
     "USW00014707": "GROTON NEW LONDON AP, CT (107mi E)",
     "USW00014712": "READING RGNL AP, PA (108mi W)",
@@ -99,6 +100,7 @@ SURROUNDING_STATIONS = {
     "USW00054737": "LANCASTER AP, PA (130mi W)",
     "USW00054797": "KINGSTON 1 W, RI (135mi E)",
     "USW00014735": "ALBANY INTL AP, NY (136mi N)",
+    "USW00013707": "DOVER AFB, DE (139mi SW)",
     "USW00054768": "N ADAMS HARRIMAN AP, MA (139mi N)",
     "USW00004725": "BINGHAMTON, NY (143mi NW)",
     # --- Ring 4: Far (150-250 mi) --- 7 stations
@@ -146,6 +148,7 @@ STATION_RINGS = {
         "USW00014792",
         "USW00054790",
         "USW00014757",
+        "USW00014780",
         "USW00064707",
         "USW00014758",
         "USW00054786",
@@ -172,6 +175,7 @@ STATION_RINGS = {
         "USW00054737",
         "USW00054797",
         "USW00014735",
+        "USW00013707",
         "USW00054768",
         "USW00004725",
     ],
@@ -232,11 +236,13 @@ STATION_SECTORS = {
     "SW": [
         "USW00014734",
         "USW00014792",
+        "USW00014780",
         "USW00054786",
         "USW00094732",
         "USW00093780",
         "USW00013739",
         "USW00054782",
+        "USW00013707",
     ],
     "W": [
         "USW00054743",
@@ -454,6 +460,16 @@ STATION_METADATA = {
         "bearing": 4.42,
         "ring": "Ring2_Regional",
         "sector": "N",
+    },
+    "USW00014780": {
+        "name": "MCGUIRE AFB",
+        "state": "NJ",
+        "lat": 40.0156,
+        "lon": -74.5914,
+        "distance_mi": 62.08,
+        "bearing": 212.03,
+        "ring": "Ring2_Regional",
+        "sector": "SW",
     },
     "USW00064707": {
         "name": "OXFORD WATERBURY",
@@ -694,6 +710,16 @@ STATION_METADATA = {
         "bearing": 3.63,
         "ring": "Ring3_Extended",
         "sector": "N",
+    },
+    "USW00013707": {
+        "name": "DOVER AFB",
+        "state": "DE",
+        "lat": 39.1301,
+        "lon": -75.4660,
+        "distance_mi": 138.79,
+        "bearing": 215.32,
+        "ring": "Ring3_Extended",
+        "sector": "SW",
     },
     "USW00054768": {
         "name": "N ADAMS HARRIMAN AP",
