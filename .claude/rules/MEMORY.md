@@ -12,8 +12,8 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 |-------|-------------|--------|
 | 1 | Data Pipeline | COMPLETE |
 | 2 | Baseline Models | COMPLETE |
-| 3 | Neural Network V1 | NOT STARTED |
-| 4 | Enhancements | NOT STARTED |
+| 3 | Neural Network V1 | COMPLETE |
+| 4 | Enhancements | COMPLETE |
 | 5 | Confidence Intervals | NOT STARTED |
 | 6 | Scale Up (25 yr) | NOT STARTED |
 | 7 | Documentation | NOT STARTED |
@@ -70,3 +70,33 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 - Winter/spring are hardest seasons (MAE 1-2°F higher)
 - Stretch goal (≤2°F) requires roughly halving best baseline error
 - 177 total tests pass (61 baselines + 55 evaluate + 61 Phase 1)
+
+## Phase 3 — Neural Network V1 (COMPLETE)
+
+### Key Results
+- NN V1 [64,32]: Test MAE=4.29°F, RMSE=5.69, R²=0.869
+- Beats Ridge by 0.04°F (0.9%) — marginal improvement
+- Dropout=0.0 optimal; model has 4,097 parameters
+- 318 total tests pass
+
+## Phase 4 — Enhancements (COMPLETE)
+
+### Files Delivered
+- `src/data_preprocessing_v2.py` — Delta-T target, autoregressive input, sector features, trends
+- `src/train_v2.py` — Huber/MAE/MSE loss, delta-T reconstruction
+- `src/models_v2.py` — EnhancedMLP, MultiLagMLP, LSTMPredictor, StationAttentionModel
+- `src/experiments.py` — Sensitivity experiment framework
+- `run_phase4.py`, `run_experiments.py` — Runner scripts
+- Tests: 200 new tests (55+42+69+34), 525 total pass
+
+### Best Results (Test Set, n=274)
+- **NN Delta+Huber+AR: MAE=3.95°F, RMSE=5.33, R²=0.885** (best overall)
+- Delta-T target: biggest single improvement (-0.27°F over raw)
+- Autoregressive NYC TMAX(t-1): adds 0.07°F improvement
+- Full enhanced features (79 feat) overfits with current data size
+
+### Sensitivity Findings
+- Huber loss best for delta-T; MSE better for raw TMAX
+- TMAX features dominate; TMIN alone is weakest
+- Date features contribute ~0.2°F; low dropout optimal
+- Larger architectures don't help with limited data

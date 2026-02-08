@@ -1,0 +1,57 @@
+{
+  "NN Raw+MSE": {
+    "mae": 4.303201198577881,
+    "rmse": 5.692760467529297,
+    "r2": 0.8683360815048218,
+    "bias": 0.325178861618042,
+    "n_features": 30,
+    "n_params": 4097,
+    "best_epoch": 129,
+    "loss_type": "mse",
+    "target_type": "raw"
+  },
+  "NN Raw+Huber": {
+    "mae": 4.357666015625,
+    "rmse": 5.730221271514893,
+    "r2": 0.866597592830658,
+    "bias": 0.3910503387451172,
+    "n_features": 30,
+    "n_params": 4097,
+    "best_epoch": 77,
+    "loss_type": "huber",
+    "target_type": "raw"
+  },
+  "NN Delta+Huber (no AR)": {
+    "mae": 4.02592033976621,
+    "rmse": 5.39504355858624,
+    "r2": 0.8817473733290936,
+    "bias": 0.024988010751939953,
+    "n_features": 30,
+    "n_params": 4097,
+    "best_epoch": 105,
+    "loss_type": "huber",
+    "target_type": "delta"
+  },
+  "NN Delta+Huber+AR": {
+    "mae": 3.9520866978690585,
+    "rmse": 5.327112436847521,
+    "r2": 0.8847065561213181,
+    "bias": 0.4516762864937746,
+    "n_features": 31,
+    "n_params": 4161,
+    "best_epoch": 80,
+    "loss_type": "huber",
+    "target_type": "delta"
+  },
+  "NN Delta+Huber+Full": {
+    "mae": 4.150086969637523,
+    "rmse": 5.446923507686465,
+    "r2": 0.8794621507292917,
+    "bias": 0.15658768653434557,
+    "n_features": 79,
+    "n_params": 18561,
+    "best_epoch": 27,
+    "loss_type": "huber",
+    "target_type": "delta"
+  }
+}

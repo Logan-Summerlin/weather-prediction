@@ -1,0 +1,58 @@
+======================================================================
+NYC Temperature Prediction -- Phase 4 Results
+Delta-T Target, Autoregressive Input, Huber Loss, Feature Engineering
+======================================================================
+
+--------------------------------------------------------------------------------------------------------------------------
+                    Model |      N |      MAE |     RMSE |       R2 |     Bias |   +/-1F% |   +/-2F% |   +/-3F% |   MaxErr
+--------------------------------------------------------------------------------------------------------------------------
+              Persistence |    274 |     5.06 |     6.39 |   0.7990 |      N/A |      N/A |      N/A |      N/A |      N/A
+        Ridge (alpha=1.0) |    274 |     4.33 |     5.41 |   0.8760 |      N/A |      N/A |      N/A |      N/A |      N/A
+          NN V1 (Phase 3) |    274 |     4.29 |     5.69 |   0.8690 |      N/A |      N/A |      N/A |      N/A |      N/A
+               NN Raw+MSE |    274 |     4.30 |     5.69 |   0.8683 |     0.33 |     14.6 |     31.4 |     41.2 |    34.09
+             NN Raw+Huber |    274 |     4.36 |     5.73 |   0.8666 |     0.39 |     13.9 |     28.8 |     41.2 |    35.03
+   NN Delta+Huber (no AR) |    274 |     4.03 |     5.40 |   0.8817 |     0.02 |     17.2 |     35.4 |     48.5 |    27.35
+        NN Delta+Huber+AR |    274 |     3.95 |     5.33 |   0.8847 |     0.45 |     17.5 |     36.9 |     48.9 |    26.80
+      NN Delta+Huber+Full |    274 |     4.15 |     5.45 |   0.8795 |     0.16 |     13.5 |     33.6 |     44.5 |    22.39
+--------------------------------------------------------------------------------------------------------------------------
+
+Autoregressive Comparison:
+  Without AR: 4.026 F
+  With AR:    3.952 F
+  Improvement: 0.074 F
+
+Best Phase 4 model: NN Delta+Huber+AR (MAE=3.952 F)
+
+--- Experiment Details ---
+
+  NN Raw+MSE:
+    Features: 30  |  Parameters: 4,097
+    Loss: mse  |  Target: raw
+    Best epoch: 129  |  Training time: 7.0s
+    Test MAE: 4.303  |  RMSE: 5.693  |  R2: 0.8683
+
+  NN Raw+Huber:
+    Features: 30  |  Parameters: 4,097
+    Loss: huber  |  Target: raw
+    Best epoch: 77  |  Training time: 2.4s
+    Test MAE: 4.358  |  RMSE: 5.730  |  R2: 0.8666
+
+  NN Delta+Huber (no AR):
+    Features: 30  |  Parameters: 4,097
+    Loss: huber  |  Target: delta
+    Best epoch: 105  |  Training time: 3.0s
+    Test MAE: 4.026  |  RMSE: 5.395  |  R2: 0.8817
+
+  NN Delta+Huber+AR:
+    Features: 31  |  Parameters: 4,161
+    Loss: huber  |  Target: delta
+    Best epoch: 80  |  Training time: 2.4s
+    Test MAE: 3.952  |  RMSE: 5.327  |  R2: 0.8847
+
+  NN Delta+Huber+Full:
+    Features: 79  |  Parameters: 18,561
+    Loss: huber  |  Target: delta
+    Best epoch: 27  |  Training time: 1.5s
+    Test MAE: 4.150  |  RMSE: 5.447  |  R2: 0.8795
+
+======================================================================
