@@ -52,8 +52,8 @@ MAX_DISTANCE_MI = 250
 MIN_COMPLETENESS = 0.80
 
 # Date range requirements
-REQUIRED_START_YEAR = 2018
-REQUIRED_END_YEAR = 2022
+REQUIRED_START_YEAR = 1985
+REQUIRED_END_YEAR = 2024
 
 
 # ===========================================================================
