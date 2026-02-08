@@ -46,6 +46,8 @@ Use the **Central Park** weather station, which is the official NYC climate stat
 
 Select 15–25 stations within approximately 50–200 miles of Central Park, covering all compass directions. This captures incoming weather systems from all sides. Prioritize stations with long, complete records.
 
+> **Implementation status:** 50 surrounding stations have been implemented (51 total including the target). Station geography analysis revealed an SE sector gap — only 1 station covers the SE direction due to ocean coverage. See `config_expanded.py` and `src/station_registry.py` for the full station list.
+
 **Directional coverage guidance:** Keep stations from all sides, but **intentionally include a few extra candidates to the W/NW and SW** (interior/upstream sectors in the Mid-Atlantic) while retaining a small set of coastal/onshore proxies to capture Atlantic moderation regimes. This is *not* hard-coding weights—just ensuring the candidate set has enough upstream coverage and redundancy.
 
 
@@ -93,10 +95,17 @@ When you evaluate feature importance later, group stations by sector (W/NW, SW, 
 - **Purpose:** Validate the pipeline, train an initial model, assess feasibility
 - **Approx. rows per station:** ~1,826
 
-### Phase 2 (Full Model): 25+ years
-- **Period:** 2000-01-01 to 2024-12-31
+### Phase 2 (Full Model): 40 years
+- **Period:** 1985-01-01 to 2024-12-31
 - **Purpose:** Train a robust model with more seasonal cycles and weather variability
-- **Approx. rows per station:** ~9,131
+- **Approx. rows per station:** ~14,610
+- **Status:** Data collection complete for all 51 stations. See data completeness findings below.
+
+### Data Completeness Findings (Phase 2)
+- **15 original stations:** Mostly 99–100% complete over the full 40-year period.
+- **30 expanded stations:** Below 80% completeness (many started reporting circa 1997–2000).
+- **21 stations total** meet the ≥80% completeness threshold over the 40-year range.
+- Station completeness should be re-evaluated when selecting the final station set for Phase 6 model training.
 
 ---
 
@@ -332,9 +341,11 @@ pip install pandas numpy scikit-learn torch matplotlib requests
 
 ### Step 2: Data Collection (`data_collection.py`)
 
+> **Implemented method:** Bulk `.dly` file downloads from `https://www.ncei.noaa.gov/pub/data/ghcn/daily/all/{station_id}.dly` are used (no NOAA API token required). The fixed-width `.dly` format is parsed directly. The `run_collect_all_stations.py` script handles downloading and parsing for all 51 stations. This approach avoids all API rate-limit issues.
+
 ```python
 """
-Pseudocode for data collection.
+Pseudocode for data collection (CDO API method — not used in practice).
 
 For each station in STATION_LIST:
     Query NOAA CDO API for GHCND dataset
@@ -591,38 +602,38 @@ nyc-temp-prediction/
 
 ## 9. Implementation Sequence and Timeline
 
-| Phase | Task | Est. Effort |
-|-------|------|-------------|
-| **Phase 1** | **Data Pipeline** | |
-| 1.1 | Set up environment and project structure | 1 hour |
-| 1.2 | Get NOAA API token, identify target + surrounding stations | 2 hours |
-| 1.3 | Write data collection script (download 5 years for ~20 stations) | 3 hours |
-| 1.4 | Write preprocessing: merge, align, feature-engineer, split | 4 hours |
-| 1.5 | Exploratory data analysis notebook (completeness, correlations) | 2 hours |
-| **Phase 2** | **Baseline Models** | |
-| 2.1 | Implement persistence and climatology baselines | 1 hour |
-| 2.2 | Implement linear/ridge regression baselines | 2 hours |
-| 2.3 | Evaluate baselines, establish benchmarks | 1 hour |
-| **Phase 3** | **Neural Network — V1** | |
-| 3.1 | Build feedforward NN (simple: TMAX-only inputs) | 2 hours |
-| 3.2 | Train, tune hyperparameters on validation set | 3 hours |
-| 3.3 | Evaluate on test set, compare to baselines | 1 hour |
-| **Phase 4** | **Enhancements** (run in order; stop when gains plateau) | |
-| 4.1 | Switch to ΔT target + include NYC TMAX(t−1) as input; use Huber loss; evaluate MAE on reconstructed TMAX | 3 hours |
-| 4.2 | Feature engineering: add sector averages/gradients, trend features (Δ1/Δ2), TMIN, diurnal range, station metadata | 4 hours |
-| 4.3 | Station expansion: add ~50 stations (rings × sectors), implement imputation + missingness masking | 4 hours |
-| 4.4 | Sensitivity experiments: vary station count (20–70), radius (150–250 mi), lag (t−1 … t−3), input type, loss function, autoregressive input, date encoding | 4 hours |
-| 4.5 | Architecture upgrades: station embeddings + attention pooling → k-window MLP → 1D temporal conv → LSTM/GRU (only if earlier models plateau) | 5 hours |
-| 4.6 | Residual learning / stacking: train NN residual corrector on base-model predictions + engineered features | 3 hours |
-| 4.7 | Season/regime specialization: two-expert seasonal models or mixture-of-experts gate (only if seasonal MAE disparity remains large) | 2 hours |
-| **Phase 5** | **Confidence Intervals** | |
-| 5.1 | Implement quantile regression model | 2 hours |
-| 5.2 | Evaluate coverage (does 95% interval capture ~95% of actuals?) | 1 hour |
-| **Phase 6** | **Scale Up** | |
-| 6.1 | Extend to 25 years of data | 2 hours |
-| 6.2 | Retrain best model, compare to 5-year version | 2 hours |
-| **Phase 7** | **Documentation and Reporting** | |
-| 7.1 | Write up results, generate final plots | 3 hours |
+| Phase | Task | Est. Effort | Status |
+|-------|------|-------------|--------|
+| **Phase 1** | **Data Pipeline** | | **COMPLETE** |
+| 1.1 | Set up environment and project structure | 1 hour | COMPLETE |
+| 1.2 | Get NOAA API token, identify target + surrounding stations | 2 hours | COMPLETE |
+| 1.3 | Write data collection script (download 5 years for ~20 stations) | 3 hours | COMPLETE |
+| 1.4 | Write preprocessing: merge, align, feature-engineer, split | 4 hours | COMPLETE |
+| 1.5 | Exploratory data analysis notebook (completeness, correlations) | 2 hours | COMPLETE |
+| **Phase 2** | **Baseline Models** | | **COMPLETE** |
+| 2.1 | Implement persistence and climatology baselines | 1 hour | COMPLETE |
+| 2.2 | Implement linear/ridge regression baselines | 2 hours | COMPLETE |
+| 2.3 | Evaluate baselines, establish benchmarks | 1 hour | COMPLETE |
+| **Phase 3** | **Neural Network — V1** | | **COMPLETE** |
+| 3.1 | Build feedforward NN (simple: TMAX-only inputs) | 2 hours | COMPLETE |
+| 3.2 | Train, tune hyperparameters on validation set | 3 hours | COMPLETE |
+| 3.3 | Evaluate on test set, compare to baselines | 1 hour | COMPLETE |
+| **Phase 4** | **Enhancements** (run in order; stop when gains plateau) | | **4.1–4.3 COMPLETE** |
+| 4.1 | Switch to ΔT target + include NYC TMAX(t−1) as input; use Huber loss; evaluate MAE on reconstructed TMAX | 3 hours | COMPLETE |
+| 4.2 | Feature engineering: add sector averages/gradients, trend features (Δ1/Δ2), TMIN, diurnal range, station metadata | 4 hours | COMPLETE |
+| 4.3 | Station expansion: add ~50 stations (rings × sectors), implement imputation + missingness masking | 4 hours | COMPLETE |
+| 4.4 | Sensitivity experiments: vary station count (20–70), radius (150–250 mi), lag (t−1 … t−3), input type, loss function, autoregressive input, date encoding | 4 hours | NOT STARTED |
+| 4.5 | Architecture upgrades: station embeddings + attention pooling → k-window MLP → 1D temporal conv → LSTM/GRU (only if earlier models plateau) | 5 hours | NOT STARTED |
+| 4.6 | Residual learning / stacking: train NN residual corrector on base-model predictions + engineered features | 3 hours | NOT STARTED |
+| 4.7 | Season/regime specialization: two-expert seasonal models or mixture-of-experts gate (only if seasonal MAE disparity remains large) | 2 hours | NOT STARTED |
+| **Phase 5** | **Confidence Intervals** | | **NOT STARTED** |
+| 5.1 | Implement quantile regression model | 2 hours | NOT STARTED |
+| 5.2 | Evaluate coverage (does 95% interval capture ~95% of actuals?) | 1 hour | NOT STARTED |
+| **Phase 6** | **Scale Up** | | **Data collection COMPLETE; model retraining NOT STARTED** |
+| 6.1 | Extend to 40 years of data (1985–2024) | 2 hours | COMPLETE (data collected for all 51 stations) |
+| 6.2 | Retrain best model, compare to 5-year version | 2 hours | NOT STARTED |
+| **Phase 7** | **Documentation and Reporting** | | **NOT STARTED** |
+| 7.1 | Write up results, generate final plots | 3 hours | NOT STARTED |
 
 **Total estimated effort: ~56 hours**
 
