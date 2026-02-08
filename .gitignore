@@ -26,6 +26,11 @@ data/raw/*.dly
 data/raw/*.csv
 data/processed/
 data/processed_v2/
+data/processed_expanded/
+data/ghcnd-stations.txt
+data/ghcnd-inventory.txt
+data/station_completeness.csv
+data/replacement_stations.txt
 
 # Model checkpoints (large)
 models/
