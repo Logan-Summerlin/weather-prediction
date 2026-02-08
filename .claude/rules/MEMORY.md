@@ -100,3 +100,12 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 - TMAX features dominate; TMIN alone is weakest
 - Date features contribute ~0.2°F; low dropout optimal
 - Larger architectures don't help with limited data
+
+### Phase 4.3 — Station Expansion (COMPLETE)
+- Expanded from 14 to 50 surrounding stations (51 total incl. target)
+- `config_expanded.py`, `src/station_registry.py`, `src/station_discovery.py`
+- `src/data_preprocessing_expanded.py` with missingness masking
+- Station count sensitivity: optimal ~10-14 stations with 5-year data
+- More stations degrade performance due to overfitting (202+ features / 1277 samples)
+- Infrastructure ready for Phase 6 (25-year data) to exploit expanded stations
+- 652 total tests pass
