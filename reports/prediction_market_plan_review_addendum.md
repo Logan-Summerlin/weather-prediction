@@ -527,43 +527,179 @@ The goal is not to replace NWP. The goal is to build a synthesis model where:
 
 This is methodologically similar to **Ensemble Model Output Statistics (EMOS)** and **Bayesian Model Averaging (BMA)**, but with a neural network meta-learner instead of linear/Gaussian assumptions.
 
-### 8. NWP Data Sources (As Supplementary Inputs)
+### 8. NWP Data Sources: The Training-Inference Problem (Deep Analysis)
 
-For the synthesis layer, you need NWP forecasts as features. These can be obtained from archives for training, then from real-time feeds for operations.
+The synthesis layer needs NWP forecast features for both training and operations. The critical question: **what NWP data do you train on?** There are three options, each with real tradeoffs. This section analyzes them in depth.
 
-| Source | Variables | Resolution | Latency | Cost | Historical Archive |
-|---|---|---|---|---|---|
-| **GFS** (NOAA) | TMAX, T850, wind, clouds, precip | 0.25°, 6-hourly | ~4 hours | Free | NCEP reanalysis back to 1979 |
-| **GFS Ensemble (GEFS)** | Ensemble mean + spread | 0.5°, 6-hourly | ~5 hours | Free | Reforecast dataset back to 2000 |
-| **HRRR** (NOAA) | High-res TMAX, clouds, wind | 3km, hourly | ~1.5 hours | Free | Back to 2014 |
-| **NAM** (NOAA) | Regional TMAX, precip, wind | 12km, 3-hourly | ~3 hours | Free | Limited archive |
-| **MOS** (NWS) | Statistical post-processed TMAX | Station-specific | ~4 hours | Free | Limited digital archive |
-| **ERA5** (ECMWF) | Complete atmospheric state | 0.25°, hourly | ~5 days | Free (CDS) | 1979-present |
+#### Option A: GEFSv12 Reforecast (RECOMMENDED)
 
-**Recommended priority:**
-1. **ERA5** for training (complete, gap-free, back to 1979; matches your 40-year station data)
-2. **GFS + GEFS** for operations (free, low-latency, ensemble uncertainty)
-3. **MOS** if archive can be obtained (best operational station forecast)
-4. **HRRR** for same-day updates (highest resolution, but only back to 2014)
+The **GEFSv12 Reforecast** is a dataset of retrospective GFS forecasts run with a single frozen model version (GFSv15.1/FV3) for every day from 2000-2019. It's the cleanest solution.
 
-**ERA5 as NWP proxy for training (CRITICAL DESIGN DECISION):** Since ERA5 assimilates all available observations (including your stations) into a physics-based model, it represents the *best possible estimate* of the atmospheric state at each historical time step. Training your synthesis model on ERA5 features teaches it to use NWP-style information without requiring real-time NWP access during training. At inference time, you substitute ERA5 with real-time GFS/HRRR. The features are the same; only the source changes.
+**What it is:** NOAA ran the GFS model backwards through 20 years of historical dates, using a single frozen model version throughout. This means the biases and error characteristics are **consistent** across all 20 years — the model doesn't change, only the weather changes. This is exactly what you need for ML training.
 
-**The training-vs-operations data source mapping:**
+**Key specs:**
+| Property | Value |
+|---|---|
+| Period | 2000-2019 (Phase 2; Phase 1 1989-1999 not easily accessible) |
+| Model version | Frozen GFSv15.1 (FV3 dynamical core) |
+| Resolution | 0.25° (Days 1-10), 0.5° (Days 10-16) |
+| Init time | 00Z daily (one run/day) |
+| Ensemble members | 5 daily (c00 + p01-p04), 11 on Wednesdays |
+| Forecast hours | Every 3h out to Day 10 |
+| Available on | AWS S3: `s3://noaa-gefs-retrospective/GEFSv12/reforecast/` |
+| Format | GRIB2, one file per variable per member per day |
+| Cost | Free, no sign-up |
+| Python access | **Herbie** library (`model="gefs_reforecast"`) |
 
-| Feature | Training Source (historical) | Operational Source (6 AM ET) |
+**Variables available (all the ones we need):**
+| Variable | File name | Notes |
 |---|---|---|
-| Station TMAX/TMIN at t-1 | IEM ASOS hourly → compute daily | IEM ASOS hourly → compute daily |
-| Station wind dir/speed at t-1 | IEM ASOS hourly | IEM ASOS hourly |
-| Station dewpoint/pressure at t-1 | IEM ASOS hourly | IEM ASOS hourly |
-| Station precip/snow at t-1 | GHCN-Daily (training) | IEM ASOS hourly (precip only) |
-| 850mb temperature at t-1 | ERA5 pressure-level OR IGRA | IGRA sounding (00Z, avail ~10 PM ET) |
-| 850mb wind at t-1 | ERA5 pressure-level OR IGRA | IGRA sounding (00Z) |
-| Cloud cover at t-1 | ERA5 single-level | IEM ASOS ceiling/sky cover |
-| NWP TMAX forecast for day t | ERA5 2m-temp actual | GFS 00Z F024 (avail ~1 AM ET) |
-| NWP ensemble spread | N/A for ERA5 | GEFS 00Z spread (avail ~2 AM ET) |
-| NWP cloud/wind forecast day t | ERA5 actuals | GFS/HRRR 00Z or 06Z |
+| 2m TMAX | `tmax_2m` | Dedicated file — exactly what we need |
+| 2m TMIN | `tmin_2m` | Dedicated file |
+| 2m Temperature | `tmp_2m` | Instantaneous T at each forecast hour |
+| 850mb Temperature | `tmp_pres` | On pressure levels (includes 850mb) |
+| 10m U/V Wind | `ugrd_10m`, `vgrd_10m` | Wind components |
+| Total Cloud Cover | `tcdc_eatm` | Entire atmosphere |
+| MSLP | `pres_msl` | Mean sea-level pressure |
+| Precipitation | `apcp_sfc` | Accumulated |
+| 500mb Height | `hgt_pres` | On pressure levels |
+| Precipitable Water | `pwat` | Column moisture |
+| Wind Gust | `gust` | Surface |
+| Ensemble spread | Computed from 5 members | Standard deviation across c00, p01-p04 |
 
-**Key insight:** By training on IEM ASOS as the primary obs source (not GHCN-Daily), the same data source is used in both training and operations — eliminating the training-inference mismatch. GHCN-Daily becomes a cross-validation reference, not the primary input.
+**Download example via Herbie:**
+```python
+from herbie import Herbie
+H = Herbie("2017-03-14", model="gefs_reforecast", fxx=24, member=0, variable_level="tmax_2m")
+ds = H.xarray(":24 hour fcst:")
+nyc = ds.sel(latitude=40.78, longitude=360-73.97, method="nearest")
+```
+
+**Why this is the right choice:**
+1. **Zero training-inference mismatch for NWP features.** The reforecast uses the same GFS model version as operational GFS (v15.1). Biases are similar. When you switch to real-time GFS at inference, the model sees the same kind of input.
+2. **Consistent biases across 20 years.** Unlike stitching together operational GFS archives (which span 6+ model versions), the reforecast has uniform error characteristics. The ML model can learn a single bias correction pattern.
+3. **Ensemble spread available.** With 5 members, you can compute forecast uncertainty as a feature — something ERA5 cannot provide.
+4. **Known cold bias.** The GFSv15.1 has a documented cold bias of ~1.5-1.8°C at 00Z over CONUS. This is a learnable, consistent signal — not a problem, but a feature your model can exploit.
+5. **Data is a real forecast.** Unlike ERA5 (which is an analysis that already knows the answer), the reforecast represents what GFS would have predicted before the event. This is the honest input for a synthesis model.
+
+**Known limitations:**
+- Only 00Z initialization (one run/day). Operational GFS runs 4x/day.
+- Only 5 ensemble members (operational GEFS runs 31). Spread estimates are noisier.
+- Frozen at GFSv15.1, while operational GFS is now v16. There is a small model-version gap.
+- Phase 1 (1989-1999) is not easily accessible on AWS.
+
+**Operational bridging:** For 2020-2024, the reforecast doesn't exist. Use operational GFS data:
+- **2021-present:** Available on AWS (`s3://noaa-gfs-bdp-pds`), 0.25°, Herbie-accessible
+- **2020:** Available from NCAR RDA (d084001), 0.25°
+
+This gives a combined training set of **2000-2024 (24 years)** with only one discontinuity (GEFSv12 reforecast → operational GFSv16 at ~2021).
+
+---
+
+#### Option B: ERA5 + Synthetic Noise (NOT RECOMMENDED)
+
+This approach trains on ERA5 features and adds random noise to simulate GFS forecast error. **The research conclusively shows this doesn't work.**
+
+**Why ERA5 and GFS are not "the same thing plus noise":**
+
+1. **ERA5 is an analysis; GFS is a forecast.** ERA5 knows the answer because it assimilates observations after the fact. GFS must predict the future. These are fundamentally different tasks with fundamentally different error structures.
+
+2. **GFS errors are structured, not random.** Per NCEP Office Note 520 (2024):
+   - GFS has a **cold bias of 1.5-1.8°C at 00Z** over most of CONUS
+   - ERA5 has **~0.2°C bias** at the same time
+   - GFS biases have a **strong diurnal cycle** (largest cold bias at 00Z, different at 12Z)
+   - GFS biases are **spatially structured** (cold over Appalachians, warm over Great Plains)
+   - ERA5 biases are spatially much more uniform and smaller
+
+3. **GFS errors are temporally autocorrelated.** GFS forecast errors persist day-to-day because they depend on weather regime (blocking patterns, storm tracks, El Niño). NCEP's "decaying average" bias correction method explicitly exploits this persistence. Random noise has zero autocorrelation — a model trained on noise-injected ERA5 would never learn to exploit this persistence.
+
+4. **GFS errors are correlated across variables.** When GFS overestimates temperature, it may also overestimate wind or underestimate cloud cover, depending on the synoptic pattern. Gaussian noise applied independently to each variable cannot reproduce these cross-variable correlations.
+
+5. **ERA5 assimilates your station data.** ERA5 ingests the same ASOS observations you use as model features. This means ERA5 and your station features are not independent — ERA5 has already "seen" the station temperatures. A synthesis model trained on ERA5 might learn to just trust ERA5 (since it already contains the station signal). At inference, GFS hasn't seen today's stations, so this learned relationship breaks.
+
+**The literature confirms this is problematic.** Training on reanalysis and deploying on forecasts is a known domain-adaptation problem in NWP post-processing. Studies show that models trained on ERA5 analysis fields underperform when deployed on GFS forecast fields without explicit adaptation. The error characteristics are too different for simple noise injection to bridge.
+
+**Verdict: Do not use this approach.** The structural differences between ERA5 and GFS are too large for noise injection to resolve. Option A (GEFSv12 Reforecast) eliminates this problem entirely.
+
+---
+
+#### Option C: Hybrid Architecture (RECOMMENDED ARCHITECTURE, USE WITH OPTION A DATA)
+
+This is the recommended overall architecture. The station model stands completely alone with zero NWP dependency. The synthesis layer is a separate, lightweight model.
+
+**Architecture:**
+```
+┌──────────────────────────────────────────────────────────────┐
+│  STATION MODEL (Part I)                                      │
+│  Training data: IEM ASOS 1998-2024 (26 years)                │
+│  NWP dependency: NONE                                        │
+│  Inputs: station temps, wind, dewpoint, pressure, clouds,    │
+│          850mb from IGRA, PRCP/SNOW from GHCN               │
+│  Output: μ_station, σ_station (distributional)              │
+│  Training-inference mismatch: NONE (IEM ASOS in both)       │
+└──────────────────────┬───────────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────────────┐
+│  SYNTHESIS LAYER (Part II)                                    │
+│  Training data: GEFSv12 Reforecast 2000-2019                 │
+│                 + Operational GFS 2021-2024                   │
+│  Inputs: station_μ, station_σ,                               │
+│          GFS_TMAX_F024, GFS_T850, GFS_wind, GFS_clouds,     │
+│          GFS_ensemble_spread, station-GFS disagreement,      │
+│          recent GFS bias, season                             │
+│  Output: μ_synth, σ_synth (calibrated distribution)         │
+│  Training-inference mismatch: MINIMAL (reforecast ≈ op GFS) │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Why this is the safest and most effective approach:**
+
+1. **The station model has ZERO NWP dependency.** It trains on 26 years of IEM ASOS data. The same IEM ASOS data is available operationally at 6 AM ET. There is no training-inference mismatch at all. If the NWP pipeline breaks, the station model still produces a forecast.
+
+2. **The synthesis layer trains on actual GFS forecasts.** Using GEFSv12 reforecast data (2000-2019), the synthesis model sees the same kind of GFS output it will receive in operations. The biases, noise, and error correlations are all realistic. No approximation needed.
+
+3. **The one discontinuity is manageable.** The transition from GEFSv12 reforecast (frozen GFSv15.1) to operational GFS (v16, 2021+) introduces one model-version change. You can handle this by:
+   - Including a binary `is_operational_gfs` feature
+   - Training a small bias-correction offset on the 2021-2024 overlap
+   - Or simply accepting the minor discontinuity (GFSv15.1 and v16 are architecturally similar)
+
+4. **Ensemble spread is available.** The 5-member reforecast ensemble provides a physically-based uncertainty estimate. This is a powerful feature for the synthesis model: when GFS ensemble spread is large, the synthesis model should widen its output σ and weight the station model more heavily.
+
+5. **Degradation is graceful.** If GFS data is delayed or missing on a given day, you can fall back to the station model alone. The synthesis layer is an enhancement, not a requirement.
+
+**The training-vs-operations data source mapping (UPDATED — no ERA5):**
+
+| Feature | Training Source | Operational Source (6 AM ET) | Mismatch? |
+|---|---|---|---|
+| Station TMAX/TMIN at t-1 | IEM ASOS hourly → daily | IEM ASOS hourly → daily | **None** |
+| Station wind/dewpoint/pressure | IEM ASOS hourly | IEM ASOS hourly | **None** |
+| Station precip/snow | GHCN-Daily | IEM ASOS (precip) / GHCN (snow, 1-2 day lag) | Minor |
+| 850mb temp at t-1 | IGRA sounding (00Z, 12Z) | IGRA sounding (00Z) | **None** |
+| NWP TMAX forecast for day t | GEFSv12 reforecast F024 (2000-2019) | GFS 00Z F024 (available ~1 AM ET) | **Minimal** |
+| NWP T850 forecast | GEFSv12 reforecast (tmp_pres) | GFS 00Z (available ~1 AM ET) | **Minimal** |
+| NWP ensemble spread | GEFSv12 5-member spread | GEFS 00Z spread (available ~2 AM ET) | Minor* |
+| NWP cloud/wind forecast | GEFSv12 reforecast | GFS/HRRR 00Z or 06Z | **Minimal** |
+
+*Operational GEFS has 31 members vs. reforecast's 5 — spread magnitude will differ. Normalize by number of members.
+
+---
+
+#### Option Comparison Summary
+
+| Criterion | A: GEFSv12 Reforecast | B: ERA5 + Noise | C: Hybrid (A's data) |
+|---|---|---|---|
+| Training-inference mismatch | Minimal (frozen GFSv15.1 ≈ operational GFSv16) | **Severe** (analysis ≠ forecast) | Minimal for both layers |
+| Historical coverage | 2000-2019 (20 years) | 1979-present (45 years) | Station: 26yr; NWP: 24yr |
+| Ensemble spread available | Yes (5 members) | No | Yes |
+| Consistent error structure | Yes (single model version) | N/A (ERA5 has no forecast error) | Yes |
+| Captures GFS cold bias | Yes (same bias as operational) | No (ERA5 bias is ~0.2°C) | Yes |
+| Captures error autocorrelation | Yes (real forecast errors) | No (random noise has zero autocorr.) | Yes |
+| Fallback if NWP unavailable | No fallback | No fallback | **Station model runs independently** |
+| Implementation complexity | Medium | Low but flawed | Medium (two-phase training) |
+| **Verdict** | **Good data source** | **Do not use** | **Best architecture** |
+
+**Final recommendation: Use Option C (Hybrid architecture) with Option A (GEFSv12 Reforecast) as the NWP data source for the synthesis layer. Eliminate ERA5 from the production pipeline entirely.** ERA5 remains useful as a research/validation tool but is not needed for training or operations.
 
 ### 9. Synthesis Model Architecture
 
@@ -573,8 +709,8 @@ For the synthesis layer, you need NWP forecasts as features. These can be obtain
 │                                                             │
 │  ┌─────────────────────┐    ┌─────────────────────┐        │
 │  │  STATION MODEL       │    │  NWP FEATURES        │        │
-│  │  (your optimized     │    │  (ERA5 for training,  │        │
-│  │   model from Part I) │    │   GFS/HRRR for ops)   │        │
+│  │  (your optimized     │    │  (GEFSv12 reforecast  │        │
+│  │   model from Part I) │    │   train, GFS for ops) │        │
 │  │                      │    │                       │        │
 │  │  Outputs:            │    │  Features:            │        │
 │  │  - μ_station         │    │  - NWP_TMAX_forecast  │        │
@@ -670,20 +806,21 @@ The synthesis model can beat both individual sources because:
 
 4. **Calibration beats accuracy.** For trading, you don't need to predict the exact temperature — you need accurate probabilities. Even if NWP has lower MAE, your synthesis model can produce better-calibrated tail probabilities because it's trained on CRPS with post-hoc calibration. Many NWP products have poor calibration despite good MAE.
 
-**Expected synthesis performance:** If the optimized station model achieves ~2.3°F MAE and GFS/ERA5 achieves ~2.5°F MAE individually, the synthesis should achieve ~1.8-2.1°F MAE with substantially better CRPS and calibration than either source alone. This is based on the literature finding that multi-model synthesis typically reduces CRPS by 15-25% vs. the best individual source.
+**Expected synthesis performance:** If the optimized station model achieves ~2.3°F MAE and GFS achieves ~2.5°F MAE individually, the synthesis should achieve ~1.8-2.1°F MAE with substantially better CRPS and calibration than either source alone. This is based on the literature finding that multi-model synthesis typically reduces CRPS by 15-25% vs. the best individual source.
 
 ---
 
 ## Part III: Revised Execution Plan
 
 ### Phase 0: Scale Up Data (Prerequisite)
-- Download IEM ASOS hourly data for all 14 core stations (1998-2024) — this becomes the PRIMARY data source for both training and operations (IEM coverage starts ~mid-1990s for most airports)
+- Download IEM ASOS hourly data for all 14 core stations (2000-2024) — this becomes the PRIMARY data source for both training and operations
 - Compute daily TMAX, TMIN, mean wind dir/speed, mean dewpoint, mean SLP, cloud fraction from IEM hourly
 - Cross-validate IEM-derived TMAX against GHCN-Daily TMAX; quantify and document systematic differences
 - Download GHCN-Daily with expanded elements (PRCP, SNOW, SNWD) for training period — used for precip/snow features and as a cross-check
-- Download IGRA sounding data for OKX/Upton (1998-2024) via University of Wyoming or Siphon
-- Download ERA5 for NYC bounding box (1998-2024) — for NWP-proxy features during synthesis training
-- **Deliverable:** Unified multi-source dataset with ~9,500 days (26 years) of complete features, all derived from the same sources that will be used operationally at 6 AM ET
+- Download IGRA sounding data for OKX/Upton (2000-2024) via University of Wyoming or Siphon
+- Download GEFSv12 Reforecast (2000-2019) from AWS S3 for NYC grid point: tmax_2m, tmp_pres (850mb), ugrd_10m, vgrd_10m, tcdc_eatm, pres_msl — all 5 ensemble members for spread computation. Use Herbie library for efficient partial downloads.
+- Download operational GFS (2021-2024) from AWS for same variables to bridge the gap
+- **Deliverable:** Unified multi-source dataset with ~9,000 days (24 years) of complete features, all derived from the same sources that will be used operationally at 6 AM ET. Zero ERA5 dependency.
 
 ### Phase 1: Optimize Station Model
 - Implement wind-conditioned features (upwind temperature, advection rate) from IEM ASOS
@@ -697,11 +834,11 @@ The synthesis model can beat both individual sources because:
 - **Target:** MAE ≤ 2.5°F, well-calibrated PIT histogram
 
 ### Phase 2: Build Synthesis Layer
-- Extract ERA5 features for historical training period (ERA5 is the NWP proxy for training)
-- Train meta-learner on (station_model_output, ERA5_features) → TMAX distribution
-- Evaluate synthesis vs. station-only and ERA5-only
-- Apply isotonic calibration
-- Validate that substituting GFS/HRRR for ERA5 at inference time does not degrade performance (test on recent period where both ERA5 and archived GFS are available)
+- Prepare GEFSv12 reforecast features (2000-2019) + operational GFS features (2021-2024) for synthesis training
+- Train meta-learner on (station_model_output, GFS_features) → TMAX distribution
+- Evaluate synthesis vs. station-only and GFS-only
+- Apply isotonic calibration per Kalshi bucket
+- Validate on held-out 2024 test set
 - **Target:** MAE ≤ 2.0°F, CRPS ≤ 1.8°F, calibrated bucket probabilities
 
 ### Phase 3: Build Trading Infrastructure
@@ -713,7 +850,7 @@ The synthesis model can beat both individual sources because:
 - **Target:** Positive EV after fees on >30% of trading days
 
 ### Phase 4: Operationalize
-- Switch ERA5 inputs to real-time GFS/HRRR for operational forecasting
+- No data source switching needed — synthesis layer already trains on GFS, deploys on GFS
 - Build daily cron pipeline running at 6:00 AM ET:
   ```
   6:00 AM ET Daily Pipeline:
@@ -770,10 +907,10 @@ Once the data and infrastructure are in place, run these experiments systematica
 | Experiment | Inputs | Expected Insight |
 |---|---|---|
 | Station model only | Station features | Part I maximum |
-| ERA5 only (linear) | ERA5 TMAX, T850, wind, clouds | NWP-only baseline |
-| ERA5 only (MLP) | Same | Nonlinear NWP post-processing |
-| Synthesis (BMA) | Station μ + ERA5 TMAX | Linear combination baseline |
-| Synthesis (MLP) | Station output + ERA5 features | Full synthesis capacity |
+| GFS reforecast only (linear) | GFS TMAX, T850, wind, clouds | NWP-only baseline |
+| GFS reforecast only (MLP) | Same | Nonlinear NWP post-processing |
+| Synthesis (BMA) | Station μ + GFS TMAX | Linear combination baseline |
+| Synthesis (MLP) | Station output + GFS features | Full synthesis capacity |
 | Synthesis + calibration | Same + isotonic | Calibrated final product |
 
 ---
