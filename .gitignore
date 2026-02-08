@@ -25,10 +25,10 @@ env/
 data/raw/*.dly
 data/raw/*.csv
 data/processed/
+data/processed_v2/
 
 # Model checkpoints (large)
-models/*.pt
-models/*.pth
+models/
 
 # OS
 .DS_Store
