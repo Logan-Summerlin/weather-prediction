@@ -7,6 +7,65 @@
 
 ---
 
+## CRITICAL: Operational Data Availability at 6 AM ET
+
+**Constraint:** The model must have all day t-1 data by 6:00 AM Eastern Time on day t in order to predict that day's high temperature. This section audits every data source.
+
+### Availability Summary
+
+| Source | Day t-1 Available by 6 AM ET? | Typical Latency | Role |
+|---|---|---|---|
+| **GHCN-Daily (.dly files)** | **NO** | 1-2 days for US stations | Training only |
+| **IEM ASOS (hourly METAR)** | **YES** | 5-10 minutes | **Primary operational obs source** |
+| **NOAA ISD (hourly obs)** | **YES** | 1-2 hours | Backup operational obs source |
+| **IGRA Soundings (via UWyo/Siphon)** | **YES** | 2-3 hours (00Z and 12Z) | Operational upper-air input |
+| **ERA5 / ERA5T Reanalysis** | **NO** | ~5 days (ERA5T) | Training only |
+| **GFS (NOAA NOMADS)** | **YES** | 00Z run: fully available; 06Z: partial | Operational NWP input |
+| **HRRR (NOAA NOMADS)** | **YES** | 50-90 min per cycle; 09Z available | Operational NWP input |
+| **NWS MOS (MAV/MEX)** | **YES** | 00Z products: available; 06Z: borderline | Operational forecast input |
+| **NWS API (api.weather.gov)** | **YES** | Minutes | Real-time spot obs |
+
+### Two Critical Problems
+
+**Problem 1: GHCN-Daily is not a real-time data source.** The entire model is trained on GHCN-Daily TMAX, but the .dly bulk files are updated with a 1-2 day lag for US stations. Yesterday's TMAX will NOT be in the .dly file by 6 AM today. The operational pipeline MUST use IEM ASOS hourly data instead, computing TMAX from the hourly METAR observations.
+
+**Problem 2: ERA5 is not a real-time data source.** ERA5T (the near-real-time preliminary product) has a ~5-day lag. ERA5 is invaluable for training (complete atmospheric state back to 1979) but CANNOT be used for operational predictions. For real-time operations, the model must use GFS/HRRR/MOS output as the NWP supplement instead.
+
+### Training-Inference Mismatch Risk
+
+If we train on GHCN-Daily TMAX but predict using IEM-derived TMAX, there will be small systematic differences:
+- **Observation time conventions:** GHCN uses the station's "observation time" (often 7 AM local) to define the daily boundary. IEM reports in UTC. A TMAX that occurs at 11:50 PM might fall on different calendar days in each system.
+- **Rounding:** ASOS reports temperature in whole-degree Celsius; GHCN stores tenths of °C. Conversion to °F amplifies rounding differences by 1.8×.
+- **Quality control:** GHCN applies post-hoc QC flags; ASOS METAR data is raw.
+
+**Mitigation strategy:**
+1. During training, compute TMAX from IEM hourly data for the training period alongside GHCN-Daily TMAX
+2. Quantify the systematic difference (expected: <0.5°F mean, <1°F std)
+3. Train a small calibration offset or, better, train the model on IEM-derived TMAX from the start so training and inference use the same data source
+4. Use GHCN-Daily only as a validation cross-check
+
+### What's Available at 6 AM ET (Detailed)
+
+**From last night / overnight:**
+- 00Z GFS run (init 7 PM ET yesterday): FULLY available, all forecast hours posted by ~1 AM ET
+- 00Z HRRR extended run (init 7 PM ET yesterday): Fully available
+- 00Z MOS (MAV and MEX): Available by ~midnight-2 AM ET
+- 00Z radiosonde from OKX/Upton (launched ~7 PM ET yesterday): Available by ~10 PM ET yesterday
+- All hourly ASOS/METAR observations through 05:00 local (10Z): Available within minutes
+
+**From this morning:**
+- 06Z GFS run (init 1 AM ET): Early forecast hours (F000-F048) likely available; full run borderline
+- 06Z HRRR extended: Available by ~3-3:30 AM ET
+- 09Z HRRR: Available by ~5:30-6:00 AM ET (latest high-res cycle)
+- 06Z MOS (MAV): Borderline — may be arriving right at 6 AM
+
+**NOT available:**
+- Yesterday's GHCN-Daily record (1-2 day lag)
+- ERA5 for yesterday (~5-day lag)
+- 12Z GFS/HRRR for today (hasn't run yet — 12Z = 7 AM ET)
+
+---
+
 ## Part I: Maximizing the Station-Based Model
 
 ### 1. The Current Model's Bottlenecks (Diagnosis Before Treatment)
@@ -29,15 +88,16 @@ The best current model (NN Delta+Huber+AR) achieves MAE=3.95°F. Before adding c
 
 ### 2. New Data Sources (Priority-Ordered)
 
-#### 2.1 ASOS/METAR Hourly Observations (HIGHEST PRIORITY)
+#### 2.1 ASOS/METAR Hourly Observations (HIGHEST PRIORITY — ALSO THE OPERATIONAL DATA SOURCE)
 
-This is the single highest-value data addition. ASOS stations report hourly surface observations including variables the GHCN completely lacks.
+This is the single highest-value data addition AND it solves the operational data availability problem. ASOS stations report hourly surface observations including variables the GHCN completely lacks. Critically, **IEM ASOS data is available within 5-10 minutes of observation**, making it the only viable real-time source for station observations.
 
 **Source:** Iowa Environmental Mesonet (IEM) ASOS download service
 **URL:** `https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py`
 **Format:** CSV, hourly/sub-hourly resolution
 **Coverage:** All 14 surrounding stations have co-located ASOS stations (they are airports). Data back to the 1990s for most.
 **Cost:** Free, no API key needed.
+**Latency:** 5-10 minutes (vs. 1-2 days for GHCN-Daily). All of yesterday's data is available by 6 AM ET.
 
 **Key variables to extract:**
 
@@ -136,14 +196,14 @@ t850 = df[df['pressure'] == 850.0]['temperature'].values[0]
 - Compute T850 anomaly from climatological mean
 - Compute T850 - T_surface (stability: positive = warm air aloft, inversion)
 
-#### 2.4 ERA5 Reanalysis (LOWER PRIORITY, HIGHEST COMPLEXITY)
+#### 2.4 ERA5 Reanalysis (TRAINING ONLY — NOT AVAILABLE IN REAL-TIME)
 
 ERA5 provides gridded atmospheric variables at 0.25° resolution, hourly, back to 1979. This is the gold standard for historical atmospheric state — essentially what NWP "would have forecast" for historical dates.
 
 **Source:** Copernicus Climate Data Store (CDS)
 **Access:** `cdsapi` Python library; requires free CDS account
 **Resolution:** 0.25° × 0.25° (~28 km), hourly
-**Latency:** ~5 days behind real-time (not suitable for operational trading alone, but excellent for training)
+**Latency:** ~5 days behind real-time. **ERA5 CANNOT be used for operational predictions.** Yesterday's ERA5 data will not be available until ~5 days from now. Use GFS/HRRR instead for real-time operations (see Part II synthesis architecture).
 
 **Key variables for NYC grid point (~40.75°N, 74.0°W):**
 - 2m temperature, 2m dewpoint
@@ -486,7 +546,24 @@ For the synthesis layer, you need NWP forecasts as features. These can be obtain
 3. **MOS** if archive can be obtained (best operational station forecast)
 4. **HRRR** for same-day updates (highest resolution, but only back to 2014)
 
-**ERA5 as NWP proxy for training:** Since ERA5 assimilates all available observations (including your stations) into a physics-based model, it represents the *best possible estimate* of the atmospheric state at each historical time step. Training your synthesis model on ERA5 features teaches it to use NWP-style information without requiring real-time NWP access during training. At inference time, you substitute ERA5 with real-time GFS/HRRR.
+**ERA5 as NWP proxy for training (CRITICAL DESIGN DECISION):** Since ERA5 assimilates all available observations (including your stations) into a physics-based model, it represents the *best possible estimate* of the atmospheric state at each historical time step. Training your synthesis model on ERA5 features teaches it to use NWP-style information without requiring real-time NWP access during training. At inference time, you substitute ERA5 with real-time GFS/HRRR. The features are the same; only the source changes.
+
+**The training-vs-operations data source mapping:**
+
+| Feature | Training Source (historical) | Operational Source (6 AM ET) |
+|---|---|---|
+| Station TMAX/TMIN at t-1 | IEM ASOS hourly → compute daily | IEM ASOS hourly → compute daily |
+| Station wind dir/speed at t-1 | IEM ASOS hourly | IEM ASOS hourly |
+| Station dewpoint/pressure at t-1 | IEM ASOS hourly | IEM ASOS hourly |
+| Station precip/snow at t-1 | GHCN-Daily (training) | IEM ASOS hourly (precip only) |
+| 850mb temperature at t-1 | ERA5 pressure-level OR IGRA | IGRA sounding (00Z, avail ~10 PM ET) |
+| 850mb wind at t-1 | ERA5 pressure-level OR IGRA | IGRA sounding (00Z) |
+| Cloud cover at t-1 | ERA5 single-level | IEM ASOS ceiling/sky cover |
+| NWP TMAX forecast for day t | ERA5 2m-temp actual | GFS 00Z F024 (avail ~1 AM ET) |
+| NWP ensemble spread | N/A for ERA5 | GEFS 00Z spread (avail ~2 AM ET) |
+| NWP cloud/wind forecast day t | ERA5 actuals | GFS/HRRR 00Z or 06Z |
+
+**Key insight:** By training on IEM ASOS as the primary obs source (not GHCN-Daily), the same data source is used in both training and operations — eliminating the training-inference mismatch. GHCN-Daily becomes a cross-validation reference, not the primary input.
 
 ### 9. Synthesis Model Architecture
 
@@ -600,28 +677,31 @@ The synthesis model can beat both individual sources because:
 ## Part III: Revised Execution Plan
 
 ### Phase 0: Scale Up Data (Prerequisite)
-- Execute Phase 6: download 40 years of station data (already planned)
-- Expand GHCN parser to include PRCP, SNOW, SNWD, AWND
-- Download ASOS hourly data from IEM for all 14 core stations (1985-2024)
-- Download IGRA sounding data for OKX/Upton (1985-2024)
-- Download ERA5 for NYC bounding box (1985-2024) — single-level and pressure-level
-- **Deliverable:** Unified multi-source dataset with ~14,000 days of complete features
+- Download IEM ASOS hourly data for all 14 core stations (1998-2024) — this becomes the PRIMARY data source for both training and operations (IEM coverage starts ~mid-1990s for most airports)
+- Compute daily TMAX, TMIN, mean wind dir/speed, mean dewpoint, mean SLP, cloud fraction from IEM hourly
+- Cross-validate IEM-derived TMAX against GHCN-Daily TMAX; quantify and document systematic differences
+- Download GHCN-Daily with expanded elements (PRCP, SNOW, SNWD) for training period — used for precip/snow features and as a cross-check
+- Download IGRA sounding data for OKX/Upton (1998-2024) via University of Wyoming or Siphon
+- Download ERA5 for NYC bounding box (1998-2024) — for NWP-proxy features during synthesis training
+- **Deliverable:** Unified multi-source dataset with ~9,500 days (26 years) of complete features, all derived from the same sources that will be used operationally at 6 AM ET
 
 ### Phase 1: Optimize Station Model
-- Implement wind-conditioned features (upwind temperature, advection rate)
-- Implement dewpoint, pressure, cloud cover features from ASOS
-- Implement precipitation and snow features from GHCN
-- Implement 850mb temperature features from IGRA
-- Train wind-gated attention model on full 40-year dataset
+- Implement wind-conditioned features (upwind temperature, advection rate) from IEM ASOS
+- Implement dewpoint, pressure, cloud cover features from IEM ASOS
+- Implement precipitation and snow features from GHCN (training) / IEM (operations)
+- Implement 850mb temperature features from IGRA soundings (available by 6 AM ET)
+- Train wind-gated attention model on full 26-year IEM-based dataset
 - Add mixture density output head (2-component Gaussian)
 - Train with CRPS loss
+- Verify all features can be computed from data available by 6 AM ET
 - **Target:** MAE ≤ 2.5°F, well-calibrated PIT histogram
 
 ### Phase 2: Build Synthesis Layer
-- Extract ERA5 features for historical training period
+- Extract ERA5 features for historical training period (ERA5 is the NWP proxy for training)
 - Train meta-learner on (station_model_output, ERA5_features) → TMAX distribution
 - Evaluate synthesis vs. station-only and ERA5-only
 - Apply isotonic calibration
+- Validate that substituting GFS/HRRR for ERA5 at inference time does not degrade performance (test on recent period where both ERA5 and archived GFS are available)
 - **Target:** MAE ≤ 2.0°F, CRPS ≤ 1.8°F, calibrated bucket probabilities
 
 ### Phase 3: Build Trading Infrastructure
@@ -634,7 +714,23 @@ The synthesis model can beat both individual sources because:
 
 ### Phase 4: Operationalize
 - Switch ERA5 inputs to real-time GFS/HRRR for operational forecasting
-- Build daily cron pipeline (data ingest → forecast → trade decision)
+- Build daily cron pipeline running at 6:00 AM ET:
+  ```
+  6:00 AM ET Daily Pipeline:
+  1. Pull IEM ASOS hourly data for all stations through 05:00 local (10Z)
+     → compute yesterday's TMAX, wind, dewpoint, pressure, cloud fraction
+  2. Pull 00Z IGRA sounding from OKX (available since ~10 PM yesterday)
+     → extract 850mb temp, wind, stability
+  3. Pull 00Z GFS F024 TMAX forecast for NYC grid point (available since ~1 AM)
+     → extract NWP TMAX, wind, cloud, ensemble spread (GEFS)
+  4. Optionally pull 06Z HRRR or 09Z HRRR for latest mesoscale update
+  5. Compute all features; run station model → μ_station, σ_station
+  6. Run synthesis model (station output + GFS features) → calibrated distribution
+  7. Convert to Kalshi bucket probabilities
+  8. Pull current KXHIGHNY orderbooks; compute EV per bucket
+  9. Execute trades where edge > threshold
+  10. Log all inputs, predictions, and trades
+  ```
 - Implement monitoring, drift detection, and automatic halt conditions
 - Go live with minimal position sizes
 - **Target:** Sustained positive P&L over 90-day rolling window
