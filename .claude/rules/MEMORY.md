@@ -109,3 +109,7 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 - More stations degrade performance due to overfitting (202+ features / 1277 samples)
 - Infrastructure ready for Phase 6 (25-year data) to exploit expanded stations
 - 652 total tests pass
+- **Geography gap analysis completed** (`reports/station_geography_report.md`):
+  - S near-field gap filled (~50mi McGuire-Dix-Lakehurst NJ); SW Ring3 gap filled (~130mi Dover AFB DE)
+  - ESE gap (Farmingdale-JFK, 96-132 deg) confirmed unfillable — no active GHCN station on LI south shore
+  - SSE ocean gap accepted as irreducible; total ~52 surrounding stations post-gap-fill

@@ -46,7 +46,13 @@ Use the **Central Park** weather station, which is the official NYC climate stat
 
 Select 15–25 stations within approximately 50–200 miles of Central Park, covering all compass directions. This captures incoming weather systems from all sides. Prioritize stations with long, complete records.
 
-> **Implementation status:** 50 surrounding stations have been implemented (51 total including the target). Station geography analysis revealed an SE sector gap — only 1 station covers the SE direction due to ocean coverage. See `config_expanded.py` and `src/station_registry.py` for the full station list.
+> **Implementation status:** Station geography analysis is complete. The base network of 50 surrounding stations has been expanded to ~52 surrounding stations (~53 total including the target) based on gap-filling recommendations:
+> - **S near-field gap (Priority 1):** Added a station near McGuire-Dix-Lakehurst, NJ (~50mi, bearing ~195 deg) to provide Ring1/Ring2 coverage in the previously empty S sector near-field.
+> - **SW Ring3 gap (Priority 2):** Added a station near Dover AFB, DE (~130mi, bearing ~210 deg) to bridge the 90mi gap between Philadelphia (91mi) and Ocean City (181mi) in the SW meteorological corridor.
+> - **ESE transition zone (Priority 3):** Research confirmed no suitable GHCN station exists. The 36-degree gap between Farmingdale (96 deg) and JFK (132 deg) on Long Island's south shore cannot be filled — all historical stations in the Babylon/Lindenhurst/Wantagh area (e.g., Mineola USC00305377, Wantagh Cedar Creek USC00308946) ceased TMAX reporting by 2011 or earlier. No USW airport stations are active in this zone.
+> - **SSE ocean gap (Priority 4):** Accepted as an irreducible geographic constraint (62-degree gap over the Atlantic).
+>
+> See `config_expanded.py`, `src/station_registry.py`, and `reports/station_geography_report.md` for the full station list and analysis.
 
 **Directional coverage guidance:** Keep stations from all sides, but **intentionally include a few extra candidates to the W/NW and SW** (interior/upstream sectors in the Mid-Atlantic) while retaining a small set of coastal/onshore proxies to capture Atlantic moderation regimes. This is *not* hard-coding weights—just ensuring the candidate set has enough upstream coverage and redundancy.
 
@@ -621,7 +627,7 @@ nyc-temp-prediction/
 | **Phase 4** | **Enhancements** (run in order; stop when gains plateau) | | **4.1–4.3 COMPLETE** |
 | 4.1 | Switch to ΔT target + include NYC TMAX(t−1) as input; use Huber loss; evaluate MAE on reconstructed TMAX | 3 hours | COMPLETE |
 | 4.2 | Feature engineering: add sector averages/gradients, trend features (Δ1/Δ2), TMIN, diurnal range, station metadata | 4 hours | COMPLETE |
-| 4.3 | Station expansion: add ~50 stations (rings × sectors), implement imputation + missingness masking | 4 hours | COMPLETE |
+| 4.3 | Station expansion: add ~50 stations (rings × sectors), implement imputation + missingness masking. Geography-driven gap analysis completed; 2 gap-filling stations added (S near-field, SW Ring3); ESE gap confirmed unfillable. | 4 hours | COMPLETE |
 | 4.4 | Sensitivity experiments: vary station count (20–70), radius (150–250 mi), lag (t−1 … t−3), input type, loss function, autoregressive input, date encoding | 4 hours | NOT STARTED |
 | 4.5 | Architecture upgrades: station embeddings + attention pooling → k-window MLP → 1D temporal conv → LSTM/GRU (only if earlier models plateau) | 5 hours | NOT STARTED |
 | 4.6 | Residual learning / stacking: train NN residual corrector on base-model predictions + engineered features | 3 hours | NOT STARTED |

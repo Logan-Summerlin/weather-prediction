@@ -375,3 +375,33 @@ Legend:  **CP** = Central Park (target)
 4. **Diminishing returns are likely.** With the current 5-year dataset (1,277 training samples), Phase 4 experiments already showed that more than ~14 stations causes overfitting. The current 50-station network is designed for the Phase 6 scale-up (25 years). Adding 1-2 more stations to fill gaps is worthwhile only after the data volume increases.
 
 5. **For the current model's purposes, the SE/SSE gap is the only material weakness**, and it cannot be practically resolved. The model should be evaluated specifically on days with onshore SSE flow to quantify the actual prediction penalty, if any.
+
+---
+
+## 8. Implementation Status
+
+**Date:** 2026-02-08
+
+### Priority 1 — S Near-Field Gap: IMPLEMENTED
+A station near Joint Base McGuire-Dix-Lakehurst, NJ has been added to `config_expanded.py`. This provides Ring1/Ring2 S-sector coverage at ~50mi, bearing ~195 deg, closing the 97-mile near-field void in the south.
+
+### Priority 2 — SW Ring3 Gap: IMPLEMENTED
+A station near Dover AFB, DE has been added to `config_expanded.py`. This provides Ring3 coverage at ~130mi, bearing ~210 deg, bridging the gap between Philadelphia (91mi) and Ocean City (181mi) in the SW meteorological corridor.
+
+### Priority 3 — ESE Transition Zone: CONFIRMED UNFILLABLE
+Exhaustive search of the GHCN station inventory (ghcnd-stations.txt and ghcnd-inventory.txt) confirmed that no suitable station exists to fill the 36-degree gap between Farmingdale (96 deg) and JFK (132 deg). Key findings:
+- **35 GHCN stations** exist in the target geographic box (lat 40.55-40.75, lon -73.65 to -73.25).
+- **Only 1 USW airport station** was found: Mitchell Field (USW00014708, 19.6mi, 99.1 deg) — a decommissioned military airfield with TMAX data only from 1949-1961.
+- **Best cooperative stations** all have discontinued TMAX records:
+  - Mineola (USC00305377): 18.6mi, 99.7 deg — TMAX 1938-2011 (stopped 2011)
+  - Wantagh Cedar Creek (USC00308946): 25.8mi, 109.3 deg — TMAX 1976-2011 (stopped 2011)
+  - Oceanside (USC00306138): 20.6mi, 119.3 deg — TMAX 1994-2010 (stopped 2010)
+  - Babylon (USC00300351): 31.8mi, 97.6 deg — TMAX 1918-1959 (stopped 1959)
+- **Remaining stations** are US1* personal/CoCoRaHS stations with no TMAX data.
+- This confirms the original assessment: most Long Island south shore reporting stations are cooperative network sites rather than first-order airports, and none have current TMAX coverage meeting the 1985-2024 requirement.
+
+### Priority 4 — SSE Ocean Gap: ACCEPTED
+No action taken. The 62-degree gap (132-194 deg) over the Atlantic Ocean remains an irreducible geographic constraint, as documented.
+
+### Summary
+The station network has been expanded from 50 to ~52 surrounding stations. Two of the three actionable gaps have been filled. The remaining ESE gap is a data availability limitation, not a network design flaw.
