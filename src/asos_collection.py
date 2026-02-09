@@ -77,7 +77,7 @@ def build_asos_request_url(
         ("day2", end.day),
         ("latlon", "no"),
         ("missing", "M"),
-        ("trace", "0"),
+        ("trace", "empty"),
     ]
     for field in fields:
         params.append(("data", field))
@@ -109,11 +109,13 @@ def download_asos_station(
     start_date: str,
     end_date: str,
     data_fields: Optional[Iterable[str]] = None,
+    output_path: Optional[str] = None,
     timeout: int = 120,
 ) -> str:
     """Download hourly ASOS data for a single station."""
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"{icao}.csv")
+    if output_path is None:
+        output_path = os.path.join(output_dir, f"{icao}.csv")
 
     if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
         logger.info("Using cached ASOS file for %s", icao)
@@ -156,6 +158,7 @@ def download_asos_station_range(
             start_date=chunk_start,
             end_date=chunk_end,
             data_fields=data_fields,
+            output_path=output_path,
         )
         paths.append(path)
     return paths

@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config
 from src.asos_collection import collect_asos_data
 from src.soundings_collection import download_soundings
+from src.asos_preprocessing import run_asos_daily_pipeline
 from src.nwp_collection import download_gfs_range, download_gefs_reforecast_range
 
 
@@ -37,6 +38,21 @@ def main() -> None:
         "--skip-nwp",
         action="store_true",
         help="Skip NWP downloads (GFS/GEFS).",
+    )
+    parser.add_argument(
+        "--skip-asos-aggregate",
+        action="store_true",
+        help="Skip ASOS daily aggregation and GHCN comparison.",
+    )
+    parser.add_argument(
+        "--skip-asos-ghcn-report",
+        action="store_true",
+        help="Skip the ASOS vs GHCN comparison report.",
+    )
+    parser.add_argument(
+        "--asos-mapping-csv",
+        default=os.path.join(config.DATA_DIR, "asos_station_mapping.csv"),
+        help="CSV with station_id -> ICAO mapping for ASOS downloads.",
     )
     parser.add_argument(
         "--asos-chunk-years",
@@ -69,7 +85,7 @@ def main() -> None:
     parser.add_argument(
         "--nwp-variables",
         nargs="*",
-        default=["tmax_2m"],
+        default=config.NWP_VARIABLES,
         help="Herbie variable list.",
     )
     parser.add_argument(
@@ -82,11 +98,21 @@ def main() -> None:
 
     if not args.skip_asos:
         collect_asos_data(
-            mapping_csv=os.path.join(config.DATA_DIR, "asos_station_mapping.csv"),
+            mapping_csv=args.asos_mapping_csv,
             output_dir=config.ASOS_RAW_DIR,
             start_date=config.ASOS_START_DATE,
             end_date=config.ASOS_END_DATE,
             chunk_years=args.asos_chunk_years,
+        )
+
+    if not args.skip_asos_aggregate:
+        run_asos_daily_pipeline(
+            mapping_csv=args.asos_mapping_csv,
+            asos_raw_dir=config.ASOS_RAW_DIR,
+            asos_daily_dir=config.ASOS_DAILY_DIR,
+            ghcn_raw_dir=config.RAW_DATA_DIR,
+            report_dir=config.REPORTS_DIR,
+            write_report=not args.skip_asos_ghcn_report,
         )
 
     if not args.skip_igra:
