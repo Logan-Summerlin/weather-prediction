@@ -1,0 +1,254 @@
+{
+  "IS": {
+    "model_vs_enhanced_proxy": {
+      "model_brier": 0.17722991276363134,
+      "market_brier": 0.1833640262105508,
+      "brier_delta": -0.00613411344691947,
+      "n_samples": 4377
+    },
+    "model_vs_base_proxy": {
+      "model_brier": 0.17722991276363134,
+      "market_brier": 0.1833805886070057,
+      "brier_delta": -0.006150675843374365,
+      "n_samples": 4377
+    },
+    "model_vs_naive_proxy": {
+      "model_brier": 0.17722991276363134,
+      "market_brier": 0.18751437950924324,
+      "brier_delta": -0.010284466745611898,
+      "n_samples": 4377
+    },
+    "model_vs_kalshi_market": {
+      "model_brier": 0.17722991276363134,
+      "market_brier": 0.024992506282842126,
+      "brier_delta": 0.1522374064807892,
+      "n_samples": 4377
+    },
+    "seasonal": {
+      "Winter": {
+        "model_brier": 0.17990710358646692,
+        "enhanced_proxy_brier": 0.19108058292868876,
+        "n": 1077,
+        "kalshi_brier": 0.023619220055710304
+      },
+      "Spring": {
+        "model_brier": 0.18351028736352024,
+        "enhanced_proxy_brier": 0.1866480756392964,
+        "n": 1104,
+        "kalshi_brier": 0.015323188405797104
+      },
+      "Summer": {
+        "model_brier": 0.16858661966623756,
+        "enhanced_proxy_brier": 0.17329024059252915,
+        "n": 1104,
+        "kalshi_brier": 0.025110960144927537
+      },
+      "Fall": {
+        "model_brier": 0.1769783811748507,
+        "enhanced_proxy_brier": 0.18261781482550152,
+        "n": 1092,
+        "kalshi_brier": 0.03600274725274725
+      }
+    },
+    "monthly": {
+      "1": {
+        "model_brier": 0.184331198474313,
+        "enhanced_proxy_brier": 0.18725616793460248,
+        "n": 372,
+        "kalshi_brier": 0.020011290322580647
+      },
+      "2": {
+        "model_brier": 0.16677052565871028,
+        "enhanced_proxy_brier": 0.1861693440562862,
+        "n": 342,
+        "kalshi_brier": 0.02070087719298246
+      },
+      "3": {
+        "model_brier": 0.1849395626030122,
+        "enhanced_proxy_brier": 0.1835731720379756,
+        "n": 372,
+        "kalshi_brier": 0.020142473118279568
+      },
+      "4": {
+        "model_brier": 0.18213251488897866,
+        "enhanced_proxy_brier": 0.19063264002200186,
+        "n": 360,
+        "kalshi_brier": 0.01174361111111111
+      },
+      "5": {
+        "model_brier": 0.18341434032519754,
+        "enhanced_proxy_brier": 0.18586694919283767,
+        "n": 372,
+        "kalshi_brier": 0.01396801075268817
+      },
+      "6": {
+        "model_brier": 0.17356274835981467,
+        "enhanced_proxy_brier": 0.17895116066988703,
+        "n": 360,
+        "kalshi_brier": 0.018549444444444445
+      },
+      "7": {
+        "model_brier": 0.1628868379011007,
+        "enhanced_proxy_brier": 0.16445042510614943,
+        "n": 372,
+        "kalshi_brier": 0.02889193548387096
+      },
+      "8": {
+        "model_brier": 0.16947079301823523,
+        "enhanced_proxy_brier": 0.176651746326627,
+        "n": 372,
+        "kalshi_brier": 0.027679838709677423
+      },
+      "9": {
+        "model_brier": 0.17818048909176554,
+        "enhanced_proxy_brier": 0.17428434157788952,
+        "n": 360,
+        "kalshi_brier": 0.03333555555555556
+      },
+      "10": {
+        "model_brier": 0.17061233992616126,
+        "enhanced_proxy_brier": 0.18648063462886827,
+        "n": 372,
+        "kalshi_brier": 0.04210833333333334
+      },
+      "11": {
+        "model_brier": 0.1823545158815817,
+        "enhanced_proxy_brier": 0.1869597076096346,
+        "n": 360,
+        "kalshi_brier": 0.03236083333333333
+      },
+      "12": {
+        "model_brier": 0.18774993100523837,
+        "enhanced_proxy_brier": 0.19962693574456136,
+        "n": 363,
+        "kalshi_brier": 0.03006611570247934
+      }
+    }
+  },
+  "OOS": {
+    "model_vs_enhanced_proxy": {
+      "model_brier": 0.1796463272179556,
+      "market_brier": 0.18812667988947074,
+      "brier_delta": -0.008480352671515146,
+      "n_samples": 2165
+    },
+    "model_vs_base_proxy": {
+      "model_brier": 0.1796463272179556,
+      "market_brier": 0.18832096572021306,
+      "brier_delta": -0.00867463850225747,
+      "n_samples": 2165
+    },
+    "model_vs_naive_proxy": {
+      "model_brier": 0.1796463272179556,
+      "market_brier": 0.19192919485005758,
+      "brier_delta": -0.012282867632101985,
+      "n_samples": 2165
+    },
+    "model_vs_kalshi_market": {
+      "model_brier": 0.1796463272179556,
+      "market_brier": 0.002093995381062356,
+      "brier_delta": 0.17755233183689323,
+      "n_samples": 2165
+    },
+    "seasonal": {
+      "Winter": {
+        "model_brier": 0.1620408737002392,
+        "enhanced_proxy_brier": 0.17269587295182182,
+        "n": 515,
+        "kalshi_brier": 0.005144466019417476
+      },
+      "Spring": {
+        "model_brier": 0.20176271346795413,
+        "enhanced_proxy_brier": 0.20587667240252008,
+        "n": 552,
+        "kalshi_brier": 0.000596557971014493
+      },
+      "Summer": {
+        "model_brier": 0.17277210018039796,
+        "enhanced_proxy_brier": 0.18358452199364625,
+        "n": 552,
+        "kalshi_brier": 0.00028713768115942034
+      },
+      "Fall": {
+        "model_brier": 0.18084254823692358,
+        "enhanced_proxy_brier": 0.18932840308394144,
+        "n": 546,
+        "kalshi_brier": 0.0025573260073260074
+      }
+    },
+    "monthly": {
+      "1": {
+        "model_brier": 0.12897990750069577,
+        "enhanced_proxy_brier": 0.1428682597577169,
+        "n": 170,
+        "kalshi_brier": 0.00035823529411764705
+      },
+      "2": {
+        "model_brier": 0.15751639011403623,
+        "enhanced_proxy_brier": 0.15945922357061298,
+        "n": 159,
+        "kalshi_brier": 0.01611635220125787
+      },
+      "3": {
+        "model_brier": 0.20291080386397348,
+        "enhanced_proxy_brier": 0.20883807084662107,
+        "n": 186,
+        "kalshi_brier": 0.00015215053763440866
+      },
+      "4": {
+        "model_brier": 0.20428519212404114,
+        "enhanced_proxy_brier": 0.2156063661689272,
+        "n": 180,
+        "kalshi_brier": 0.001445555555555556
+      },
+      "5": {
+        "model_brier": 0.19817351469507644,
+        "enhanced_proxy_brier": 0.19349944128125102,
+        "n": 186,
+        "kalshi_brier": 0.00021935483870967747
+      },
+      "6": {
+        "model_brier": 0.17815499738452953,
+        "enhanced_proxy_brier": 0.18673601950692947,
+        "n": 180,
+        "kalshi_brier": 0.0002166666666666667
+      },
+      "7": {
+        "model_brier": 0.16806050400801886,
+        "enhanced_proxy_brier": 0.18310954024680134,
+        "n": 186,
+        "kalshi_brier": 0.00023602150537634412
+      },
+      "8": {
+        "model_brier": 0.17227444099394,
+        "enhanced_proxy_brier": 0.18100966743731386,
+        "n": 186,
+        "kalshi_brier": 0.0004064516129032259
+      },
+      "9": {
+        "model_brier": 0.17206007738427426,
+        "enhanced_proxy_brier": 0.1882788661195944,
+        "n": 180,
+        "kalshi_brier": 0.0003044444444444445
+      },
+      "10": {
+        "model_brier": 0.1758798394330321,
+        "enhanced_proxy_brier": 0.1884291447351592,
+        "n": 186,
+        "kalshi_brier": 0.0001333333333333334
+      },
+      "11": {
+        "model_brier": 0.1947531515202608,
+        "enhanced_proxy_brier": 0.19130717367536348,
+        "n": 180,
+        "kalshi_brier": 0.007315
+      },
+      "12": {
+        "model_brier": 0.19612558952888798,
+        "enhanced_proxy_brier": 0.21127287023467148,
+        "n": 186,
+        "kalshi_brier": 0.0001397849462365592
+      }
+    }
+  }
+}

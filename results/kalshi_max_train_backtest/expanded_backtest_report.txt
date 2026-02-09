@@ -1,0 +1,111 @@
+==============================================================================
+  KALSHI KXHIGHNY MAX-TRAINING BACKTEST REPORT
+  Enhanced Market Proxy + Max-Training Model Predictions
+==============================================================================
+
+--- DATA SOURCES ---
+  NN model source: max_train_nn
+  Ridge model source: max_train_ridge
+  Market proxy: Enhanced (Ridge with lag1-3, rolling7d, clim mean/std)
+  IS period: 2023-2024 (model trained on 1998-2020, val 2021-2022)
+  OOS period: 2025 (model trained on 1998-2022, val 2023-2024)
+  Market data: Real Kalshi KXHIGHNY settlements
+
+--- ENHANCED PROXY DIAGNOSTICS ---
+
+  IS (train<=2022):
+    Train end: 2022-12-31
+    Ridge alpha: 0.01
+    Features: ['lag1', 'lag2', 'lag3', 'rolling_7d_mean', 'clim_mean', 'clim_std']
+    Coefs: lag1=0.6163, lag2=-0.1220, lag3=0.0332, rolling_7d_mean=0.0749, clim_mean=0.4225, clim_std=0.2780
+    Overall sigma: 6.86
+
+  OOS (train<=2024):
+    Train end: 2024-12-31
+    Ridge alpha: 0.01
+    Features: ['lag1', 'lag2', 'lag3', 'rolling_7d_mean', 'clim_mean', 'clim_std']
+    Coefs: lag1=0.6179, lag2=-0.1215, lag3=0.0329, rolling_7d_mean=0.0748, clim_mean=0.4210, clim_std=0.2769
+    Overall sigma: 6.84
+
+--- BRIER SCORE COMPARISON ---
+
+  IS (2023-2024):
+    model_vs_enhanced_proxy: model=0.1772, comp=0.1834, delta=-0.0061 (MODEL BETTER)
+    model_vs_base_proxy: model=0.1772, comp=0.1834, delta=-0.0062 (MODEL BETTER)
+    model_vs_naive_proxy: model=0.1772, comp=0.1875, delta=-0.0103 (MODEL BETTER)
+    model_vs_kalshi_market: model=0.1772, comp=0.0250, delta=0.1522 (COMPARISON BETTER)
+
+    Seasonal (IS (2023-2024)):
+      Winter  : model=0.1799, enhanced=0.1911, kalshi=0.0236, n=1077
+      Spring  : model=0.1835, enhanced=0.1866, kalshi=0.0153, n=1104
+      Summer  : model=0.1686, enhanced=0.1733, kalshi=0.0251, n=1104
+      Fall    : model=0.1770, enhanced=0.1826, kalshi=0.0360, n=1092
+
+  OOS (2025):
+    model_vs_enhanced_proxy: model=0.1796, comp=0.1881, delta=-0.0085 (MODEL BETTER)
+    model_vs_base_proxy: model=0.1796, comp=0.1883, delta=-0.0087 (MODEL BETTER)
+    model_vs_naive_proxy: model=0.1796, comp=0.1919, delta=-0.0123 (MODEL BETTER)
+    model_vs_kalshi_market: model=0.1796, comp=0.0021, delta=0.1776 (COMPARISON BETTER)
+
+    Seasonal (OOS (2025)):
+      Winter  : model=0.1620, enhanced=0.1727, kalshi=0.0051, n=515
+      Spring  : model=0.2018, enhanced=0.2059, kalshi=0.0006, n=552
+      Summer  : model=0.1728, enhanced=0.1836, kalshi=0.0003, n=552
+      Fall    : model=0.1808, enhanced=0.1893, kalshi=0.0026, n=546
+
+--- NN vs RIDGE COMPARISON ---
+
+  IS (2023-2024):
+    NN Brier:    0.1772 (n=4377)
+    Ridge Brier: 0.1772 (n=4377)
+    Winner: Ridge (delta=0.0000)
+
+  OOS (2025):
+    NN Brier:    0.1796 (n=2165)
+    Ridge Brier: 0.1815 (n=2165)
+    Winner: NN (delta=-0.0019)
+
+--- STRATEGY GRID SEARCH (IS 2023-2024) ---
+  Total strategies: 448
+  With trades: 448
+  Profitable: 448
+  Mean PnL: $6955.42
+  Median PnL: $6452.23
+  Best PnL: $12269.11
+
+  Top 5 by Sharpe:
+    S0396_ev0.15_proportional_kf0.05_fee0.07_mp0.05_br10000: Sharpe=6.53, PnL=$3119, WR=58%, N=351
+    S0397_ev0.15_proportional_kf0.05_fee0.07_mp0.10_br10000: Sharpe=6.53, PnL=$3119, WR=58%, N=351
+    S0398_ev0.15_proportional_kf0.05_fee0.07_mp0.15_br10000: Sharpe=6.53, PnL=$3119, WR=58%, N=351
+    S0399_ev0.15_proportional_kf0.05_fee0.07_mp0.20_br10000: Sharpe=6.53, PnL=$3119, WR=58%, N=351
+    S0400_ev0.15_fractional_kelly_kf0.05_fee0.07_mp0.05_br10000: Sharpe=6.53, PnL=$3119, WR=58%, N=351
+
+--- SELECTED BEST STRATEGY ---
+  Name: S0396_ev0.15_proportional_kf0.05_fee0.07_mp0.05_br10000
+  Selection reason: best_pnl_near_top_sharpe
+  EV threshold: 0.15
+  Sizing: proportional
+  Kelly fraction: 0.05
+  Max position: 0.05
+
+--- IS vs OOS COMPARISON ---
+  Metric                         IS          OOS       Change
+  -------------------- ------------ ------------ ------------
+  Total PnL ($)            $3118.53     $1572.69    $-1545.84
+  ROI (%)                     31.2%        15.7%       -15.5%
+  Sharpe Ratio                 6.53         7.48         0.95
+  Win Rate (%)                58.1%        60.5%         2.4%
+  Max Drawdown ($)          $181.78       $75.88     $-105.90
+  Trades                        351          162         -189
+
+--- OOS SEASONAL P&L ---
+  Winter (DJF): PnL=$518.46, trades=34, WR=70.6%
+  Spring (MAM): PnL=$461.61, trades=54, WR=53.7%
+  Summer (JJA): PnL=$414.25, trades=31, WR=74.2%
+  Fall (SON): PnL=$178.37, trades=43, WR=51.2%
+
+--- RECOMMENDATION ---
+  VERDICT: VALIDATED
+  Strong OOS performance. Proceed to paper trading.
+
+==============================================================================
