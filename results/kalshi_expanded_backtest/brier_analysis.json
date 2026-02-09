@@ -1,0 +1,94 @@
+{
+  "IS": {
+    "model_vs_enhanced": {
+      "model_brier": 0.1770034435090026,
+      "market_brier": 0.1833805886070057,
+      "brier_delta": -0.006377145098003106,
+      "n_samples": 4377
+    },
+    "model_vs_naive": {
+      "model_brier": 0.1770034435090026,
+      "market_brier": 0.18751437950924324,
+      "brier_delta": -0.01051093600024064,
+      "n_samples": 4377
+    },
+    "model_vs_market": {
+      "model_brier": 0.1770034435090026,
+      "market_brier": 0.024992506282842126,
+      "brier_delta": 0.15201093722616046,
+      "n_samples": 4377
+    },
+    "seasonal": {
+      "Winter": {
+        "model_brier": 0.18088324340940806,
+        "enhanced_brier": 0.19124669006262598,
+        "n": 1077,
+        "naive_brier": 0.19515185723002829
+      },
+      "Spring": {
+        "model_brier": 0.18352690665071422,
+        "enhanced_brier": 0.18676793721232762,
+        "n": 1104,
+        "naive_brier": 0.18754806207267113
+      },
+      "Summer": {
+        "model_brier": 0.16743480495314061,
+        "enhanced_brier": 0.17345683081982793,
+        "n": 1104,
+        "naive_brier": 0.17669772620915689
+      },
+      "Fall": {
+        "model_brier": 0.17625557644351306,
+        "enhanced_brier": 0.1822307758497399,
+        "n": 1092,
+        "naive_brier": 0.1908832771172886
+      }
+    }
+  },
+  "OOS": {
+    "model_vs_enhanced": {
+      "model_brier": 0.1801397653285503,
+      "market_brier": 0.18832096572021306,
+      "brier_delta": -0.008181200391662757,
+      "n_samples": 2165
+    },
+    "model_vs_naive": {
+      "model_brier": 0.1801397653285503,
+      "market_brier": 0.19192919485005758,
+      "brier_delta": -0.011789429521507272,
+      "n_samples": 2165
+    },
+    "model_vs_market": {
+      "model_brier": 0.1801397653285503,
+      "market_brier": 0.002093995381062356,
+      "brier_delta": 0.17804576994748794,
+      "n_samples": 2165
+    },
+    "seasonal": {
+      "Winter": {
+        "model_brier": 0.16435824302440488,
+        "enhanced_brier": 0.1724887852399956,
+        "n": 515,
+        "naive_brier": 0.17327262704526988
+      },
+      "Spring": {
+        "model_brier": 0.20177790855946262,
+        "enhanced_brier": 0.20682762702307272,
+        "n": 552,
+        "naive_brier": 0.2066114501217418
+      },
+      "Summer": {
+        "model_brier": 0.17158359537032433,
+        "enhanced_brier": 0.18345215200712725,
+        "n": 552,
+        "naive_brier": 0.18879204711394917
+      },
+      "Fall": {
+        "model_brier": 0.181799535914836,
+        "enhanced_brier": 0.18946653545969439,
+        "n": 546,
+        "naive_brier": 0.19785453012446744
+      }
+    }
+  }
+}

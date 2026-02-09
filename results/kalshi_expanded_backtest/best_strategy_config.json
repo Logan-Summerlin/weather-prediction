@@ -1,0 +1,17 @@
+{
+  "strategy_name": "S0396_ev0.15_proportional_kf0.05_fee0.07_mp0.05_br10000",
+  "total_pnl": 3275.878747303879,
+  "roi": 0.3275878747303879,
+  "sharpe_ratio": 6.958937011819653,
+  "max_drawdown": 124.25091858573535,
+  "win_rate": 0.6069364161849711,
+  "n_trades": 346,
+  "avg_ev": 0.2546606556858531,
+  "selection_reason": "best_pnl_near_top_sharpe",
+  "ev_threshold": 0.15,
+  "sizing_method": "proportional",
+  "kelly_fraction": 0.05,
+  "fee_rate": 0.07,
+  "max_position_frac": 0.05,
+  "bankroll": 10000
+}
