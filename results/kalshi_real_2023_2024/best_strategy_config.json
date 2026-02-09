@@ -1,12 +1,16 @@
 {
-  "strategy_name": "S0396_ev0.15_proportional_kf0.05_fee0.07_mp0.05_br10000",
-  "n_trades": 610,
-  "n_days": 7310,
-  "total_pnl": 6452.62861100753,
-  "roi": 0.6452628611007529,
-  "sharpe_ratio": 9.343655062200886,
-  "max_drawdown": 155.73362845495785,
-  "win_rate": 0.6081967213114754,
-  "avg_ev": 0.28338276467990564,
-  "selection_reason": "Both Sharpe > 2.0 and within 0.2; selected higher P&L"
+  "strategy_name": "S0008_ev0.01_fractional_kelly_kf0.05_fee0.07_mp0.05_br10000",
+  "total_pnl": -2493.6499999999996,
+  "roi": -0.24936499999999998,
+  "sharpe_ratio": -1.3892292042450403,
+  "max_drawdown": 2493.6499999999996,
+  "win_rate": 0.06175651733738294,
+  "n_trades": 3951,
+  "selection_reason": "fallback_best_sharpe",
+  "ev_threshold": 0.01,
+  "sizing_method": "fractional_kelly",
+  "kelly_fraction": 0.05,
+  "fee_rate": 0.07,
+  "max_position_frac": 0.05,
+  "bankroll": 10000
 }
