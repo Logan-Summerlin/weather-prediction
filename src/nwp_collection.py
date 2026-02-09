@@ -34,6 +34,28 @@ def _require_herbie():
         ) from exc
 
 
+def _build_herbie_search(variables: Optional[Iterable[str]]) -> Optional[str]:
+    """Build a Herbie search string for common NYC forecast variables."""
+    if not variables:
+        return None
+    mapping = {
+        "tmax_2m": r":TMAX:2 m",
+        "tmp_850": r":TMP:850 mb",
+        "ugrd_10m": r":UGRD:10 m",
+        "vgrd_10m": r":VGRD:10 m",
+        "tcdc_eatm": r":TCDC:entire atmosphere",
+        "mslp": r":MSLP:mean sea level",
+        "apcp": r":APCP:surface",
+    }
+    patterns = []
+    for var in variables:
+        if var in mapping:
+            patterns.append(mapping[var])
+        else:
+            patterns.append(var)
+    return "|".join(patterns) if patterns else None
+
+
 def download_gfs_point(
     date: datetime,
     fxx: int = 24,
@@ -46,13 +68,12 @@ def download_gfs_point(
     from herbie import Herbie
 
     os.makedirs(output_dir, exist_ok=True)
-    variables = list(variables or ["tmax_2m"])
-    variable_level = ",".join(variables)
+    search = _build_herbie_search(variables)
 
     herbie = Herbie(date, model=model, fxx=fxx, product="pgrb2.0p25")
     logger.info("Downloading %s %s f%03d", model, date.strftime("%Y-%m-%d %H"),
                 fxx)
-    path = herbie.download(variable=variable_level, save_dir=output_dir)
+    path = herbie.download(search=search, save_dir=output_dir)
     return path
 
 
@@ -101,13 +122,18 @@ def download_gefs_reforecast_point(
     from herbie import Herbie
 
     os.makedirs(output_dir, exist_ok=True)
-    variables = list(variables or ["tmax_2m"])
-    variable_level = ",".join(variables)
+    search = _build_herbie_search(variables)
 
-    herbie = Herbie(date, model=model, fxx=fxx, member=member)
+    herbie = Herbie(
+        date,
+        model=model,
+        fxx=fxx,
+        member=member,
+        variable_level="pgrb2",
+    )
     logger.info("Downloading %s %s f%03d member %02d",
                 model, date.strftime("%Y-%m-%d %H"), fxx, member)
-    path = herbie.download(variable=variable_level, save_dir=output_dir)
+    path = herbie.download(search=search, save_dir=output_dir)
     return path
 
 

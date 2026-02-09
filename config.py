@@ -17,7 +17,9 @@ PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed")
 STATIONS_FILE = os.path.join(DATA_DIR, "stations.csv")
 MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
 RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
+REPORTS_DIR = os.path.join(PROJECT_ROOT, "reports")
 ASOS_RAW_DIR = os.path.join(RAW_DATA_DIR, "asos")
+ASOS_DAILY_DIR = os.path.join(PROCESSED_DATA_DIR, "asos_daily")
 IGRA_RAW_DIR = os.path.join(RAW_DATA_DIR, "igra")
 NWP_RAW_DIR = os.path.join(RAW_DATA_DIR, "nwp")
 
@@ -52,6 +54,15 @@ IGRA_STATION_ID = "USM00072501"  # Upton/Brookhaven (OKX)
 IGRA_LEVELS_MB = [850.0, 500.0]
 NWP_START_DATE = "2000-01-01"
 NWP_END_DATE = END_DATE
+NWP_VARIABLES = [
+    "tmax_2m",
+    "tmp_850",
+    "ugrd_10m",
+    "vgrd_10m",
+    "tcdc_eatm",
+    "mslp",
+    "apcp",
+]
 
 # ==============================================================================
 # Surrounding Input Stations
