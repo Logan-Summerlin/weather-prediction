@@ -1,0 +1,63 @@
+==============================================================================
+  MOS BACKTEST COMPARISON REPORT
+  MOS Proxy vs Enhanced Proxy vs Kalshi Market
+==============================================================================
+
+--- BRIER SCORE COMPARISON ---
+
+  IS (2023-2024):
+    model_vs_mos_proxy: model=0.1772, comp=0.1381, delta=0.0391 (COMPARISON BETTER)
+    model_vs_enhanced_proxy: model=0.1772, comp=0.1834, delta=-0.0061 (MODEL BETTER)
+    model_vs_naive_proxy: model=0.1772, comp=0.1875, delta=-0.0103 (MODEL BETTER)
+    model_vs_kalshi_market: model=0.1772, comp=0.0250, delta=0.1522 (COMPARISON BETTER)
+
+    Seasonal (IS (2023-2024)):
+      Winter  : model=0.1799, enhanced_proxy_brier=0.1911, kalshi_brier=0.0236, mos_proxy_brier=0.1411, naive_proxy_brier=0.1952, n=1077
+      Spring  : model=0.1835, enhanced_proxy_brier=0.1866, kalshi_brier=0.0153, mos_proxy_brier=0.1395, naive_proxy_brier=0.1875, n=1104
+      Summer  : model=0.1686, enhanced_proxy_brier=0.1733, kalshi_brier=0.0251, mos_proxy_brier=0.1384, naive_proxy_brier=0.1767, n=1104
+      Fall    : model=0.1770, enhanced_proxy_brier=0.1826, kalshi_brier=0.0360, mos_proxy_brier=0.1336, naive_proxy_brier=0.1909, n=1092
+
+  OOS (2025):
+    model_vs_mos_proxy: model=0.1796, comp=0.1399, delta=0.0397 (COMPARISON BETTER)
+    model_vs_enhanced_proxy: model=0.1796, comp=0.1881, delta=-0.0085 (MODEL BETTER)
+    model_vs_naive_proxy: model=0.1796, comp=0.1919, delta=-0.0123 (MODEL BETTER)
+    model_vs_kalshi_market: model=0.1796, comp=0.0021, delta=0.1776 (COMPARISON BETTER)
+
+    Seasonal (OOS (2025)):
+      Winter  : model=0.1620, enhanced_proxy_brier=0.1727, kalshi_brier=0.0051, mos_proxy_brier=0.1217, naive_proxy_brier=0.1733, n=515
+      Spring  : model=0.2018, enhanced_proxy_brier=0.2059, kalshi_brier=0.0006, mos_proxy_brier=0.1506, naive_proxy_brier=0.2066, n=552
+      Summer  : model=0.1728, enhanced_proxy_brier=0.1836, kalshi_brier=0.0003, mos_proxy_brier=0.1399, naive_proxy_brier=0.1888, n=552
+      Fall    : model=0.1808, enhanced_proxy_brier=0.1893, kalshi_brier=0.0026, mos_proxy_brier=0.1463, naive_proxy_brier=0.1979, n=546
+
+--- STRATEGY GRID: MOS Proxy ---
+  Total: 448, With trades: 448, Profitable: 0
+  Mean PnL: $-3760.23
+  Best PnL: $-68.26
+
+--- STRATEGY GRID: Enhanced Proxy ---
+  Total: 448, With trades: 448, Profitable: 448
+  Mean PnL: $6955.42
+  Best PnL: $12269.11
+
+--- SELECTED STRATEGY (MOS Proxy) ---
+  Name: S0396_ev0.15_proportional_kf0.05_fee0.07_mp0.05_br10000
+  IS PnL: $-682.60
+  IS Sharpe: -0.93
+  IS Win Rate: 25.3%
+
+--- SELECTED STRATEGY (Enhanced Proxy) ---
+  Name: S0396_ev0.15_proportional_kf0.05_fee0.07_mp0.05_br10000
+  IS PnL: $3118.53
+  IS Sharpe: 6.53
+  IS Win Rate: 58.1%
+
+--- IS vs OOS COMPARISON ---
+  Metric                   MOS IS    MOS OOS     Enh IS    Enh OOS
+  -------------------- ---------- ---------- ---------- ----------
+  PnL ($)                   $-683      $-655      $3119      $1573
+  Sharpe                    -0.93      -1.84       6.53       7.48
+  Win Rate                  25.3%      22.3%      58.1%      60.5%
+  Trades                      768        364        351        162
+
+
+==============================================================================
