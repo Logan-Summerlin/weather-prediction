@@ -24,6 +24,7 @@ env/
 # Raw data files (large, re-downloadable)
 data/raw/*.dly
 data/raw/*.csv
+data/raw/kalshi_api/
 data/processed/
 data/processed_v2/
 data/processed_expanded/
