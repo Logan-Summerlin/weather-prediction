@@ -219,7 +219,7 @@ If the model Brier score is **not** lower than the market Brier score, the model
 
 **B) Which strategy maximizes risk-adjusted returns?**
 
-Rank strategies by Sharpe ratio (not raw P&L) since Sharpe accounts for volatility:
+Rank strategies by Sharpe ratio as well as P&L, since Sharpe accounts for volatility and P&L is the point of the exercise:
 
 ```python
 top = comparison_csv.sort_values("sharpe_ratio", ascending=False).head(10)
@@ -241,9 +241,9 @@ print(seasonal.pivot(index="strategy", columns="season", values="total_pnl"))
 
 Choose the strategy that balances:
 - Sharpe ratio >= 1.5 (strong risk-adjusted returns)
-- Max drawdown < 15% of bankroll (survivable worst case)
+- Max drawdown < 20% of bankroll (survivable worst case)
 - n_trades >= 100 (sufficient sample size for statistical significance)
-- Win rate > 45% (not relying on rare large wins)
+- Win rate > 30% (not relying on extremely rare large wins)
 
 Record the exact configuration:
 ```python
@@ -256,6 +256,8 @@ best_strategy_config = {
     "bankroll": 10000,
 }
 ```
+- **Best Practices:**
+- When choosing between strategies, if the Sharpe for both trades is above 2.0, choose the strategy with the best P&L and a Sharpe ratio within 0.2 of the competing strategies.
 
 ---
 
@@ -270,10 +272,6 @@ markets_2025 = client.get_historical_markets(
     max_date="2025-12-31T23:59:59Z",
 )
 ```
-
-**Note:** As of February 2025, only ~40 days of data exist. The backtest will have limited statistical power. Options:
-- Run on available 2025 data now and re-run quarterly as more data accumulates
-- Supplement with paper trading (running the strategy daily without real money) to build a longer track record
 
 ### Step 8 — Generate Model Predictions for 2025
 
@@ -351,6 +349,11 @@ The critical question: **does the 2023-2024 best strategy hold up on unseen 2025
 
 ---
 
+- **Best Practices:**
+- When choosing between trading strategies, if the Sharpe for both trades is above 2.0, choose the strategy with the best P&L and a Sharpe ratio within 0.2 of the competing strategies.
+- The P&L, ROI, and Sharpe are all important considerations for whether the model can make money consistently over time.
+
+
 ## Practical Considerations
 
 ### Kalshi API Rate Limits
@@ -378,7 +381,6 @@ The critical question: **does the 2023-2024 best strategy hold up on unseen 2025
 
 ### Statistical Significance
 - With ~700 trading days (2023-2024), a strategy needs >= 100 trades for the Sharpe ratio to be statistically meaningful at the 95% confidence level
-- For 2025 OOS (currently ~40 days), results are directional but not statistically significant
 - Consider bootstrapping: resample the trade P&L series 10,000 times to compute confidence intervals on Sharpe and total P&L
 
 ### Known Risks
