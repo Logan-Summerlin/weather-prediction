@@ -120,6 +120,70 @@ ALL_STATIONS = {
 }
 
 # ==============================================================================
+# ASOS/AWOS Mapping (operational station IDs)
+# ==============================================================================
+# Mapping of GHCN station IDs to ICAO codes for stations with ASOS/AWOS data.
+# Stations without operational ASOS/AWOS are excluded and listed separately.
+ASOS_STATION_MAP = {
+    "USW00094728": "KNYC",
+    "USW00014732": "KLGA",
+    "USW00094741": "KTEB",
+    "USW00014734": "KEWR",
+    "USW00094789": "KJFK",
+    "USW00054743": "KCDW",
+    "USW00094745": "KHPN",
+    "USW00054787": "KFRG",
+    "USW00054785": "KSMQ",
+    "USW00054779": "K12N",
+    "USW00054793": "KFWN",
+    "USW00004781": "KISP",
+    "USW00054734": "KDXR",
+    "USW00094702": "KBDR",
+    "USW00004789": "KMGJ",
+    "USW00014792": "KTTN",
+    "USW00054790": "KHWV",
+    "USW00014757": "KPOU",
+    "USW00014780": "KWRI",
+    "USW00064707": "KOXC",
+    "USW00014758": "KHVN",
+    "USW00054786": "KDYL",
+    "USW00014719": "KFOK",
+    "USW00094732": "KPNE",
+    "USW00093780": "KVAY",
+    "USW00054746": "KMSV",
+    "USW00054789": "KMPO",
+    "USW00014737": "KABE",
+    "USW00013739": "KPHL",
+    "USW00093730": "KACY",
+    "USW00014777": "KAVP",
+    "USW00014740": "KBDL",
+    "USW00014707": "KGON",
+    "USW00014712": "KRDG",
+    "USW00054780": "KMTP",
+    "USW00014763": "KPSF",
+    "USW00014794": "KWST",
+    "USW00054737": "KLNS",
+    "USW00014735": "KALB",
+    "USW00013707": "KDOV",
+    "USW00054768": "KAQW",
+    "USW00004725": "KBGM",
+    "USW00054781": "KDDH",
+    "USW00054756": "KORE",
+    "USW00014770": "KSEG",
+    "USW00014750": "KGFL",
+    "USW00093786": "KOXB",
+    "USW00014739": "KBOS",
+    "USW00014771": "KSYR",
+}
+
+NON_ASOS_STATIONS = {
+    "USW00064756": "MILLBROOK 3 W (no ASOS/AWOS)",
+    "USW00054782": "HERITAGE FLD AP (ICAO/ASOS not confirmed)",
+    "USW00013724": "ATLANTIC CITY MARINA (non-airport station)",
+    "USW00054797": "KINGSTON 1 W (no ASOS/AWOS)",
+}
+
+# ==============================================================================
 # Data Quality (slightly relaxed for expanded set)
 # ==============================================================================
 MIN_COMPLETENESS = 0.80

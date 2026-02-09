@@ -1,24 +1,83 @@
-# NYC Daily Max Temperature Prediction — Neural Network Project Plan
+# NYC Daily Max Temperature Prediction — Market-Beating Project Plan
 
 ## 1. Research Concept Summary
 
-**Objective:** Build a neural network that predicts the daily maximum temperature (°F) in New York City on day *t*, using daily temperature observations from surrounding cities/stations on day *t−1*.
+**Objective:** Build a **calibrated probabilistic forecast** for NYC’s daily maximum temperature (°F) and use it to beat the **Kalshi KXHIGHNY** prediction market. The system must generate bucket probabilities that are better calibrated than the market consensus and actionable for trading.
 
-**Core hypothesis:** Weather patterns propagate geographically. Temperatures observed yesterday at stations surrounding NYC contain predictive signal for NYC's temperature today. A neural network can learn optimal weightings of these surrounding-station inputs to minimize prediction error.
+**Core hypothesis:** A hyper-local, station-based model trained on decades of NYC-area observations can detect local biases and regimes better than raw NWP. **Synthesizing** that station model with NWP forecasts yields a calibrated distribution that beats either source alone.
 
-**Target metric:** Mean Absolute Error (MAE) in °F on a held-out test set, with a stretch goal of ≤ 2°F MAE. Secondary metric: percentage of predictions within ±1°F of actual.
+**Primary success metrics (forecasting):**
+- **MAE ≤ 2.0–2.3°F** on a 2020–2024 holdout.
+- **CRPS ≤ 1.8–2.0°F** for distribution quality.
+- **Calibration:** PIT histogram ≈ uniform; 90% interval coverage 88–92%.
+- **Kalshi bucket performance:** Brier score per bucket < 0.15 and positive expected value (EV) decisions after fees.
 
-**Extension goal:** Produce a 95% prediction interval for each forecast.
+**Operational constraint:** All data used for day-*t* prediction must be available by **6:00 AM ET** on day *t*. This drives the data-source and feature selection.
 
 ---
 
-## 2. Data Source: NOAA GHCN-Daily
+## 2. Operational Data Availability (6 AM ET Constraint)
 
-The **Global Historical Climatology Network — Daily (GHCNd)** is the ideal data source. It is free, quality-controlled, and provides daily TMAX, TMIN, and other variables for thousands of U.S. stations going back over 100 years.
+**Key constraint:** GHCN-Daily and ERA5 are **not** available by 6 AM ET and are therefore **training-only**. Operational inference must use **IEM ASOS hourly data**, **IGRA soundings**, and **GFS/GEFS** forecasts that are available overnight.
+
+**Operationally available by 6 AM ET:**
+- IEM ASOS hourly surface observations (5–10 minute latency).
+- IGRA 00Z sounding for OKX/Upton (available late evening).
+- GFS 00Z forecast (F024) for day-*t* TMAX and ancillary variables.
+- GEFS ensemble spread (00Z) for uncertainty estimation.
+
+**Training-only sources:**
+- GHCN-Daily `.dly` (1–2 day lag).
+- ERA5/ERA5T (multi-day lag).
+
+---
+
+## 3. Data Sources & Roles
+
+### 3.1 Station Observations (Primary, Operational)
+**IEM ASOS hourly data** (Iowa Environmental Mesonet) is the **primary operational observation source**.
+- **URL:** `https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py`
+- **Stations:** 14 core NYC-area airports (Central Park + surrounding).
+- **Key variables:** temp, dewpoint, wind direction/speed, sea-level pressure, cloud cover/ceilings, visibility.
+- **Daily aggregation (t−1 features):**
+  - TMAX/TMIN/mean temperature
+  - Prevailing wind direction (vector mean), evening wind direction (18–00Z)
+  - Mean/max wind speed
+  - Mean dewpoint, afternoon dewpoint
+  - SLP at 00Z/12Z and 24h tendency
+  - Cloud fraction (hours with ceiling < 5000 ft)
+
+**ASOS station coverage for the 52-station network:**
+- Use the ICAO mapping in `data/asos_station_mapping.csv` and `config_expanded.ASOS_STATION_MAP`.
+- Filter the training set to **ASOS-available stations only** and document any replacements for non-ASOS sites.
+
+### 3.2 GHCN-Daily (Training-only, Supplementary)
+**GHCN-Daily** remains valuable for long historical temperature records and snow/precipitation signals.
+- Expand `.dly` parsing to include **PRCP, SNOW, SNWD, AWND**.
+- Use GHCN for **training features** and **cross-checking** IEM-derived TMAX.
+
+### 3.3 Upper-Air Soundings (Operational)
+**IGRA soundings** via Siphon for OKX/Upton (USM00072501).
+- Extract **850mb temperature, wind, stability** (T850 − surface).
+- 00Z sounding available before 6 AM ET (use for day-*t* forecast).
+
+### 3.4 NWP Forecasts (Synthesis Layer)
+Use **GEFSv12 Reforecast (2000–2019)** for training and **operational GFS/GEFS (2021–present)** for live inference.
+- Variables: TMAX, TMIN, T850, 10m wind, cloud cover, MSLP, precipitation, ensemble spread.
+- Use **Herbie** or AWS S3 for partial downloads of NYC grid point.
+
+### 3.5 ERA5 Reanalysis (Research-Only)
+ERA5 is valuable for exploratory analysis but **must not be used for operational inference** due to its multi-day latency and analysis/forecast mismatch. Use it only for diagnostics or feature validation.
+
+---
+
+## 4. Data Source: NOAA GHCN-Daily (Training-only Details)
+
+The **Global Historical Climatology Network — Daily (GHCNd)** is the ideal **training** data source. It is free, quality-controlled, and provides daily TMAX, TMIN, and other variables for thousands of U.S. stations going back over 100 years. **It is not available by 6 AM ET**, so it must not be used for operational inference.
 
 ### Key Details
 
-- **Variables available:** TMAX (daily max temp), TMIN (daily min temp), TAVG (where available), PRCP, SNOW, SNWD
+- **Variables available:** TMAX (daily max temp), TMIN (daily min temp), TAVG (where available), PRCP, SNOW, SNWD, AWND, WDF2/WSF2 (variable availability)
 - **Format:** Values in tenths of °C (divide by 10 to get °C, then convert to °F)
 - **Access methods:**
   - Bulk download: `https://www.ncei.noaa.gov/pub/data/ghcn/daily/`
@@ -32,7 +91,7 @@ Sign up at `https://www.ncdc.noaa.gov/cdo-web/token` for a free NOAA CDO API tok
 
 ---
 
-## 3. Station Selection Strategy
+## 5. Station Selection Strategy
 
 ### Target Station (NYC)
 
@@ -92,32 +151,42 @@ When you evaluate feature importance later, group stations by sector (W/NW, SW, 
 3. Stations distributed across compass directions (not clustered)
 4. Prefer ASOS/AWOS airport stations for data quality
 
+**Operational ASOS alignment (required):**
+- Every station in the expanded 52-station set must map to an **ASOS/AWOS ICAO** identifier for operational training/inference.
+- The authoritative mapping lives in:
+  - `data/asos_station_mapping.csv`
+  - `config_expanded.ASOS_STATION_MAP`
+- Stations without confirmed ASOS/AWOS coverage (e.g., Millbrook 3 W, Kingston 1 W, Atlantic City Marina, Heritage Field) must be **excluded from the operational training set** or replaced with the nearest ASOS station.
+
 ---
 
-## 4. Data Collection Period
+## 6. Data Collection Period
 
 ### Phase 1 (Proof of Concept): 5 years
 - **Period:** 2018-01-01 to 2022-12-31
 - **Purpose:** Validate the pipeline, train an initial model, assess feasibility
 - **Approx. rows per station:** ~1,826
 
-### Phase 2 (Full Model): 40 years
-- **Period:** 1985-01-01 to 2024-12-31
-- **Purpose:** Train a robust model with more seasonal cycles and weather variability
-- **Approx. rows per station:** ~14,610
-- **Status:** Data collection complete for all 51 stations. See data completeness findings below.
+### Phase 2 (Station Model Scale-Up): 26 years
+- **Period:** 1998-01-01 to 2024-12-31 (IEM ASOS availability)
+- **Purpose:** Train a robust station-based model with full operational feature parity
+- **Approx. rows per station:** ~9,500
 
-### Data Completeness Findings (Phase 2)
+### Phase 3 (Synthesis Training Window): 24 years
+- **Period:** 2000-01-01 to 2024-12-31
+- **Purpose:** Train synthesis layer using GEFSv12 reforecast (2000–2019) and operational GFS/GEFS (2021–2024)
+
+### Data Completeness Findings (GHCN Training-Only)
 - **15 original stations:** Mostly 99–100% complete over the full 40-year period.
 - **30 expanded stations:** Below 80% completeness (many started reporting circa 1997–2000).
 - **21 stations total** meet the ≥80% completeness threshold over the 40-year range.
-- Station completeness should be re-evaluated when selecting the final station set for Phase 6 model training.
+- Use these stats for **training-only** station selection; operational features come from ASOS.
 
 ---
 
-## 5. Neural Network Architecture
+## 7. Neural Network Architecture
 
-### 5.1 Baseline: Simple Feedforward Network
+### 7.1 Baseline: Simple Feedforward Network
 
 Start simple. This is essentially a learned weighted-average problem.
 
@@ -134,9 +203,9 @@ Output Layer: 1 neuron (predicted NYC TMAX at day t), linear activation
 **Loss function:** Mean Squared Error (MSE)
 **Optimizer:** Adam (lr=0.001)
 
-### 5.2 Enhanced: Multi-Feature Input and Target Formulation
+### 7.2 Enhanced: Multi-Feature Input and Target Formulation
 
-#### 5.2a ΔT (Delta) Target — Highest-Leverage Change
+#### 7.2a ΔT (Delta) Target — Highest-Leverage Change
 
 Switch the prediction target from raw TMAX(t) to the daily change:
 
@@ -160,7 +229,7 @@ TMAX_NYC_pred(t) = TMAX_NYC(t−1) + ΔT_pred(t)
 
 **Training loss:** Use **Huber (SmoothL1)** or **MAE** loss (often better than MSE for MAE optimization). Track MAE for early stopping.
 
-#### 5.2b Per-Station Feature Expansion
+#### 7.2b Per-Station Feature Expansion
 
 Instead of one feature per station, use multiple features per station:
 
@@ -177,7 +246,7 @@ Additional inputs:
   - NYC's own TMAX at t-1 (autoregressive term)
 ```
 
-#### 5.2c Sector Averages and Gradients (Physics-Shaped Features)
+#### 7.2c Sector Averages and Gradients (Physics-Shaped Features)
 
 Group stations into directional sectors and compute aggregate features that proxy frontal passages and air-mass advection:
 
@@ -194,7 +263,7 @@ Group stations into directional sectors and compute aggregate features that prox
 
 **Why:** Gradients proxy "which air mass is arriving," especially in complex coastal terrain. They reduce dimensionality and increase signal-to-noise when scaling to many stations.
 
-#### 5.2d Trend Features (Front-Timing Proxy)
+#### 7.2d Trend Features (Front-Timing Proxy)
 
 Compute short differences per sector or per top stations:
 
@@ -205,7 +274,7 @@ Compute short differences per sector or per top stations:
 
 These capture direction and momentum of temperature changes, helping detect approaching fronts.
 
-#### 5.2e Static Station Metadata
+#### 7.2e Static Station Metadata
 
 Add per-station metadata as features (especially useful with attention-based architectures):
 - Elevation (meters)
@@ -213,11 +282,70 @@ Add per-station metadata as features (especially useful with attention-based arc
 - Bearing from Central Park (degrees)
 - Station type flag (airport vs. other)
 
-### 5.3 Advanced: Architecture Upgrades (Attention Pooling and Temporal Models)
+#### 7.2f Operational ASOS Feature Set (Highest Priority)
+
+From **IEM ASOS hourly data**, aggregate daily features for t−1:
+- Wind direction (vector mean), wind direction persistence, evening wind direction (18–00Z)
+- Wind speed: mean, max, evening mean
+- Dewpoint: mean, afternoon value, dewpoint depression (T − Td)
+- Sea-level pressure: 00Z, 12Z, 24h tendency
+- Cloud fraction proxy: fraction of hours with ceiling < 5000 ft
+
+These features are both **high-impact** and **operationally available** by 6 AM ET.
+
+#### 7.2g Wind-Conditioned Physics Features
+
+Use wind direction to compute physically meaningful composites:
+- **Upwind temperature:** weighted average of stations aligned with wind direction.
+- **Crosswind temperature:** stations perpendicular to wind.
+- **Downwind temperature:** stations opposite the wind.
+- **Upwind gradient:** upwind_temp − NYC_TMAX(t−1).
+- **Advection rate:** wind_speed × upwind_gradient / upwind_distance.
+
+These features replace static station weights with **dynamic, regime-aware signals**.
+
+#### 7.2h Upper-Air Features (IGRA Soundings)
+
+From OKX/Upton 00Z soundings:
+- **850mb temperature** (T850) — strongest single predictor of surface TMAX.
+- **850mb wind direction/speed** — large-scale advection signal.
+- **Stability indicator:** T850 − surface temp.
+
+#### 7.2i Precipitation & Snow (Training-Only → Operational Bridge)
+
+From GHCN (training) and ASOS (operations):
+- PRCP(t−1), snow depth, snow depth change
+- Days since last precipitation
+- Snow presence binary (albedo effect)
+
+### 7.3 Advanced: Architecture Upgrades (Attention Pooling and Temporal Models)
 
 Test these architectures in order, stopping when gains plateau:
 
-#### 5.3a Station Embeddings + Attention Pooling (recommended for 20+ stations)
+#### 7.3a Wind-Gated Station Attention (Primary Architecture)
+
+Replace static station attention with wind-conditioned gating:
+
+```
+Input per station i:
+  [TMAX_i, TMIN_i, diurnal_range_i, PRCP_i,
+   dewpoint_i, wind_speed_i, ΔT_i(t-1 vs t-2)]
+
+Station metadata:
+  [bearing_i, distance_i, elevation_i, sector_one_hot_i]
+
+Global context:
+  [wind_dir_prevailing, wind_speed_mean, SLP, SLP_tendency,
+   sin_day, cos_day, day_length, snow_depth_nyc,
+   NYC_TMAX(t-1), NYC_dewpoint(t-1)]
+
+Attention logit:
+  dot(Q, K_i) + α × cos(wind_dir − bearing_i)
+```
+
+This biases attention toward **upwind** stations while allowing the model to override when the data says otherwise. It is the highest-leverage architecture upgrade after scaling to 40+ years of data.
+
+#### 7.3b Station Embeddings + Attention Pooling (recommended for 20+ stations)
 
 **Motivation:** With many correlated stations, flattened MLPs learn fragile weights. Attention pooling lets the model learn "which stations matter today."
 
@@ -237,7 +365,7 @@ Architecture:
 - Attention pooling naturally handles missing stations (mask them out)
 - Evaluate with permutation importance grouped by sector
 
-#### 5.3b k-Day Window MLP
+#### 7.3c k-Day Window MLP
 
 Concatenate features from days [t−1, …, t−k] into a single flat input vector:
 
@@ -251,7 +379,7 @@ Output: 1 neuron (ΔT or TMAX prediction)
 
 Often surprisingly strong when combined with engineered gradient/trend features. Test before adding sequence model complexity.
 
-#### 5.3c 1D Temporal Convolution
+#### 7.3d 1D Temporal Convolution
 
 Lightweight and stable temporal modeling:
 
@@ -263,7 +391,7 @@ Input shape: (k_days, pooled_station_features)
 Dense output head
 ```
 
-#### 5.3d LSTM/GRU (use only if k-window models plateau)
+#### 7.3e LSTM/GRU (use only if k-window models plateau)
 
 ```
 Input shape: (k_days, N_stations × features_per_station)
@@ -277,7 +405,7 @@ Output: 1 neuron (predicted ΔT or TMAX at day t)
 
 Predict ΔT with sequences of station-pooled features.
 
-#### 5.3e Station Embeddings + Temporal Attention (Transformer-style)
+#### 7.3f Station Embeddings + Temporal Attention (Transformer-style)
 
 Instead of treating each station as a fixed input column, learn a small **embedding per station** and use a **temporal attention / Transformer-style encoder** over the last *k* days. This can capture time-varying "which stations matter today" behavior without requiring a spatial grid.
 
@@ -285,17 +413,23 @@ Instead of treating each station as a fixed input column, learn a small **embedd
 - Model: station embedding + per-day feature projection → temporal attention → pooled representation → prediction head
 - Evaluation: keep the same headline comparisons and permutation-importance sector checks.
 
-### 5.4 Confidence Intervals
+### 7.4 Probabilistic Outputs & Confidence Intervals
 
-Two approaches:
+For trading, the model must output a **full predictive distribution**, not just a point forecast.
 
-**Approach A — Quantile Regression:**
-Train two additional output heads that predict the 2.5th and 97.5th percentiles using pinball (quantile) loss. This directly gives a 95% prediction interval.
+**Preferred output heads (in order):**
+1. **Gaussian Mixture (2–3 components)** — handles bimodal outcomes (front arrives vs. stalls).
+2. **Heteroscedastic Gaussian** — outputs μ and σ (fastest to train).
+3. **Quantile network** — 5th–95th percentiles (pinball loss).
 
-**Approach B — MC Dropout:**
-Use dropout layers during both training and inference. At prediction time, run 100 forward passes with dropout active, producing a distribution of predictions. Use the 2.5th and 97.5th percentiles of that distribution.
+**Training loss:** use **CRPS** or Gaussian NLL (for Gaussian outputs). CRPS is preferred because it rewards both accuracy and calibration.
 
-### 5.5 Residual Learning / Stacking Ensemble
+**Calibration layer (post-hoc):**
+- Hold out a calibration set from late years.
+- Fit isotonic regression on CDF outputs (by season or regime).
+- Validate PIT histogram and reliability diagram.
+
+### 7.5 Residual Learning / Stacking Ensemble
 
 **Core idea:** Let simple models handle the "easy majority" and let a NN learn the residual.
 
@@ -311,7 +445,7 @@ Train a small NN on:
 
 **Target:** TMAX residual or ΔT residual. This approach frequently reduces MAE by improving robustness, especially when the NN is tempted to overfit.
 
-### 5.6 Season/Regime Specialization
+### 7.6 Season/Regime Specialization
 
 If seasonal MAE disparity remains large after other enhancements, try specialization:
 
@@ -325,9 +459,27 @@ If seasonal MAE disparity remains large after other enhancements, try specializa
 
 **Report:** Season-wise MAE and "transition months" performance (Apr/May, Sep/Oct).
 
+### 7.7 Synthesis Layer (Station Model + NWP = Market Edge)
+
+Build a **separate meta-learner** that combines the station model’s distribution with NWP forecasts:
+
+**Inputs:**
+- `station_mu`, `station_sigma` (from station model)
+- `nwp_tmax` (GFS/GEFS F024)
+- `nwp_t850`, `nwp_wind_dir/speed`, `nwp_cloud_cover`, `nwp_mslp`
+- `nwp_ensemble_spread`
+- `station_nwp_gap` and `abs_station_nwp_gap`
+- Recent bias features (last 7 days of station vs NWP MAE)
+- Season encodings (sin/cos day-of-year)
+
+**Output:** calibrated distribution (μ, σ or mixture parameters).
+
+**Training data:** GEFSv12 reforecast (2000–2019) + operational GFS/GEFS (2021–present).  
+**Loss:** CRPS or NLL + post-hoc isotonic calibration.
+
 ---
 
-## 6. Implementation Plan — Step-by-Step
+## 8. Implementation Plan — Step-by-Step
 
 ### Step 1: Environment Setup
 
@@ -337,17 +489,40 @@ pip install pandas numpy scikit-learn torch matplotlib requests
 
 **Files to create:**
 - `config.py` — station IDs, date ranges, API token, hyperparameters
-- `data_collection.py` — download data from NOAA
-- `data_preprocessing.py` — clean, align, feature-engineer
+- `data_collection.py` — download GHCN-Daily `.dly` files (training)
+- `asos_collection.py` — download IEM ASOS hourly data (operational + training)
+- `asos_preprocessing.py` — aggregate ASOS hourly → daily features
+- `soundings_collection.py` — download IGRA soundings (OKX)
+- `nwp_collection.py` — download GEFSv12 reforecast + operational GFS
+- `nwp_preprocessing.py` — extract NYC grid point features
+- `data_preprocessing.py` — clean, align, feature-engineer, and merge all sources
 - `model.py` — PyTorch model definition
 - `train.py` — training loop
 - `evaluate.py` — evaluation metrics, plotting
 - `predict.py` — make predictions on new data
-- `confidence_intervals.py` — quantile regression or MC dropout
+- `synthesis_model.py` — meta-learner combining station + NWP
+- `calibration.py` — isotonic calibration + PIT/reliability plots
+- `kalshi_client.py` — Kalshi market data utilities
+- `trading.py` — EV/Kelly sizing + execution logic
 
-### Step 2: Data Collection (`data_collection.py`)
+### Step 2: Data Collection (Multi-Source)
 
+**2A) GHCN-Daily (training-only):**
 > **Implemented method:** Bulk `.dly` file downloads from `https://www.ncei.noaa.gov/pub/data/ghcn/daily/all/{station_id}.dly` are used (no NOAA API token required). The fixed-width `.dly` format is parsed directly. The `run_collect_all_stations.py` script handles downloading and parsing for all 51 stations. This approach avoids all API rate-limit issues.
+
+**2B) IEM ASOS (operational + training):**
+- Download hourly observations for the 14 core airport stations (1998–present).
+- Aggregate to daily features (TMAX, wind dir/speed, dewpoint, SLP, cloud fraction).
+- Store raw hourly CSVs and daily aggregates.
+
+**2C) IGRA Soundings (operational + training):**
+- Download 00Z/12Z soundings for OKX/Upton (USM00072501).
+- Extract T850, wind, and stability features.
+
+**2D) NWP Forecasts for Synthesis (training + operations):**
+- GEFSv12 reforecast (2000–2019) for training the synthesis model.
+- Operational GFS/GEFS (2021–present) for inference and bridge years.
+- Extract NYC grid-point forecasts: TMAX, T850, 10m wind, cloud cover, MSLP, precipitation, ensemble spread.
 
 ```python
 """
@@ -385,32 +560,38 @@ Note: API returns max 1000 records per request.
 """
 Pseudocode for preprocessing.
 
-1. Load all station CSVs.
-2. For each station:
-   a. Pivot so each row is one date, columns are TMAX, TMIN.
-   b. Convert from tenths of °C to °F if using raw .dly files:
+1. Load all station data sources (GHCN, ASOS, IGRA, NWP).
+2. For each station (GHCN):
+   a. Pivot so each row is one date, columns are TMAX, TMIN, PRCP, SNOW, SNWD, AWND.
+   b. Convert from tenths of °C to °F:
       temp_f = (value / 10) * 9/5 + 32
    c. Flag/remove quality-flagged observations.
-3. Merge all stations into one DataFrame:
+3. For each station (ASOS hourly):
+   a. Compute daily aggregates (TMAX, TMIN, wind, dewpoint, SLP, cloud fraction).
+   b. Compute wind-conditioned composites (upwind temp, advection rate).
+4. Merge IGRA T850 features by date (00Z/12Z).
+5. Merge NWP features (GEFS reforecast / GFS operational) for synthesis training.
+6. Quantify GHCN vs ASOS TMAX differences; store offsets for monitoring.
+7. Merge all stations into one DataFrame:
    - Index: DATE
    - Columns: {station_id}_TMAX, {station_id}_TMIN, ... for each station
-4. Create target column: NYC_TMAX (Central Park TMAX on day t)
-5. Create feature columns: all other stations' values shifted by +1 day
+8. Create target column: NYC_TMAX (Central Park TMAX on day t)
+9. Create feature columns: all other stations' values shifted by +1 day
    (i.e., feature row for day t uses surrounding stations' data from day t-1)
-6. Add cyclical date features:
+10. Add cyclical date features:
    day_of_year = date.timetuple().tm_yday
    sin_day = sin(2π × day_of_year / 365.25)
    cos_day = cos(2π × day_of_year / 365.25)
-7. Handle missing data:
+11. Handle missing data:
    - Drop days where NYC target is missing.
    - For input stations: forward-fill gaps ≤ 3 days,
      then use column mean for remaining NaNs (or drop row).
-8. Train/val/test split:
+12. Train/val/test split:
    - Train: first 70% of dates (chronological!)
    - Validation: next 15%
    - Test: final 15%
    IMPORTANT: Do NOT shuffle. Must respect temporal order.
-9. Normalize features:
+13. Normalize features:
    - Fit StandardScaler on training set only.
    - Apply to val and test sets.
 """
@@ -485,6 +666,8 @@ For quantile regression, use pinball loss:
   total_loss = (pinball_loss(lower, y, 0.025)
               + pinball_loss(median, y, 0.50)
               + pinball_loss(upper, y, 0.975))
+
+For Gaussian/mixture outputs, use Gaussian NLL or CRPS and track calibration metrics.
 """
 ```
 
@@ -503,14 +686,15 @@ Interpret the performance gap as the **incremental value of the surrounding-stat
 """
 Metrics to compute on the test set:
 
-1. MAE (Mean Absolute Error) — primary metric
+1. MAE (Mean Absolute Error) — point accuracy
 2. RMSE (Root Mean Squared Error)
-3. Percentage of predictions within ±1°F
-4. Percentage of predictions within ±2°F
-5. Percentage of predictions within ±3°F
-6. R² score
-7. Bias (mean error, to detect systematic over/under-prediction)
-8. Seasonal breakdown: compute MAE for each season
+3. CRPS — distribution quality (primary probabilistic metric)
+4. Brier score per Kalshi bucket — calibration for trading
+5. PIT histogram + reliability diagram — distribution calibration
+6. Percentage of predictions within ±1°F, ±2°F, ±3°F
+7. R² score
+8. Bias (mean error, to detect systematic over/under-prediction)
+9. Seasonal breakdown: compute MAE and CRPS for each season
    (winter=DJF, spring=MAM, summer=JJA, fall=SON)
 
 Plots to generate:
@@ -518,12 +702,29 @@ Plots to generate:
 - Time series plot of actual vs. predicted for a sample month
 - Residual histogram
 - Residuals by month (box plot)
-- If using confidence intervals: coverage plot showing
-  what % of actuals fall within the 95% interval
+- If using probabilistic outputs: coverage plots for 50/90/95% intervals
+- PIT histogram and reliability diagram for calibration
+- Kalshi bucket probability comparison (model vs. market implied)
 """
 ```
 
-### Step 7: Sensitivity Analysis
+### Step 7: Synthesis Model (`synthesis_model.py`)
+
+Combine the optimized station model with NWP features:
+
+- Train on GEFSv12 reforecast (2000–2019) + operational GFS/GEFS (2021–present).
+- Inputs: station μ/σ, NWP TMAX/T850, wind, cloud, MSLP, ensemble spread.
+- Output: calibrated distribution (μ, σ or mixture parameters).
+- Compare against station-only and NWP-only baselines.
+
+### Step 8: Calibration + Kalshi Mapping (`calibration.py`, `kalshi_client.py`)
+
+- Fit isotonic regression on CDF outputs (seasonal or regime-specific).
+- Convert calibrated CDFs into **Kalshi bucket probabilities**.
+- Pull KXHIGHNY markets via Kalshi API and compare model vs market implied probabilities.
+- Compute Brier score and expected value (EV) deltas for trading decisions.
+
+### Step 9: Sensitivity Analysis
 
 Run experiments varying these dimensions:
 
@@ -553,7 +754,7 @@ Run experiments varying these dimensions:
 
 ---
 
-## 7. Benchmark / Baseline Models
+## 9. Benchmark / Baseline Models
 
 To assess whether the neural network adds value, compare against these baselines:
 
@@ -561,12 +762,36 @@ To assess whether the neural network adds value, compare against these baselines
 2. **Climatological average:** Predict NYC TMAX(t) = historical average TMAX for that calendar day.
 3. **Linear regression:** Same inputs as the NN, but fit with ordinary least squares.
 4. **Ridge/Lasso regression:** Regularized linear regression (guards against multicollinearity between nearby stations).
+5. **NWP baseline:** Raw GFS/GEFS TMAX F024 forecast at NYC grid point.
+6. **MOS baseline (if available):** NWS MAV/MEX forecast as a post-processed benchmark.
 
 The neural network should meaningfully outperform these to justify its use.
 
 ---
 
-## 8. Project File Structure
+## 10. Prediction Market Integration (Kalshi KXHIGHNY)
+
+**Contract alignment checks (mandatory):**
+1. Verify station = **Central Park** and the daily boundary uses NYC local time.
+2. Confirm rounding rules for the market’s integer Fahrenheit outcomes.
+3. Match model target definition to Kalshi contract definition.
+
+**Kalshi public API (unauthenticated):**
+- Base: `https://api.elections.kalshi.com/trade-api/v2`
+- Series: `/series/KXHIGHNY`
+- Markets: `/markets?series_ticker=KXHIGHNY&status=open`
+- Orderbook: `/markets/{ticker}/orderbook`
+
+**Market mapping workflow:**
+1. Generate model CDF for day-*t*.
+2. Convert bucket thresholds to probabilities (CDF differences).
+3. Compare to market-implied probabilities (YES price / 100).
+4. Compute EV, Brier score, and log score for each bucket.
+5. Trade only when calibrated EV exceeds fees + threshold.
+
+---
+
+## 11. Project File Structure
 
 ```
 
@@ -583,7 +808,7 @@ Add lightweight checks to ensure the model’s learned signal is physically plau
 nyc-temp-prediction/
 ├── config.py                # All configuration constants
 ├── data/
-│   ├── raw/                 # Raw downloaded station files
+│   ├── raw/                 # Raw station + NWP files
 │   ├── processed/           # Cleaned, merged DataFrames
 │   └── stations.csv         # Selected station metadata
 ├── notebooks/
@@ -592,12 +817,20 @@ nyc-temp-prediction/
 │   └── 03_results_analysis.ipynb
 ├── src/
 │   ├── data_collection.py
+│   ├── asos_collection.py
+│   ├── asos_preprocessing.py
+│   ├── soundings_collection.py
+│   ├── nwp_collection.py
+│   ├── nwp_preprocessing.py
 │   ├── data_preprocessing.py
 │   ├── model.py
+│   ├── synthesis_model.py
 │   ├── train.py
 │   ├── evaluate.py
 │   ├── predict.py
-│   └── confidence_intervals.py
+│   ├── calibration.py
+│   ├── kalshi_client.py
+│   └── trading.py
 ├── models/                  # Saved model checkpoints
 ├── results/                 # Plots, metric summaries
 ├── requirements.txt
@@ -606,48 +839,43 @@ nyc-temp-prediction/
 
 ---
 
-## 9. Implementation Sequence and Timeline
+## 12. Implementation Sequence and Timeline
 
 | Phase | Task | Est. Effort | Status |
 |-------|------|-------------|--------|
-| **Phase 1** | **Data Pipeline** | | **COMPLETE** |
-| 1.1 | Set up environment and project structure | 1 hour | COMPLETE |
-| 1.2 | Get NOAA API token, identify target + surrounding stations | 2 hours | COMPLETE |
-| 1.3 | Write data collection script (download 5 years for ~20 stations) | 3 hours | COMPLETE |
-| 1.4 | Write preprocessing: merge, align, feature-engineer, split | 4 hours | COMPLETE |
-| 1.5 | Exploratory data analysis notebook (completeness, correlations) | 2 hours | COMPLETE |
-| **Phase 2** | **Baseline Models** | | **COMPLETE** |
-| 2.1 | Implement persistence and climatology baselines | 1 hour | COMPLETE |
-| 2.2 | Implement linear/ridge regression baselines | 2 hours | COMPLETE |
-| 2.3 | Evaluate baselines, establish benchmarks | 1 hour | COMPLETE |
-| **Phase 3** | **Neural Network — V1** | | **COMPLETE** |
-| 3.1 | Build feedforward NN (simple: TMAX-only inputs) | 2 hours | COMPLETE |
-| 3.2 | Train, tune hyperparameters on validation set | 3 hours | COMPLETE |
-| 3.3 | Evaluate on test set, compare to baselines | 1 hour | COMPLETE |
-| **Phase 4** | **Enhancements** (run in order; stop when gains plateau) | | **4.1–4.3 COMPLETE** |
-| 4.1 | Switch to ΔT target + include NYC TMAX(t−1) as input; use Huber loss; evaluate MAE on reconstructed TMAX | 3 hours | COMPLETE |
-| 4.2 | Feature engineering: add sector averages/gradients, trend features (Δ1/Δ2), TMIN, diurnal range, station metadata | 4 hours | COMPLETE |
-| 4.3 | Station expansion: add ~50 stations (rings × sectors), implement imputation + missingness masking. Geography-driven gap analysis completed; 2 gap-filling stations added (S near-field, SW Ring3); ESE gap confirmed unfillable. | 4 hours | COMPLETE |
-| 4.4 | Sensitivity experiments: vary station count (20–70), radius (150–250 mi), lag (t−1 … t−3), input type, loss function, autoregressive input, date encoding | 4 hours | NOT STARTED |
-| 4.5 | Architecture upgrades: station embeddings + attention pooling → k-window MLP → 1D temporal conv → LSTM/GRU (only if earlier models plateau) | 5 hours | NOT STARTED |
-| 4.6 | Residual learning / stacking: train NN residual corrector on base-model predictions + engineered features | 3 hours | NOT STARTED |
-| 4.7 | Season/regime specialization: two-expert seasonal models or mixture-of-experts gate (only if seasonal MAE disparity remains large) | 2 hours | NOT STARTED |
-| **Phase 5** | **Confidence Intervals** | | **NOT STARTED** |
-| 5.1 | Implement quantile regression model | 2 hours | NOT STARTED |
-| 5.2 | Evaluate coverage (does 95% interval capture ~95% of actuals?) | 1 hour | NOT STARTED |
-| **Phase 6** | **Scale Up** | | **Data collection COMPLETE; model retraining NOT STARTED** |
-| 6.1 | Extend to 40 years of data (1985–2024) | 2 hours | COMPLETE (data collected for all 51 stations) |
-| 6.2 | Retrain best model, compare to 5-year version | 2 hours | NOT STARTED |
-| **Phase 7** | **Documentation and Reporting** | | **NOT STARTED** |
-| 7.1 | Write up results, generate final plots | 3 hours | NOT STARTED |
+| **Phase 0** | **Multi-source data scale-up (prerequisite)** | | **NOT STARTED** |
+| 0.1 | Download IEM ASOS hourly data (1998–2024) for 14 core stations | 6 hours | NOT STARTED |
+| 0.2 | Download IGRA soundings (OKX/Upton, 2000–2024) | 2 hours | NOT STARTED |
+| 0.3 | Download GEFSv12 reforecast (2000–2019) + operational GFS/GEFS (2021–2024) | 6 hours | NOT STARTED |
+| 0.4 | Expand GHCN parsing to PRCP/SNOW/SNWD/AWND | 2 hours | NOT STARTED |
+| **Phase 1** | **Optimize station model (IEM-based)** | | **NOT STARTED** |
+| 1.1 | Wind-conditioned features (upwind temp, advection rate) | 2 hours | NOT STARTED |
+| 1.2 | Add dewpoint, pressure, cloud fraction features | 2 hours | NOT STARTED |
+| 1.3 | Add 850mb sounding features | 2 hours | NOT STARTED |
+| 1.4 | Train wind-gated attention model + CRPS loss | 4 hours | NOT STARTED |
+| **Phase 2** | **Synthesis layer (station + NWP)** | | **NOT STARTED** |
+| 2.1 | Train meta-learner on station μ/σ + GFS features | 3 hours | NOT STARTED |
+| 2.2 | Calibrate CDF outputs (isotonic) | 2 hours | NOT STARTED |
+| **Phase 3** | **Kalshi evaluation + trading tools** | | **NOT STARTED** |
+| 3.1 | Kalshi KXHIGHNY market ingestion + bucket mapping | 2 hours | NOT STARTED |
+| 3.2 | Backtest EV/Kelly sizing vs historical markets | 4 hours | NOT STARTED |
+| **Phase 4** | **Operationalization** | | **NOT STARTED** |
+| 4.1 | 6 AM ET daily pipeline + monitoring | 3 hours | NOT STARTED |
+| 4.2 | Paper trading + go-live criteria | 3 hours | NOT STARTED |
 
-**Total estimated effort: ~56 hours**
+**Total estimated effort: ~43 hours (post-data scale-up)**
 
 ---
 
-## 10. Potential Challenges and Mitigations
+## 13. Potential Challenges and Mitigations
 
 **Missing data:** Some stations may have gaps. Mitigation: select stations with ≥90% completeness; use forward-fill for short gaps; for remaining NaNs, experiment with imputation vs. dropping rows.
+
+**Training–inference mismatch:** GHCN-Daily vs ASOS definitions differ (daily boundaries, rounding). Mitigation: train primarily on IEM ASOS-derived TMAX and quantify offsets against GHCN for monitoring.
+
+**Operational latency:** Ensure all features are available by 6 AM ET. Mitigation: rely on IEM ASOS, IGRA 00Z soundings, and 00Z GFS/GEFS.
+
+**NWP model version shifts:** GEFSv12 reforecast (GFSv15.1) vs operational GFSv16+. Mitigation: add a binary feature for operational data and re-calibrate on 2021–2024.
 
 **Multicollinearity:** Nearby stations are highly correlated. Mitigation: Ridge/Lasso baselines will reveal this; the NN should handle it implicitly, but monitor weight magnitudes.
 
@@ -661,7 +889,7 @@ nyc-temp-prediction/
 
 ---
 
-## 11. Getting Started — First Commands
+## 14. Getting Started — First Commands
 
 ```bash
 # 1. Create project directory
@@ -681,6 +909,9 @@ pip install pandas numpy scikit-learn torch matplotlib seaborn requests jupyter
 
 # 5. Run data collection
 python src/data_collection.py
+python src/asos_collection.py
+python src/soundings_collection.py
+python src/nwp_collection.py
 
 # 6. Run preprocessing
 python src/data_preprocessing.py
@@ -688,13 +919,14 @@ python src/data_preprocessing.py
 # 7. Train baseline models
 python src/train.py --model baseline
 
-# 8. Train neural network
+# 8. Train station model + synthesis
 python src/train.py --model nn_v1
+python src/synthesis_model.py
 ```
 
 ---
 
-## 12. Starter Code: `config.py`
+## 15. Starter Code: `config.py`
 
 ```python
 """
@@ -732,6 +964,30 @@ SURROUNDING_STATIONS = {
     "USW00014771": "White Plains, NY (Westchester)",
     # Add more as discovered
 }
+
+# ASOS station mapping (GHCN -> ICAO)
+ASOS_STATIONS = {
+    "USW00094728": "KNYC",
+    "USW00014735": "KALB",
+    "USW00014740": "KBDL",
+    "USW00094702": "KBDR",
+    "USW00014732": "KISP",
+    "USW00093730": "KACY",
+    "USW00014792": "KTTN",
+    "USW00013739": "KPHL",
+    "USW00014737": "KABE",
+    "USW00014777": "KAVP",
+    "USW00014734": "KEWR",
+    "USW00094789": "KJFK",
+    "USW00014739": "KLGA",
+    "USW00014771": "KHPN",
+    "USW00014757": "KPOU",
+}
+
+# NWP settings
+GFS_MODEL = "gfs"
+GEFS_REFORECAST_MODEL = "gefs_reforecast"
+NWP_FXX_HOURS = 24
 
 # Input features per station
 INPUT_VARIABLES = ["TMAX", "TMIN"]
