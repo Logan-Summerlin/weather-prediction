@@ -1,0 +1,14 @@
+{
+  "n_comparisons": 5117,
+  "mean_prob_delta": -0.023801373602573027,
+  "std_prob_delta": 0.057804536517689235,
+  "mean_abs_prob_delta": 0.045404210097067854,
+  "model_brier": 0.06832685856036999,
+  "market_brier": 0.07233057739474083,
+  "plots_saved": [
+    "results/kalshi_real_2023_2024/model_vs_market_scatter.png",
+    "results/kalshi_real_2023_2024/ev_delta_histogram.png",
+    "results/kalshi_real_2023_2024/daily_probability_timeseries.png",
+    "results/kalshi_real_2023_2024/brier_by_month.png"
+  ]
+}
