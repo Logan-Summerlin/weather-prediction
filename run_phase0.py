@@ -3,13 +3,16 @@
 Phase 0 Runner: Multi-source data scale-up.
 
 Runs the operational data downloads for ASOS, IGRA soundings, and NWP
-forecasts, plus optional GHCN collection. Designed to be resumable and
-time-safe (no training-only data in the operational paths).
+forecasts, plus optional GHCN collection. Includes preprocessing steps
+for ASOS daily aggregation, IGRA soundings, and NWP GRIB extraction.
+Designed to be resumable and time-safe (no training-only data in the
+operational paths).
 """
 
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 
@@ -20,6 +23,32 @@ from src.asos_collection import collect_asos_data
 from src.soundings_collection import download_soundings
 from src.asos_preprocessing import run_asos_daily_pipeline
 from src.nwp_collection import download_gfs_range, download_gefs_reforecast_range
+
+logger = logging.getLogger(__name__)
+
+
+def _import_soundings_preprocessing():
+    """Conditionally import soundings preprocessing (may not exist yet)."""
+    try:
+        from src.soundings_preprocessing import run_soundings_preprocessing
+        return run_soundings_preprocessing
+    except ImportError:
+        logger.warning(
+            "src.soundings_preprocessing not available — skipping IGRA preprocessing."
+        )
+        return None
+
+
+def _import_nwp_preprocessing():
+    """Conditionally import NWP preprocessing (may not exist yet)."""
+    try:
+        from src.nwp_preprocessing import run_nwp_preprocessing
+        return run_nwp_preprocessing
+    except ImportError:
+        logger.warning(
+            "src.nwp_preprocessing not available — skipping NWP preprocessing."
+        )
+        return None
 
 
 def main() -> None:
@@ -48,6 +77,16 @@ def main() -> None:
         "--skip-asos-ghcn-report",
         action="store_true",
         help="Skip the ASOS vs GHCN comparison report.",
+    )
+    parser.add_argument(
+        "--skip-igra-preprocess",
+        action="store_true",
+        help="Skip IGRA soundings preprocessing.",
+    )
+    parser.add_argument(
+        "--skip-nwp-preprocess",
+        action="store_true",
+        help="Skip NWP GRIB preprocessing.",
     )
     parser.add_argument(
         "--asos-mapping-csv",
@@ -96,6 +135,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # ---- ASOS Collection ----
     if not args.skip_asos:
         collect_asos_data(
             mapping_csv=args.asos_mapping_csv,
@@ -105,6 +145,7 @@ def main() -> None:
             chunk_years=args.asos_chunk_years,
         )
 
+    # ---- ASOS Aggregation ----
     if not args.skip_asos_aggregate:
         run_asos_daily_pipeline(
             mapping_csv=args.asos_mapping_csv,
@@ -115,6 +156,7 @@ def main() -> None:
             write_report=not args.skip_asos_ghcn_report,
         )
 
+    # ---- IGRA Soundings Download ----
     if not args.skip_igra:
         download_soundings(
             station_id=config.IGRA_STATION_ID,
@@ -124,6 +166,16 @@ def main() -> None:
             output_dir=config.IGRA_RAW_DIR,
         )
 
+    # ---- IGRA Soundings Preprocessing ----
+    if not args.skip_igra_preprocess:
+        run_soundings = _import_soundings_preprocessing()
+        if run_soundings is not None:
+            run_soundings(
+                sounding_dir=config.IGRA_RAW_DIR,
+                output_dir=config.IGRA_DAILY_DIR,
+            )
+
+    # ---- NWP Download ----
     if not args.skip_nwp:
         if args.nwp_model == "gfs":
             download_gfs_range(
@@ -145,6 +197,15 @@ def main() -> None:
                 variables=args.nwp_variables,
                 output_dir=config.NWP_RAW_DIR,
                 model=args.nwp_model,
+            )
+
+    # ---- NWP Preprocessing ----
+    if not args.skip_nwp_preprocess:
+        run_nwp = _import_nwp_preprocessing()
+        if run_nwp is not None:
+            run_nwp(
+                nwp_dir=config.NWP_RAW_DIR,
+                output_dir=config.NWP_DAILY_DIR,
             )
 
 

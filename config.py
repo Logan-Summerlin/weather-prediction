@@ -21,7 +21,9 @@ REPORTS_DIR = os.path.join(PROJECT_ROOT, "reports")
 ASOS_RAW_DIR = os.path.join(RAW_DATA_DIR, "asos")
 ASOS_DAILY_DIR = os.path.join(PROCESSED_DATA_DIR, "asos_daily")
 IGRA_RAW_DIR = os.path.join(RAW_DATA_DIR, "igra")
+IGRA_DAILY_DIR = os.path.join(PROCESSED_DATA_DIR, "igra_daily")
 NWP_RAW_DIR = os.path.join(RAW_DATA_DIR, "nwp")
+NWP_DAILY_DIR = os.path.join(PROCESSED_DATA_DIR, "nwp_daily")
 
 # ==============================================================================
 # NOAA Data Source
