@@ -844,7 +844,7 @@ nyc-temp-prediction/
 | Phase | Task | Est. Effort | Status |
 |-------|------|-------------|--------|
 | **Phase 0** | **Multi-source data scale-up (prerequisite)** | | **NOT STARTED** |
-| 0.1 | Download IEM ASOS hourly data (1998–2024) for 14 core stations | 6 hours | NOT STARTED |
+| 0.1 | Download IEM ASOS hourly data (1998–2024) for stations | 6 hours | NOT STARTED |
 | 0.2 | Download IGRA soundings (OKX/Upton, 2000–2024) | 2 hours | NOT STARTED |
 | 0.3 | Download GEFSv12 reforecast (2000–2019) + operational GFS/GEFS (2021–2024) | 6 hours | NOT STARTED |
 | 0.4 | Expand GHCN parsing to PRCP/SNOW/SNWD/AWND | 2 hours | NOT STARTED |
