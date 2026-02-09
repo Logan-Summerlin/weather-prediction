@@ -2,7 +2,8 @@
 NOAA GHCN-Daily Data Collection Module.
 
 Downloads raw .dly files from the NOAA GHCN bulk server and parses
-them into clean CSV files with daily TMAX/TMIN in degrees Fahrenheit.
+them into clean CSV files with daily temperature, precipitation,
+snow, and wind observations in operational units.
 
 GHCN .dly Fixed-Width Format
 -----------------------------
@@ -59,7 +60,15 @@ MISSING_VALUE = -9999
 RECORD_HEADER_LEN = 21  # station(11) + year(4) + month(2) + element(4)
 DAILY_FIELD_WIDTH = 8    # value(5) + mflag(1) + qflag(1) + sflag(1)
 VALUE_WIDTH = 5
-ELEMENTS_OF_INTEREST = {"TMAX", "TMIN"}
+ELEMENTS_OF_INTEREST = {"TMAX", "TMIN", "PRCP", "SNOW", "SNWD", "AWND"}
+ELEMENT_UNITS = {
+    "TMAX": "degF",
+    "TMIN": "degF",
+    "PRCP": "in",
+    "SNOW": "in",
+    "SNWD": "in",
+    "AWND": "mph",
+}
 
 
 # ===========================================================================
@@ -91,6 +100,51 @@ def tenths_c_to_fahrenheit(value_tenths: int) -> float:
     return (value_tenths / 10) * 9 / 5 + 32
 
 
+def tenths_mm_to_inches(value_tenths: int) -> float:
+    """Convert tenths of millimeters to inches.
+
+    GHCN stores PRCP in tenths of mm. SNOW and SNWD are stored in mm.
+    This helper expects a value in tenths of mm and returns inches.
+    """
+    return (value_tenths / 10) / 25.4
+
+
+def mm_to_inches(value_mm: int) -> float:
+    """Convert millimeters to inches."""
+    return value_mm / 25.4
+
+
+def tenths_ms_to_mph(value_tenths: int) -> float:
+    """Convert tenths of meters per second to miles per hour."""
+    return (value_tenths / 10) * 2.236936
+
+
+def convert_element_value(element: str, value_raw: int) -> tuple[float, str]:
+    """Convert raw GHCN element values into operational units.
+
+    Parameters
+    ----------
+    element : str
+        GHCN element name (TMAX, TMIN, PRCP, SNOW, SNWD, AWND).
+    value_raw : int
+        Raw value from the .dly file.
+
+    Returns
+    -------
+    tuple[float, str]
+        Converted value and unit label.
+    """
+    if element in ("TMAX", "TMIN"):
+        return tenths_c_to_fahrenheit(value_raw), ELEMENT_UNITS[element]
+    if element == "PRCP":
+        return tenths_mm_to_inches(value_raw), ELEMENT_UNITS[element]
+    if element in ("SNOW", "SNWD"):
+        return mm_to_inches(value_raw), ELEMENT_UNITS[element]
+    if element == "AWND":
+        return tenths_ms_to_mph(value_raw), ELEMENT_UNITS[element]
+    raise ValueError(f"Unsupported element for conversion: {element}")
+
+
 def parse_dly_line(line: str) -> list[dict]:
     """Parse a single line from a GHCN .dly file.
 
@@ -104,7 +158,7 @@ def parse_dly_line(line: str) -> list[dict]:
     list[dict]
         A list of observation dictionaries, one per valid day in the line.
         Each dict has keys: station_id, date, element, value_raw,
-        value_fahrenheit, mflag, qflag, sflag.
+        value, units, mflag, qflag, sflag.
         Days with missing values (-9999) or failed quality flags are excluded.
     """
     # Strip trailing newline/whitespace but pad if too short
@@ -165,12 +219,15 @@ def parse_dly_line(line: str) -> list[dict]:
             # Shouldn't happen since we checked days_in_month, but be safe
             continue
 
+        value_converted, units = convert_element_value(element, value_raw)
+
         observations.append({
             "station_id": station_id,
             "date": obs_date,
             "element": element,
             "value_raw": value_raw,
-            "value_fahrenheit": tenths_c_to_fahrenheit(value_raw),
+            "value": value_converted,
+            "units": units,
             "mflag": mflag,
             "qflag": qflag,
             "sflag": sflag,
@@ -196,8 +253,9 @@ def parse_dly_file(filepath: str, start_date: Optional[str] = None,
     -------
     pd.DataFrame
         DataFrame with columns: station_id, date, element, value_raw,
-        value_fahrenheit, mflag, qflag, sflag.
-        Filtered to the specified date range and containing only TMAX/TMIN.
+        value, units, mflag, qflag, sflag.
+        Filtered to the specified date range and containing only configured
+        elements.
     """
     if start_date:
         start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -231,7 +289,7 @@ def parse_dly_file(filepath: str, start_date: Optional[str] = None,
     if not all_observations:
         return pd.DataFrame(columns=[
             "station_id", "date", "element", "value_raw",
-            "value_fahrenheit", "mflag", "qflag", "sflag"
+            "value", "units", "mflag", "qflag", "sflag"
         ])
 
     df = pd.DataFrame(all_observations)
@@ -250,7 +308,7 @@ def pivot_station_data(df: pd.DataFrame) -> pd.DataFrame:
     """Pivot parsed .dly data from long to wide format.
 
     Converts from one row per (date, element) to one row per date with
-    separate TMAX and TMIN columns.
+    separate element columns.
 
     Parameters
     ----------
@@ -260,20 +318,21 @@ def pivot_station_data(df: pd.DataFrame) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Wide-format DataFrame with 'date' as index and columns TMAX, TMIN
-        (in Fahrenheit).
+        Wide-format DataFrame with 'date' as index and columns for each
+        configured element.
     """
     if df.empty:
-        return pd.DataFrame(columns=["date", "TMAX", "TMIN"]).set_index("date")
+        empty = pd.DataFrame(columns=["date", *sorted(ELEMENTS_OF_INTEREST)])
+        return empty.set_index("date")
 
     pivot = df.pivot_table(
         index="date",
         columns="element",
-        values="value_fahrenheit",
+        values="value",
         aggfunc="first",  # If duplicates, take the first
     )
     pivot.index.name = "date"
-    return pivot
+    return pivot.reindex(columns=sorted(ELEMENTS_OF_INTEREST))
 
 
 def download_dly_file(station_id: str, output_dir: str,

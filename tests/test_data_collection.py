@@ -25,6 +25,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.data_collection import (
     tenths_c_to_fahrenheit,
+    tenths_mm_to_inches,
+    mm_to_inches,
+    tenths_ms_to_mph,
+    convert_element_value,
     parse_dly_line,
     parse_dly_file,
     pivot_station_data,
@@ -117,6 +121,24 @@ class TestTemperatureConversion:
             assert tenths_c_to_fahrenheit(value) == expected
 
 
+class TestNonTemperatureConversions:
+    """Test conversion helpers for precipitation, snow, and wind."""
+
+    def test_tenths_mm_to_inches(self):
+        assert abs(tenths_mm_to_inches(254) - 1.0) < 0.0001
+
+    def test_mm_to_inches(self):
+        assert abs(mm_to_inches(25.4) - 1.0) < 0.0001
+
+    def test_tenths_ms_to_mph(self):
+        assert abs(tenths_ms_to_mph(10) - 2.236936) < 0.0001
+
+    def test_convert_element_value(self):
+        value, units = convert_element_value("PRCP", 254)
+        assert abs(value - 1.0) < 0.0001
+        assert units == "in"
+
+
 # ===========================================================================
 # .dly Line Parsing Tests
 # ===========================================================================
@@ -141,7 +163,8 @@ class TestParseDlyLine:
         assert obs[0]["date"] == date(2020, 7, 1)
         assert obs[0]["element"] == "TMAX"
         assert obs[0]["value_raw"] == 250
-        assert abs(obs[0]["value_fahrenheit"] - 77.0) < 0.01
+        assert abs(obs[0]["value"] - 77.0) < 0.01
+        assert obs[0]["units"] == "degF"
 
         assert obs[1]["date"] == date(2020, 7, 2)
         assert obs[1]["value_raw"] == 265
@@ -178,12 +201,15 @@ class TestParseDlyLine:
         assert obs[0]["value_raw"] == 200
         assert obs[1]["value_raw"] == 230
 
-    def test_non_temperature_element_ignored(self):
-        """Elements other than TMAX/TMIN should return empty list."""
+    def test_non_temperature_element_parsed(self):
+        """Non-temperature elements should be parsed and converted."""
         values = [(100, " ", " ", "S")]
         line = build_dly_line("USW00094728", 2020, 6, "PRCP", values)
         obs = parse_dly_line(line)
-        assert obs == []
+        assert len(obs) == 1
+        assert obs[0]["element"] == "PRCP"
+        assert abs(obs[0]["value"] - (100 / 10) / 25.4) < 0.0001
+        assert obs[0]["units"] == "in"
 
     def test_tmin_parsed(self):
         """TMIN elements should be parsed correctly."""
@@ -223,7 +249,8 @@ class TestParseDlyLine:
         assert len(obs) == 2
         assert obs[0]["value_raw"] == -150
         # -150 tenths C = -15.0 C = 5.0 F
-        assert abs(obs[0]["value_fahrenheit"] - 5.0) < 0.01
+        assert abs(obs[0]["value"] - 5.0) < 0.01
+        assert obs[0]["units"] == "degF"
 
     def test_empty_line(self):
         """Empty or too-short lines should return empty list."""
@@ -262,7 +289,8 @@ class TestParseDlyLine:
         assert len(obs) == 2
         assert obs[0]["date"] == date(2020, 1, 1)
         assert obs[0]["value_raw"] == 50
-        assert abs(obs[0]["value_fahrenheit"] - 41.0) < 0.01
+        assert abs(obs[0]["value"] - 41.0) < 0.01
+        assert obs[0]["units"] == "degF"
         assert obs[1]["date"] == date(2020, 1, 2)
         assert obs[1]["value_raw"] == -30
 
@@ -325,8 +353,8 @@ class TestParseDlyFile:
         finally:
             os.unlink(filepath)
 
-    def test_non_temperature_elements_excluded(self):
-        """PRCP, SNOW, etc. should not appear in output."""
+    def test_non_temperature_elements_included(self):
+        """PRCP, SNOW, etc. should appear in output."""
         tmax_line = build_dly_line("USW00094728", 2020, 6, "TMAX",
                                    [(250, " ", " ", "S")])
         prcp_line = build_dly_line("USW00094728", 2020, 6, "PRCP",
@@ -337,7 +365,7 @@ class TestParseDlyFile:
         try:
             df = parse_dly_file(filepath, start_date="2020-01-01",
                                 end_date="2022-12-31")
-            assert all(df["element"].isin(["TMAX", "TMIN"]))
+            assert "PRCP" in set(df["element"])
         finally:
             os.unlink(filepath)
 
@@ -376,13 +404,13 @@ class TestPivotStationData:
         """Pivot should create TMAX and TMIN columns from long format."""
         data = pd.DataFrame([
             {"station_id": "ST1", "date": date(2020, 1, 1), "element": "TMAX",
-             "value_raw": 250, "value_fahrenheit": 77.0,
+             "value_raw": 250, "value": 77.0, "units": "degF",
              "mflag": " ", "qflag": " ", "sflag": "S"},
             {"station_id": "ST1", "date": date(2020, 1, 1), "element": "TMIN",
-             "value_raw": 150, "value_fahrenheit": 59.0,
+             "value_raw": 150, "value": 59.0, "units": "degF",
              "mflag": " ", "qflag": " ", "sflag": "S"},
             {"station_id": "ST1", "date": date(2020, 1, 2), "element": "TMAX",
-             "value_raw": 260, "value_fahrenheit": 78.8,
+             "value_raw": 260, "value": 78.8, "units": "degF",
              "mflag": " ", "qflag": " ", "sflag": "S"},
         ])
 
@@ -398,7 +426,7 @@ class TestPivotStationData:
         """Pivoting empty data should return empty DataFrame."""
         data = pd.DataFrame(columns=[
             "station_id", "date", "element", "value_raw",
-            "value_fahrenheit", "mflag", "qflag", "sflag"
+            "value", "units", "mflag", "qflag", "sflag"
         ])
         pivot = pivot_station_data(data)
         assert pivot.empty

@@ -17,6 +17,9 @@ PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed")
 STATIONS_FILE = os.path.join(DATA_DIR, "stations.csv")
 MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
 RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
+ASOS_RAW_DIR = os.path.join(RAW_DATA_DIR, "asos")
+IGRA_RAW_DIR = os.path.join(RAW_DATA_DIR, "igra")
+NWP_RAW_DIR = os.path.join(RAW_DATA_DIR, "nwp")
 
 # ==============================================================================
 # NOAA Data Source
@@ -37,6 +40,18 @@ TARGET_VARIABLE = "TMAX"
 # ==============================================================================
 START_DATE = "1985-01-01"
 END_DATE = "2024-12-31"
+
+# ==============================================================================
+# Operational Data Window (ASOS/IGRA/NWP)
+# ==============================================================================
+ASOS_START_DATE = "1998-01-01"
+ASOS_END_DATE = END_DATE
+IGRA_START_DATE = "2000-01-01"
+IGRA_END_DATE = END_DATE
+IGRA_STATION_ID = "USM00072501"  # Upton/Brookhaven (OKX)
+IGRA_LEVELS_MB = [850.0, 500.0]
+NWP_START_DATE = "2000-01-01"
+NWP_END_DATE = END_DATE
 
 # ==============================================================================
 # Surrounding Input Stations
