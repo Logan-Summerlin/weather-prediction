@@ -1,0 +1,568 @@
+{
+  "timestamp": "2026-02-09T21:25:47.785192",
+  "date_range": {
+    "start": "1998-01-01",
+    "end": "2025-12-31"
+  },
+  "splits": {
+    "train": {
+      "start": "1998-01-01",
+      "end": "2019-12-31",
+      "n_samples": 8034
+    },
+    "val": {
+      "start": "2020-01-01",
+      "end": "2022-12-31",
+      "n_samples": 1096
+    },
+    "is": {
+      "start": "2023-01-01",
+      "end": "2024-12-31",
+      "n_samples": 731
+    },
+    "oos": {
+      "start": "2025-01-01",
+      "end": "2025-12-31",
+      "n_samples": 365
+    }
+  },
+  "features": {
+    "total": 50,
+    "surrounding_stations": 47,
+    "nyc_autoregressive": 1,
+    "date_encoding": 2,
+    "feature_names": [
+      "nyc_tmax_lag1",
+      "USW00014732_tmax_lag1",
+      "USW00094741_tmax_lag1",
+      "USW00014734_tmax_lag1",
+      "USW00094789_tmax_lag1",
+      "USW00054743_tmax_lag1",
+      "USW00094745_tmax_lag1",
+      "USW00054787_tmax_lag1",
+      "USW00054785_tmax_lag1",
+      "USW00054779_tmax_lag1",
+      "USW00054793_tmax_lag1",
+      "USW00004781_tmax_lag1",
+      "USW00054734_tmax_lag1",
+      "USW00094702_tmax_lag1",
+      "USW00004789_tmax_lag1",
+      "USW00014792_tmax_lag1",
+      "USW00054790_tmax_lag1",
+      "USW00014757_tmax_lag1",
+      "USW00014758_tmax_lag1",
+      "USW00054786_tmax_lag1",
+      "USW00014719_tmax_lag1",
+      "USW00094732_tmax_lag1",
+      "USW00093780_tmax_lag1",
+      "USW00054789_tmax_lag1",
+      "USW00014737_tmax_lag1",
+      "USW00013739_tmax_lag1",
+      "USW00054782_tmax_lag1",
+      "USW00093730_tmax_lag1",
+      "USW00014777_tmax_lag1",
+      "USW00013724_tmax_lag1",
+      "USW00014740_tmax_lag1",
+      "USW00014707_tmax_lag1",
+      "USW00014712_tmax_lag1",
+      "USW00054780_tmax_lag1",
+      "USW00014763_tmax_lag1",
+      "USW00014794_tmax_lag1",
+      "USW00054737_tmax_lag1",
+      "USW00054797_tmax_lag1",
+      "USW00014735_tmax_lag1",
+      "USW00054768_tmax_lag1",
+      "USW00004725_tmax_lag1",
+      "USW00054781_tmax_lag1",
+      "USW00054756_tmax_lag1",
+      "USW00014770_tmax_lag1",
+      "USW00014750_tmax_lag1",
+      "USW00093786_tmax_lag1",
+      "USW00014739_tmax_lag1",
+      "USW00014771_tmax_lag1",
+      "sin_day",
+      "cos_day"
+    ]
+  },
+  "stations": {
+    "total_qualifying": 48,
+    "target": "USW00094728",
+    "surrounding_count": 47,
+    "completeness_report": {
+      "USW00094728": {
+        "name": "Central Park, NYC (Target)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00014732": {
+        "name": "LAGUARDIA AP, NY (5mi E)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00094741": {
+        "name": "TETERBORO AP, NJ (7mi NW)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9801,
+        "total_possible_days": 9862,
+        "completeness": 0.9938
+      },
+      "USW00014734": {
+        "name": "NEWARK LIBERTY INTL AP, NJ (12mi SW)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00094789": {
+        "name": "JFK INTL AP, NY (14mi SE)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00054743": {
+        "name": "CALDWELL ESSEX CO AP, NJ (18mi W)",
+        "earliest_date": "1999-06-01",
+        "valid_days_1998_2024": 9297,
+        "total_possible_days": 9862,
+        "completeness": 0.9427
+      },
+      "USW00094745": {
+        "name": "WESTCHESTER CO AP, NY (24mi NE)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9768,
+        "total_possible_days": 9862,
+        "completeness": 0.9905
+      },
+      "USW00054787": {
+        "name": "FARMINGDALE REPUBLIC AP, NY (29mi E)",
+        "earliest_date": "1999-08-03",
+        "valid_days_1998_2024": 9200,
+        "total_possible_days": 9862,
+        "completeness": 0.9329
+      },
+      "USW00054785": {
+        "name": "SOMERSET AP, NJ (38mi W)",
+        "earliest_date": "1999-06-01",
+        "valid_days_1998_2024": 9127,
+        "total_possible_days": 9862,
+        "completeness": 0.9255
+      },
+      "USW00054779": {
+        "name": "AEROFLEX-ANDOVER AP, NJ (43mi W)",
+        "earliest_date": "1998-08-14",
+        "valid_days_1998_2024": 9107,
+        "total_possible_days": 9862,
+        "completeness": 0.9234
+      },
+      "USW00054793": {
+        "name": "SUSSEX AP, NJ (45mi NW)",
+        "earliest_date": "2000-10-01",
+        "valid_days_1998_2024": 8729,
+        "total_possible_days": 9862,
+        "completeness": 0.8851
+      },
+      "USW00004781": {
+        "name": "ISLIP-LI MACARTHUR AP, NY (45mi E)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9861,
+        "total_possible_days": 9862,
+        "completeness": 0.9999
+      },
+      "USW00054734": {
+        "name": "DANBURY MUNI AP, CT (48mi NE)",
+        "earliest_date": "1998-05-11",
+        "valid_days_1998_2024": 9676,
+        "total_possible_days": 9862,
+        "completeness": 0.9811
+      },
+      "USW00094702": {
+        "name": "IGOR I SIKORSKY MEM AP, CT (51mi NE)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00004789": {
+        "name": "MONTGOMERY ORANGE CO AP, NY (53mi N)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9714,
+        "total_possible_days": 9862,
+        "completeness": 0.985
+      },
+      "USW00014792": {
+        "name": "TRENTON-MERCER AP, NJ (56mi SW)",
+        "earliest_date": "1998-03-11",
+        "valid_days_1998_2024": 9793,
+        "total_possible_days": 9862,
+        "completeness": 0.993
+      },
+      "USW00054790": {
+        "name": "SHIRLEY BROOKHAVEN AP, NY (58mi E)",
+        "earliest_date": "1999-10-01",
+        "valid_days_1998_2024": 9158,
+        "total_possible_days": 9862,
+        "completeness": 0.9286
+      },
+      "USW00014757": {
+        "name": "POUGHKEEPSIE AP, NY (59mi N)",
+        "earliest_date": "2000-09-01",
+        "valid_days_1998_2024": 8862,
+        "total_possible_days": 9862,
+        "completeness": 0.8986
+      },
+      "USW00014780": {
+        "name": "MCGUIRE AFB, NJ (62mi SW)",
+        "earliest_date": "1998-01-05",
+        "valid_days_1998_2024": 498,
+        "total_possible_days": 9862,
+        "completeness": 0.0505
+      },
+      "USW00064707": {
+        "name": "OXFORD WATERBURY, CT (65mi NE)",
+        "earliest_date": "2017-08-02",
+        "valid_days_1998_2024": 2640,
+        "total_possible_days": 9862,
+        "completeness": 0.2677
+      },
+      "USW00014758": {
+        "name": "NEW HAVEN TWEED AP, CT (65mi NE)",
+        "earliest_date": "2001-11-01",
+        "valid_days_1998_2024": 8436,
+        "total_possible_days": 9862,
+        "completeness": 0.8554
+      },
+      "USW00054786": {
+        "name": "DOYLESTOWN AP, PA (68mi SW)",
+        "earliest_date": "1999-07-27",
+        "valid_days_1998_2024": 9144,
+        "total_possible_days": 9862,
+        "completeness": 0.9272
+      },
+      "USW00064756": {
+        "name": "MILLBROOK 3 W, NY (71mi N)",
+        "earliest_date": "2004-11-02",
+        "valid_days_1998_2024": 7328,
+        "total_possible_days": 9862,
+        "completeness": 0.7431
+      },
+      "USW00014719": {
+        "name": "WESTHAMPTON GABRESKI AP, NY (71mi E)",
+        "earliest_date": "1998-07-19",
+        "valid_days_1998_2024": 9331,
+        "total_possible_days": 9862,
+        "completeness": 0.9462
+      },
+      "USW00094732": {
+        "name": "NE PHILA AP, PA (73mi SW)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9743,
+        "total_possible_days": 9862,
+        "completeness": 0.9879
+      },
+      "USW00093780": {
+        "name": "S JERSEY RGNL AP, NJ (74mi SW)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9615,
+        "total_possible_days": 9862,
+        "completeness": 0.975
+      },
+      "USW00054746": {
+        "name": "MONTICELLO SULLIVAN, NY (77mi NW)",
+        "earliest_date": "2017-08-10",
+        "valid_days_1998_2024": 1943,
+        "total_possible_days": 9862,
+        "completeness": 0.197
+      },
+      "USW00054789": {
+        "name": "MT POCONO POCONO MOUNTAINS MUN, PA (78mi W)",
+        "earliest_date": "1999-09-29",
+        "valid_days_1998_2024": 9189,
+        "total_possible_days": 9862,
+        "completeness": 0.9318
+      },
+      "USW00014737": {
+        "name": "ALLENTOWN LEHIGH VLY INTL AP, PA (78mi W)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9861,
+        "total_possible_days": 9862,
+        "completeness": 0.9999
+      },
+      "USW00013739": {
+        "name": "PHILA INTL AP, PA (91mi SW)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00054782": {
+        "name": "HERITAGE FLD AP, PA (91mi SW)",
+        "earliest_date": "1999-03-02",
+        "valid_days_1998_2024": 9357,
+        "total_possible_days": 9862,
+        "completeness": 0.9488
+      },
+      "USW00093730": {
+        "name": "ATLANTIC CITY INTL AP, NJ (97mi S)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00014777": {
+        "name": "WILKES-BARRE/SCRANTON INTL AP, PA (99mi NW)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9854,
+        "total_possible_days": 9862,
+        "completeness": 0.9992
+      },
+      "USW00013724": {
+        "name": "ATLANTIC CITY MARINA, NJ (100mi S)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9852,
+        "total_possible_days": 9862,
+        "completeness": 0.999
+      },
+      "USW00014740": {
+        "name": "HARTFORD-BRADLEY INTL AP, CT (104mi NE)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00014707": {
+        "name": "GROTON NEW LONDON AP, CT (107mi E)",
+        "earliest_date": "1999-12-10",
+        "valid_days_1998_2024": 9102,
+        "total_possible_days": 9862,
+        "completeness": 0.9229
+      },
+      "USW00014712": {
+        "name": "READING RGNL AP, PA (108mi W)",
+        "earliest_date": "1999-02-12",
+        "valid_days_1998_2024": 9454,
+        "total_possible_days": 9862,
+        "completeness": 0.9586
+      },
+      "USW00054780": {
+        "name": "MONTAUK AP, NY (109mi E)",
+        "earliest_date": "1998-11-01",
+        "valid_days_1998_2024": 9222,
+        "total_possible_days": 9862,
+        "completeness": 0.9351
+      },
+      "USW00014763": {
+        "name": "PITTSFIELD MUNI AP, MA (119mi N)",
+        "earliest_date": "1999-02-01",
+        "valid_days_1998_2024": 9435,
+        "total_possible_days": 9862,
+        "completeness": 0.9567
+      },
+      "USW00014794": {
+        "name": "WESTERLY STATE AP, RI (119mi E)",
+        "earliest_date": "1999-07-27",
+        "valid_days_1998_2024": 9229,
+        "total_possible_days": 9862,
+        "completeness": 0.9358
+      },
+      "USW00054737": {
+        "name": "LANCASTER AP, PA (130mi W)",
+        "earliest_date": "1999-03-16",
+        "valid_days_1998_2024": 9380,
+        "total_possible_days": 9862,
+        "completeness": 0.9511
+      },
+      "USW00054797": {
+        "name": "KINGSTON 1 W, RI (135mi E)",
+        "earliest_date": "2001-12-17",
+        "valid_days_1998_2024": 8282,
+        "total_possible_days": 9862,
+        "completeness": 0.8398
+      },
+      "USW00014735": {
+        "name": "ALBANY INTL AP, NY (136mi N)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00013707": {
+        "name": "DOVER AFB, DE (139mi SW)",
+        "earliest_date": "2025-01-01",
+        "valid_days_1998_2024": 0,
+        "total_possible_days": 9862,
+        "completeness": 0.0
+      },
+      "USW00054768": {
+        "name": "N ADAMS HARRIMAN AP, MA (139mi N)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9757,
+        "total_possible_days": 9862,
+        "completeness": 0.9894
+      },
+      "USW00004725": {
+        "name": "BINGHAMTON, NY (143mi NW)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9860,
+        "total_possible_days": 9862,
+        "completeness": 0.9998
+      },
+      "USW00054781": {
+        "name": "BENNINGTON MORSE STATE AP, VT (151mi N)",
+        "earliest_date": "1998-12-05",
+        "valid_days_1998_2024": 9446,
+        "total_possible_days": 9862,
+        "completeness": 0.9578
+      },
+      "USW00054756": {
+        "name": "ORANGE MUNI AP, MA (151mi NE)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9729,
+        "total_possible_days": 9862,
+        "completeness": 0.9865
+      },
+      "USW00014770": {
+        "name": "SELINSGROVE PENN VALLEY AP, PA (152mi W)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9797,
+        "total_possible_days": 9862,
+        "completeness": 0.9934
+      },
+      "USW00014750": {
+        "name": "GLENS FALLS AP, NY (178mi N)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9845,
+        "total_possible_days": 9862,
+        "completeness": 0.9983
+      },
+      "USW00093786": {
+        "name": "OCEAN CITY MUNI AP, MD (181mi S)",
+        "earliest_date": "1999-09-01",
+        "valid_days_1998_2024": 9077,
+        "total_possible_days": 9862,
+        "completeness": 0.9204
+      },
+      "USW00014739": {
+        "name": "BOSTON, MA (188mi NE)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9862,
+        "total_possible_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00014771": {
+        "name": "SYRACUSE HANCOCK INTL AP, NY (195mi NW)",
+        "earliest_date": "1998-01-01",
+        "valid_days_1998_2024": 9860,
+        "total_possible_days": 9862,
+        "completeness": 0.9998
+      }
+    }
+  },
+  "nn": {
+    "architecture": [
+      128,
+      64
+    ],
+    "dropout": 0.0,
+    "learning_rate": 0.001,
+    "batch_size": 128,
+    "loss": "HuberLoss(delta=1.0)",
+    "best_epoch": 112,
+    "total_epochs": 132,
+    "total_params": 14849,
+    "elapsed_seconds": 64.3,
+    "metrics": {
+      "train": {
+        "mae": 4.3369,
+        "rmse": 5.7124
+      },
+      "val": {
+        "mae": 4.435,
+        "rmse": 5.8304
+      },
+      "is": {
+        "mae": 4.4428,
+        "rmse": 5.7139
+      },
+      "oos": {
+        "mae": 4.5614,
+        "rmse": 5.9869
+      }
+    },
+    "is_metrics": {
+      "mae": 4.4428,
+      "rmse": 5.7139,
+      "n": 731
+    },
+    "oos_metrics": {
+      "mae": 4.5614,
+      "rmse": 5.9869,
+      "n": 365
+    }
+  },
+  "ridge": {
+    "alpha": 1.0,
+    "metrics": {
+      "train": {
+        "mae": 4.6336,
+        "rmse": 6.0045
+      },
+      "val": {
+        "mae": 4.646,
+        "rmse": 6.0995
+      },
+      "is": {
+        "mae": 4.4769,
+        "rmse": 5.7731
+      },
+      "oos": {
+        "mae": 4.5999,
+        "rmse": 6.0371
+      }
+    },
+    "is_metrics": {
+      "mae": 4.4769,
+      "rmse": 5.7731,
+      "n": 731
+    },
+    "oos_metrics": {
+      "mae": 4.5999,
+      "rmse": 6.0371,
+      "n": 365
+    }
+  },
+  "sigma": {
+    "nn_sigma": {
+      "1": 6.5591,
+      "2": 6.2645,
+      "3": 7.7327,
+      "4": 6.7813,
+      "5": 6.3443,
+      "6": 5.2417,
+      "7": 4.4126,
+      "8": 4.1399,
+      "9": 4.2896,
+      "10": 4.7407,
+      "11": 5.088,
+      "12": 6.848
+    },
+    "ridge_sigma": {
+      "1": 6.7333,
+      "2": 6.938,
+      "3": 8.1664,
+      "4": 7.172,
+      "5": 6.2262,
+      "6": 5.3653,
+      "7": 4.434,
+      "8": 4.3071,
+      "9": 4.3087,
+      "10": 4.8508,
+      "11": 5.6177,
+      "12": 7.2608
+    }
+  }
+}
