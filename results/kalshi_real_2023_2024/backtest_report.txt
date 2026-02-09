@@ -1,0 +1,64 @@
+==============================================================================
+  KALSHI KXHIGHNY BACKTEST REPORT -- In-Sample 2023-2024
+==============================================================================
+
+--- DATA SUMMARY ---
+  Total market rows: 5,117
+  Unique trading days: 731
+  TMAX range: 18.0F to 103.1F
+  TMAX mean: 62.2F
+
+--- BRIER SCORE COMPARISON (Model vs Market) ---
+  Model Brier score:  0.0683
+  Market Brier score: 0.0723
+  Delta:              -0.0040 (MODEL BETTER)
+  N samples:          5,117
+  Model edge:         5.5% better Brier score
+
+--- SEASONAL EDGE ANALYSIS ---
+  Winter  : Brier delta=-0.0047 (MODEL+), |prob_delta|=0.0441, n=1267
+  Spring  : Brier delta=-0.0036 (MODEL+), |prob_delta|=0.0453, n=1288
+  Summer  : Brier delta=-0.0033 (MODEL+), |prob_delta|=0.0469, n=1288
+  Fall    : Brier delta=-0.0044 (MODEL+), |prob_delta|=0.0453, n=1274
+
+--- STRATEGY GRID RESULTS ---
+  Total strategies evaluated: 448
+  Strategies with trades: 448
+  Profitable strategies: 448
+  Mean P&L: $2809.92
+  Median P&L: $3082.69
+  Std P&L: $1597.51
+  % Profitable: 100.0%
+
+--- TOP 5 STRATEGIES BY P&L ---
+  S0004_ev0.01_proportional_kf0.05_fee0.07_mp0.05_br10000: PnL=$4650.39, ROI=46.5%, Sharpe=2.88, WR=55%, DD=$161, N=1497
+  S0005_ev0.01_proportional_kf0.05_fee0.07_mp0.10_br10000: PnL=$4650.39, ROI=46.5%, Sharpe=2.88, WR=55%, DD=$161, N=1497
+  S0006_ev0.01_proportional_kf0.05_fee0.07_mp0.15_br10000: PnL=$4650.39, ROI=46.5%, Sharpe=2.88, WR=55%, DD=$161, N=1497
+  S0007_ev0.01_proportional_kf0.05_fee0.07_mp0.20_br10000: PnL=$4650.39, ROI=46.5%, Sharpe=2.88, WR=55%, DD=$161, N=1497
+  S0028_ev0.01_fractional_kelly_kf0.50_fee0.07_mp0.05_br10000: PnL=$4650.39, ROI=46.5%, Sharpe=2.88, WR=55%, DD=$161, N=1497
+
+--- TOP 5 STRATEGIES BY SHARPE RATIO ---
+  S0396_ev0.15_proportional_kf0.05_fee0.07_mp0.05_br10000: Sharpe=7.77, PnL=$473.74, WR=58%, DD=$34, N=52
+  S0397_ev0.15_proportional_kf0.05_fee0.07_mp0.10_br10000: Sharpe=7.77, PnL=$473.74, WR=58%, DD=$34, N=52
+  S0398_ev0.15_proportional_kf0.05_fee0.07_mp0.15_br10000: Sharpe=7.77, PnL=$473.74, WR=58%, DD=$34, N=52
+  S0399_ev0.15_proportional_kf0.05_fee0.07_mp0.20_br10000: Sharpe=7.77, PnL=$473.74, WR=58%, DD=$34, N=52
+  S0400_ev0.15_fractional_kelly_kf0.05_fee0.07_mp0.05_br10000: Sharpe=7.77, PnL=$473.74, WR=58%, DD=$34, N=52
+
+--- SELECTED BEST STRATEGY ---
+  Selection reason: best_pnl_near_top_sharpe
+  Name: S0340_ev0.10_proportional_kf0.05_fee0.07_mp0.05_br10000
+  EV threshold: 0.1
+  Sizing method: proportional
+  Kelly fraction: 0.05
+  Fee rate: 0.07
+  Max position: 0.05
+  Bankroll: $10000
+  ---
+  Total P&L: $1310.09
+  ROI: 13.1%
+  Sharpe ratio: 5.54
+  Max drawdown: $76.16
+  Win rate: 58.1%
+  N trades: 198
+
+==============================================================================
