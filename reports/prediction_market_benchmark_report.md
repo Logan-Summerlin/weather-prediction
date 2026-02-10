@@ -13,11 +13,46 @@ Test our neural network temperature prediction model against two independent ben
 
 ### Kalshi Pre-Settlement Data
 - **Source:** Kalshi public API candlestick endpoint (no authentication required)
-- **Method:** 1-hour candlesticks, last candle before market close (~04:00-05:00 UTC)
+- **Method:** 1-hour candlesticks, last candle before the overnight dead zone
 - **Pre-settlement probability:** Bid/ask midpoint from last available candle
 - **Coverage:** 4,611 market rows across 769 dates (2023-01-01 to 2025-02-09)
 - **Markets per date:** ~6 binary contracts (above/below/between temperature brackets)
 - **Script:** `scripts/fetch_kalshi_presettlement.py`
+
+#### Kalshi Market Schedule & Snapshot Timing
+
+The KXHIGHNY market for day t follows this lifecycle:
+
+| Event | Time | Description |
+|-------|------|-------------|
+| Market opens | 10:00 AM ET, day t-1 | Trading begins |
+| **Our snapshot window** | **5:00 PM – 12:30 AM ET, day t-1 evening** | **Last activity before overnight dead zone** |
+| Dead zone | ~3:00 AM – 8:00 AM ET, day t | Zero trading activity; API returns no candles |
+| Morning trading resumes | ~8:00-10:00 AM ET, day t | Thin liquidity; day-of weather starts to influence prices |
+| Heavy repricing | 12:00-3:00 PM ET, day t | Market incorporates real-time temperature observations |
+| Market closes | 11:59 PM ET, day t | Final trading |
+| Settlement | ~10:00 AM ET, day t+1 | Settled against official NWS Daily Climate Report |
+
+**Snapshot verification (4,286 rows with timestamps):**
+
+| UTC Time | ET Time (evening of day t-1) | Rows | % |
+|----------|------------------------------|------|---|
+| 22:00 UTC (day t-1) | 5:00 PM ET | 64 | 1.5% |
+| 23:00 UTC (day t-1) | 6:00 PM ET | 68 | 1.6% |
+| 00:00 UTC (day t) | 7:00 PM ET | 97 | 2.3% |
+| 01:00 UTC (day t) | 8:00 PM ET | 118 | 2.8% |
+| 02:00 UTC (day t) | 9:00 PM ET | 271 | 6.3% |
+| 03:00 UTC (day t) | 10:00 PM ET | 448 | 10.5% |
+| 04:00 UTC (day t) | 11:00 PM ET | 799 | 18.6% |
+| 05:00 UTC (day t) | 12:00 AM ET (midnight) | 2,421 | 56.5% |
+
+**All snapshots are from the evening/night of day t-1** — 6 to 18 hours before peak daytime temperature is observed on day t. Zero rows come from daytime on day t. This means the pre-settlement prices reflect a genuine overnight forecast consensus, with no contamination from day-of temperature observations.
+
+Note: 325 rows (7%) had no candlestick data at all (empty presettlement_prob), typically on dates with very low market liquidity.
+
+#### Why Not 6:00 AM ET?
+
+The user's original target was a 6am ET snapshot (18 hours before midnight close). Investigation confirmed that 6am ET falls in a **dead zone** (~3am-8am ET) with zero trading activity. The API returns no candles during this window. The midnight ET snapshot is the latest available genuine pre-observation price.
 
 ### NWS/MOS Probability Distribution
 - **Source:** MOS (Model Output Statistics) ensemble forecasts from IEM archive

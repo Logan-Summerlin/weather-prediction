@@ -14,6 +14,23 @@ This report compares our neural network temperature prediction model against two
 - IS period (2023-2024): 4,046 observations
 - OOS period (2025): 215 observations
 
+### Kalshi Market Schedule & Snapshot Timing
+
+The KXHIGHNY market for a given observation day t is open from **10:00 AM ET on day t-1** through **11:59 PM ET on day t** (~38 hours). Settlement occurs the following morning (~10:00 AM ET, day t+1) against the official NWS Daily Climate Report.
+
+Our "pre-settlement" snapshots capture the **last available candlestick from the evening/night of day t-1**, specifically from the window 5:00 PM ET (day t-1) through 12:30 AM ET (day t). This is 6-18 hours before the peak daytime temperature is observed on day t.
+
+**Verified snapshot distribution (4,286 rows with timestamps):**
+
+| ET Time (evening of day t-1) | Rows | % |
+|------------------------------|------|---|
+| 5:00-6:00 PM | 132 | 3.1% |
+| 7:00-9:00 PM | 486 | 11.3% |
+| 10:00-11:00 PM | 1,247 | 29.1% |
+| 12:00 AM (midnight) | 2,421 | 56.5% |
+
+**Zero snapshots come from daytime on day t.** A dead zone from ~3am-8am ET (no trading activity) separates our overnight snapshots from the next day's trading. This confirms the pre-settlement prices are genuine overnight forecasts with no contamination from day-of temperature observations.
+
 ## 1. Brier Score Comparison (lower = better)
 
 ### Overall
