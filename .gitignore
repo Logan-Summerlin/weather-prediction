@@ -39,3 +39,7 @@ models/
 # OS
 .DS_Store
 Thumbs.db
+# Generated model artifacts (binary; do not commit in PRs)
+results/phase1_combined/*.pt
+results/phase1_combined/*.pkl
+

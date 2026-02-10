@@ -22,21 +22,21 @@ This report compares our neural network temperature prediction model against two
 |--------|-------------|-----------|---|
 | Kalshi_Settled | 0.0181 | 0.0711 | 6,204 |
 | Kalshi_PreSettlement | 0.1271 | 0.3882 | 6,204 |
-| Model | 0.1335 | 0.4228 | 6,204 |
 | NWS | 0.1418 | 0.4499 | 6,204 |
+| Model | 0.1816 | 0.5829 | 6,204 |
 
 ### By Period
 
 | Period | Source | Brier Score | Log Score | N |
 |--------|--------|-------------|-----------|---|
 | IS | Kalshi_Settled | 0.0266 | 0.0999 | 4,046 |
-| IS | Model | 0.1353 | 0.4276 | 4,046 |
 | IS | Kalshi_PreSettlement | 0.1421 | 0.4304 | 4,046 |
 | IS | NWS | 0.1431 | 0.4546 | 4,046 |
+| IS | Model | 0.1825 | 0.5828 | 4,046 |
 | OOS | Kalshi_Settled | 0.0021 | 0.0171 | 2,158 |
 | OOS | Kalshi_PreSettlement | 0.0988 | 0.3093 | 2,158 |
-| OOS | Model | 0.1302 | 0.4139 | 2,158 |
 | OOS | NWS | 0.1393 | 0.4411 | 2,158 |
+| OOS | Model | 0.1798 | 0.5830 | 2,158 |
 
 ### By Season
 
@@ -44,20 +44,20 @@ This report compares our neural network temperature prediction model against two
 |--------|--------|-------------|-----------|---|
 | Winter | Kalshi_Settled | 0.0180 | 0.0668 | 1,511 |
 | Winter | Kalshi_PreSettlement | 0.1173 | 0.3633 | 1,511 |
-| Winter | Model | 0.1307 | 0.4148 | 1,511 |
 | Winter | NWS | 0.1409 | 0.4474 | 1,511 |
+| Winter | Model | 0.1798 | 0.5743 | 1,511 |
 | Spring | Kalshi_Settled | 0.0107 | 0.0513 | 1,605 |
 | Spring | Kalshi_PreSettlement | 0.1358 | 0.4113 | 1,605 |
-| Spring | Model | 0.1392 | 0.4468 | 1,605 |
 | Spring | NWS | 0.1422 | 0.4545 | 1,605 |
+| Spring | Model | 0.1910 | 0.6260 | 1,605 |
 | Summer | Kalshi_Settled | 0.0174 | 0.0725 | 1,603 |
-| Summer | Model | 0.1302 | 0.4080 | 1,603 |
 | Summer | Kalshi_PreSettlement | 0.1319 | 0.4058 | 1,603 |
 | Summer | NWS | 0.1398 | 0.4421 | 1,603 |
+| Summer | Model | 0.1732 | 0.5499 | 1,603 |
 | Fall | Kalshi_Settled | 0.0270 | 0.0956 | 1,485 |
 | Fall | Kalshi_PreSettlement | 0.1222 | 0.3698 | 1,485 |
-| Fall | Model | 0.1338 | 0.4210 | 1,485 |
 | Fall | NWS | 0.1444 | 0.4560 | 1,485 |
+| Fall | Model | 0.1822 | 0.5805 | 1,485 |
 
 ### By Bucket Direction
 
@@ -65,16 +65,16 @@ This report compares our neural network temperature prediction model against two
 |-----------|--------|-------------|-----------|---|
 | below | Kalshi_Settled | 0.0045 | 0.0276 | 931 |
 | below | Kalshi_PreSettlement | 0.0511 | 0.1788 | 931 |
-| below | Model | 0.0593 | 0.2169 | 931 |
 | below | NWS | 0.0810 | 0.2906 | 931 |
+| below | Model | 0.1587 | 0.4903 | 931 |
 | between | Kalshi_Settled | 0.0228 | 0.0844 | 4,248 |
 | between | Kalshi_PreSettlement | 0.1549 | 0.4645 | 4,248 |
-| between | Model | 0.1594 | 0.4952 | 4,248 |
 | between | NWS | 0.1650 | 0.5126 | 4,248 |
+| between | Model | 0.1808 | 0.5939 | 4,248 |
 | above | Kalshi_Settled | 0.0109 | 0.0557 | 1,025 |
 | above | Kalshi_PreSettlement | 0.0809 | 0.2625 | 1,025 |
-| above | Model | 0.0936 | 0.3099 | 1,025 |
 | above | NWS | 0.1007 | 0.3349 | 1,025 |
+| above | Model | 0.2055 | 0.6214 | 1,025 |
 
 ## 2. Calibration Analysis
 
@@ -83,9 +83,9 @@ This report compares our neural network temperature prediction model against two
 | Source | ECE |
 |--------|-----|
 | Kalshi_Settled | 0.0174 |
-| Model | 0.0230 |
 | NWS | 0.0324 |
 | Kalshi_PreSettlement | 0.0557 |
+| Model | 0.1445 |
 
 ### Reliability Diagram Data (10 bins)
 
@@ -93,16 +93,16 @@ This report compares our neural network temperature prediction model against two
 
 | Bin | Mean Predicted | Mean Observed | Count |
 |-----|---------------|---------------|-------|
-| 0.05 | 0.041 | 0.050 | 2027 |
-| 0.15 | 0.150 | 0.135 | 1471 |
-| 0.25 | 0.249 | 0.259 | 1816 |
-| 0.35 | 0.345 | 0.329 | 611 |
-| 0.45 | 0.435 | 0.257 | 109 |
-| 0.55 | 0.548 | 0.361 | 72 |
-| 0.65 | 0.649 | 0.114 | 35 |
-| 0.75 | 0.742 | 0.387 | 31 |
-| 0.85 | 0.844 | 0.500 | 20 |
-| 0.95 | 0.945 | 0.583 | 12 |
+| 0.05 | 0.057 | 0.162 | 2385 |
+| 0.15 | 0.138 | 0.212 | 2609 |
+| 0.25 | 0.238 | 0.116 | 319 |
+| 0.35 | 0.349 | 0.106 | 217 |
+| 0.45 | 0.450 | 0.070 | 200 |
+| 0.55 | 0.552 | 0.061 | 147 |
+| 0.65 | 0.648 | 0.039 | 129 |
+| 0.75 | 0.746 | 0.070 | 86 |
+| 0.85 | 0.848 | 0.121 | 66 |
+| 0.95 | 0.948 | 0.326 | 46 |
 
 **Kalshi_PreSettlement**
 
@@ -157,21 +157,21 @@ Fee rate: 7% on winnings
 
 | Period | Threshold | Trades | Win Rate | Net P&L | ROI% | Sharpe |
 |--------|-----------|--------|----------|---------|------|--------|
-| All | 0.02 | 5183 | 48.0% | $104.31 | 4.7% | 0.059 |
-| IS | 0.02 | 3472 | 54.9% | $152.92 | 9.4% | 0.124 |
-| OOS | 0.02 | 1711 | 34.0% | $-48.61 | -8.2% | -0.090 |
-| All | 0.05 | 4215 | 48.1% | $145.25 | 8.3% | 0.097 |
-| IS | 0.05 | 2819 | 55.6% | $180.67 | 14.2% | 0.174 |
-| OOS | 0.05 | 1396 | 33.1% | $-35.42 | -7.6% | -0.078 |
-| All | 0.10 | 3013 | 50.0% | $170.02 | 13.8% | 0.150 |
-| IS | 0.10 | 1989 | 58.7% | $201.58 | 22.8% | 0.267 |
-| OOS | 0.10 | 1024 | 33.3% | $-31.56 | -9.1% | -0.088 |
-| All | 0.15 | 2109 | 52.9% | $178.02 | 20.7% | 0.220 |
-| IS | 0.15 | 1446 | 62.0% | $195.46 | 30.6% | 0.354 |
-| OOS | 0.15 | 663 | 33.0% | $-17.45 | -7.9% | -0.073 |
-| All | 0.20 | 1478 | 56.2% | $174.06 | 29.1% | 0.305 |
-| IS | 0.20 | 1065 | 65.5% | $185.06 | 39.9% | 0.457 |
-| OOS | 0.20 | 413 | 32.0% | $-11.01 | -8.2% | -0.073 |
+| All | 0.02 | 5654 | 46.7% | $-1.05 | -0.0% | -0.001 |
+| IS | 0.02 | 3713 | 53.0% | $49.43 | 2.8% | 0.037 |
+| OOS | 0.02 | 1941 | 34.7% | $-50.48 | -7.5% | -0.087 |
+| All | 0.05 | 5018 | 46.7% | $19.80 | 0.9% | 0.011 |
+| IS | 0.05 | 3298 | 52.9% | $63.00 | 4.0% | 0.052 |
+| OOS | 0.05 | 1720 | 34.8% | $-43.21 | -7.2% | -0.081 |
+| All | 0.10 | 3999 | 48.2% | $53.29 | 3.1% | 0.036 |
+| IS | 0.10 | 2653 | 54.0% | $85.30 | 6.8% | 0.083 |
+| OOS | 0.10 | 1346 | 36.5% | $-32.02 | -6.5% | -0.071 |
+| All | 0.15 | 3301 | 48.1% | $71.51 | 5.1% | 0.057 |
+| IS | 0.15 | 2224 | 53.5% | $101.53 | 10.1% | 0.116 |
+| OOS | 0.15 | 1077 | 37.0% | $-30.02 | -7.5% | -0.079 |
+| All | 0.20 | 2733 | 46.8% | $79.99 | 7.2% | 0.075 |
+| IS | 0.20 | 1847 | 52.9% | $111.42 | 14.0% | 0.151 |
+| OOS | 0.20 | 886 | 34.1% | $-31.43 | -10.1% | -0.100 |
 
 ### NWS as Signal
 
@@ -196,14 +196,14 @@ Fee rate: 7% on winnings
 ## 4. Key Findings
 
 - **Best overall Brier score**: Kalshi_Settled (0.0181)
-- Model Brier: 0.1335
+- Model Brier: 0.1816
 - NWS Brier: 0.1418
 - Pre-settlement market Brier: 0.1271
 
-- Model BEATS NWS by 0.0083 Brier points
-- Pre-settlement market BEATS Model by 0.0065 Brier points
+- NWS BEATS Model by 0.0398 Brier points
+- Pre-settlement market BEATS Model by 0.0545 Brier points
 
-- Best Model trading: threshold=0.10, P&L=$201.58, ROI=22.8%, 1989 trades (Model_IS)
+- Best Model trading: threshold=0.20, P&L=$111.42, ROI=14.0%, 1847 trades (Model_IS)
 - Best NWS trading: threshold=0.15, P&L=$178.15, ROI=25.5%, 1626 trades (NWS_IS)
 
 ## 5. Pre-Settlement vs Settled Market Comparison
