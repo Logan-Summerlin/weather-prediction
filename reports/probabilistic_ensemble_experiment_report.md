@@ -209,3 +209,33 @@ Under a fixed-data constraint, the best expected return is:
 4) then only selective distribution-head complexity.
 
 This path typically yields better real-world probability quality and more reliable downstream decision-making than simply increasing network depth or feature count.
+
+
+---
+
+## 11) Implementation run results (executed)
+
+Implemented and executed all experiments E0-E8 via `scripts/probabilistic_ensemble_experiments_v2.py`.
+Outputs are stored under `results/probabilistic_ensemble_experiments/`.
+
+### Test-period benchmark summary (2024 holdout)
+
+| Experiment | CRPS | NLL | MAE | Bucket Brier | Bucket Log |
+|---|---:|---:|---:|---:|---:|
+| E8 Feature pruning sweep (best) | 2.579 | 3.186 | 2.204 | 0.0595 | 0.9942 |
+| E3 Weighted ensemble + E4 uncertainty | 2.939 | 3.368 | 2.292 | 0.0667 | 1.1362 |
+| E7 Regularization sweep | 2.959 | 3.358 | 2.465 | 0.0663 | 1.1333 |
+| E0 Baseline 5-seed ensemble | 3.038 | 3.409 | 2.315 | 0.0683 | 1.1706 |
+| E2 Seasonal calibration | 3.038 | 3.409 | 2.315 | 0.0347 | 0.5895 |
+| E1 Global isotonic calibration | 3.038 | 3.409 | 2.315 | 0.0331 | 0.5417 |
+| E6 Quantile model | 3.605 | 3.341 | 4.970 | 0.0676 | 1.1515 |
+| E5 2-component Gaussian mixture | 8.446 | 4.185 | 11.831 | 0.0962 | 1.9373 |
+
+### Key outcomes
+
+- Best CRPS experiment: **E8 Feature pruning sweep**.
+- CRPS improvement vs E0 baseline: **15.11%**.
+- Calibration experiments (E1/E2) gave the strongest bucket-score gains.
+- E5/E6 richer distribution heads underperformed in this fixed-data setup and are currently No-Go.
+
+See `results/probabilistic_ensemble_experiments/summary.csv` and `benchmark_results.json` for exact machine-readable outputs.

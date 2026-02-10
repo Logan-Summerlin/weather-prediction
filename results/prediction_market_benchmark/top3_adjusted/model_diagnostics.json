@@ -1,0 +1,20 @@
+{
+  "E8_feature_pruning": {
+    "selected_feature_set": "no_mos_spread"
+  },
+  "E3E4_weighted_uncertainty": {
+    "ensemble_weights": [
+      0.13700727682359537,
+      0.13231430455124923,
+      0.1264465881661971,
+      0.4743167407459957,
+      0.12991508971296253
+    ]
+  },
+  "E7_regularized": {
+    "dropout": 0.15,
+    "weight_decay": 0.0001,
+    "grouped_dropout": false,
+    "crps": 3.0776498317718506
+  }
+}
