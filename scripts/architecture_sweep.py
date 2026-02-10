@@ -573,18 +573,25 @@ def save_results(results):
         json.dump(results, f, indent=2)
 
 
+def _normalize_config_key(cfg_dict):
+    """Create a normalized key for dedup. Handles architecture as list or string."""
+    arch = cfg_dict["architecture"]
+    if isinstance(arch, str):
+        arch = eval(arch)  # Convert "[64, 32]" string to list
+    return json.dumps({
+        "architecture": arch,
+        "dropout": cfg_dict["dropout"],
+        "loss": cfg_dict["loss"],
+        "lr": cfg_dict["lr"],
+        "batch_size": cfg_dict["batch_size"],
+        "batch_norm": cfg_dict["batch_norm"],
+    }, sort_keys=True)
+
+
 def completed_keys(results):
     keys = set()
     for r in results:
-        k = json.dumps({
-            "architecture": r["architecture"],
-            "dropout": r["dropout"],
-            "loss": r["loss"],
-            "lr": r["lr"],
-            "batch_size": r["batch_size"],
-            "batch_norm": r["batch_norm"],
-        }, sort_keys=True)
-        keys.add(k)
+        keys.add(_normalize_config_key(r))
     return keys
 
 
@@ -638,7 +645,7 @@ def cmd_sweep(time_limit=540):
 
     remaining = []
     for c in all_configs:
-        k = json.dumps(c, sort_keys=True)
+        k = _normalize_config_key(c)
         if k not in done_keys:
             remaining.append(c)
 
