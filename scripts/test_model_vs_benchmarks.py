@@ -29,6 +29,8 @@ PROB_CLIP_MAX = 0.999
 TRADING_THRESHOLDS = [0.02, 0.05, 0.10, 0.15, 0.20]
 OUTPUT_DIR = Path("results/prediction_market_benchmark")
 N_CAL_BINS = 10
+TRADING_DAYS_PER_YEAR = 252
+N_BOOTSTRAP = 50
 
 DEFAULT_MODEL_IS = "data/best_model_predictions_2023_2024.csv"
 DEFAULT_MODEL_OOS = "data/best_model_predictions_2025.csv"
@@ -57,13 +59,12 @@ def load_all_data(model_is_path=DEFAULT_MODEL_IS, model_oos_path=DEFAULT_MODEL_O
     model = pd.concat([model_is, model_oos], ignore_index=True)
 
     nws = pd.read_csv("results/prediction_market_benchmark/nws_probability_forecasts.csv")
-    cp_tmax = pd.read_csv("data/central_park_tmax_full_history.csv")
 
     print(f"  Pre-settlement: {len(pre)} rows, {pre['date'].nunique()} dates")
     print(f"  Settled:        {len(settled)} rows, {settled['date'].nunique()} dates")
     print(f"  Model preds:    {len(model)} rows (IS={model_is_path}, OOS={model_oos_path})")
     print(f"  NWS forecasts:  {len(nws)} rows")
-    return pre, settled, model, nws, cp_tmax
+    return pre, settled, model, nws
 
 
 def build_merged_dataset(pre, settled, model, nws):
@@ -186,6 +187,18 @@ def add_all_probabilities(df):
     print(f"  NWS prob range:   [{df['nws_prob'].min():.4f}, {df['nws_prob'].max():.4f}]")
     print(f"  Pre-settlement range: [{df['presettlement_prob'].min():.4f}, {df['presettlement_prob'].max():.4f}]")
     return df
+
+
+def validate_bucket_probability_mass(df, prob_col, tolerance=0.05):
+    """Check whether per-date bucket probabilities sum to ~1.0."""
+    mass = (
+        df.groupby("date", as_index=False)[prob_col]
+        .sum()
+        .rename(columns={prob_col: "prob_sum"})
+    )
+    mass["deviation"] = mass["prob_sum"] - 1.0
+    mass["within_tolerance"] = mass["deviation"].abs() <= tolerance
+    return mass
 
 
 # ==============================================================================
@@ -373,18 +386,22 @@ def run_trading_sim(df, signal_col, market_col, threshold, label):
             "roi_pct": 0,
             "win_rate": 0,
             "avg_edge": 0,
-            "sharpe": 0
+            "sharpe": 0,
+            "annualized_sharpe": 0
         }
 
-    # YES trades
-    yes_cost = market[buy_yes]
+    ask = df["ask_cents"].fillna(df[market_col] * 100).values / 100.0
+    bid = df["bid_cents"].fillna(df[market_col] * 100).values / 100.0
+
+    # YES trades: cross ask
+    yes_cost = ask[buy_yes]
     yes_wins = outcome[buy_yes] == 1
     yes_payout = np.where(yes_wins, 1.0, 0.0)
     yes_fees = yes_payout * FEE_RATE
     yes_net = yes_payout - yes_fees - yes_cost
 
-    # NO trades
-    no_cost = 1.0 - market[buy_no]
+    # NO trades: cross (1 - bid)
+    no_cost = 1.0 - bid[buy_no]
     no_wins = outcome[buy_no] == 0
     no_payout = np.where(no_wins, 1.0, 0.0)
     no_fees = no_payout * FEE_RATE
@@ -402,6 +419,7 @@ def run_trading_sim(df, signal_col, market_col, threshold, label):
     win_rate = all_wins.mean() if len(all_wins) > 0 else 0
     avg_edge = np.abs(edge[buy_yes | buy_no]).mean()
     sharpe = (all_net.mean() / all_net.std()) if all_net.std() > 0 else 0
+    annualized_sharpe = sharpe * np.sqrt(TRADING_DAYS_PER_YEAR)
 
     return {
         "signal": label,
@@ -417,8 +435,40 @@ def run_trading_sim(df, signal_col, market_col, threshold, label):
         "roi_pct": round(roi, 2),
         "win_rate": round(win_rate, 4),
         "avg_edge": round(avg_edge, 4),
-        "sharpe": round(sharpe, 4)
+        "sharpe": round(sharpe, 4),
+        "annualized_sharpe": round(annualized_sharpe, 4)
     }
+
+
+def bootstrap_pnl_ci(df, signal_col, market_col, threshold, n_bootstrap=N_BOOTSTRAP):
+    """Bootstrap 95% CI for net P&L using date-level block resampling."""
+    if len(df) == 0:
+        return (0.0, 0.0)
+
+    signal = df[signal_col].values
+    market = df[market_col].values
+    outcome = df["actual_outcome"].values.astype(float)
+    ask = df["ask_cents"].fillna(df[market_col] * 100).values / 100.0
+    bid = df["bid_cents"].fillna(df[market_col] * 100).values / 100.0
+
+    edge = signal - market
+    buy_yes = edge > threshold
+    buy_no = edge < -threshold
+
+    if not (buy_yes.any() or buy_no.any()):
+        return (0.0, 0.0)
+
+    pnl = np.zeros(len(df), dtype=float)
+    pnl[buy_yes] = np.where(outcome[buy_yes] == 1, 1.0 - FEE_RATE, 0.0) - ask[buy_yes]
+    pnl[buy_no] = np.where(outcome[buy_no] == 0, 1.0 - FEE_RATE, 0.0) - (1.0 - bid[buy_no])
+
+    daily_pnl = pd.DataFrame({"date": df["date"].values, "pnl": pnl}).groupby("date")["pnl"].sum().values
+    if len(daily_pnl) < 2:
+        return (np.nan, np.nan)
+
+    sampled_sums = [np.random.choice(daily_pnl, size=len(daily_pnl), replace=True).sum()
+                    for _ in range(n_bootstrap)]
+    return float(np.percentile(sampled_sums, 2.5)), float(np.percentile(sampled_sums, 97.5))
 
 
 def run_all_trading_sims(df):
@@ -438,11 +488,19 @@ def run_all_trading_sims(df):
             # Model signal
             r = run_trading_sim(sub, "model_prob", "presettlement_prob",
                                 threshold, f"Model_{period_label}")
+            if period_label == "OOS":
+                ci_lo, ci_hi = bootstrap_pnl_ci(sub, "model_prob", "presettlement_prob", threshold)
+                r["pnl_ci95_low"] = round(ci_lo, 2)
+                r["pnl_ci95_high"] = round(ci_hi, 2)
             results.append(r)
 
             # NWS signal
             r = run_trading_sim(sub, "nws_prob", "presettlement_prob",
                                 threshold, f"NWS_{period_label}")
+            if period_label == "OOS":
+                ci_lo, ci_hi = bootstrap_pnl_ci(sub, "nws_prob", "presettlement_prob", threshold)
+                r["pnl_ci95_low"] = round(ci_lo, 2)
+                r["pnl_ci95_high"] = round(ci_hi, 2)
             results.append(r)
 
     return pd.DataFrame(results)
@@ -552,32 +610,39 @@ def generate_report(df, scores_df, cal_df, trading_df):
     lines.append("## 3. Trading Simulation: Model vs Pre-Settlement Market")
     lines.append("")
     lines.append(f"Fee rate: {FEE_RATE*100:.0f}% on winnings")
+    lines.append("Execution assumption: YES buys cross ask, NO buys cross (1 - bid) from pre-settlement orderbook.")
     lines.append("")
 
     # Model trading results
     model_trading = trading_df[trading_df["signal"].str.startswith("Model")].copy()
     lines.append("### Model as Signal")
     lines.append("")
-    lines.append("| Period | Threshold | Trades | Win Rate | Net P&L | ROI% | Sharpe |")
-    lines.append("|--------|-----------|--------|----------|---------|------|--------|")
+    lines.append("| Period | Threshold | Trades | Win Rate | Net P&L | ROI% | Sharpe | Ann. Sharpe | OOS P&L 95% CI |")
+    lines.append("|--------|-----------|--------|----------|---------|------|--------|-------------|----------------|")
     for _, row in model_trading.iterrows():
         period = row["signal"].replace("Model_", "")
+        ci = "-"
+        if pd.notna(row.get("pnl_ci95_low")) and pd.notna(row.get("pnl_ci95_high")):
+            ci = f"[{row['pnl_ci95_low']:.2f}, {row['pnl_ci95_high']:.2f}]"
         lines.append(f"| {period} | {row['threshold']:.2f} | {row['n_trades']} | "
                       f"{row['win_rate']:.1%} | ${row['net_pnl']:.2f} | "
-                      f"{row['roi_pct']:.1f}% | {row['sharpe']:.3f} |")
+                      f"{row['roi_pct']:.1f}% | {row['sharpe']:.3f} | {row['annualized_sharpe']:.3f} | {ci} |")
     lines.append("")
 
     # NWS trading results
     nws_trading = trading_df[trading_df["signal"].str.startswith("NWS")].copy()
     lines.append("### NWS as Signal")
     lines.append("")
-    lines.append("| Period | Threshold | Trades | Win Rate | Net P&L | ROI% | Sharpe |")
-    lines.append("|--------|-----------|--------|----------|---------|------|--------|")
+    lines.append("| Period | Threshold | Trades | Win Rate | Net P&L | ROI% | Sharpe | Ann. Sharpe | OOS P&L 95% CI |")
+    lines.append("|--------|-----------|--------|----------|---------|------|--------|-------------|----------------|")
     for _, row in nws_trading.iterrows():
         period = row["signal"].replace("NWS_", "")
+        ci = "-"
+        if pd.notna(row.get("pnl_ci95_low")) and pd.notna(row.get("pnl_ci95_high")):
+            ci = f"[{row['pnl_ci95_low']:.2f}, {row['pnl_ci95_high']:.2f}]"
         lines.append(f"| {period} | {row['threshold']:.2f} | {row['n_trades']} | "
                       f"{row['win_rate']:.1%} | ${row['net_pnl']:.2f} | "
-                      f"{row['roi_pct']:.1f}% | {row['sharpe']:.3f} |")
+                      f"{row['roi_pct']:.1f}% | {row['sharpe']:.3f} | {row['annualized_sharpe']:.3f} | {ci} |")
     lines.append("")
 
     # --- Key Findings ---
@@ -696,7 +761,8 @@ def print_summary(df, scores_df, cal_df, trading_df):
         best = sub.loc[sub["net_pnl"].idxmax()]
         print(f"\n  {label} (best threshold={best['threshold']:.2f}):")
         print(f"    Trades: {int(best['n_trades'])}, Win rate: {best['win_rate']:.1%}")
-        print(f"    Net P&L: ${best['net_pnl']:.2f}, ROI: {best['roi_pct']:.1f}%, Sharpe: {best['sharpe']:.3f}")
+        print(f"    Net P&L: ${best['net_pnl']:.2f}, ROI: {best['roi_pct']:.1f}%, "
+              f"Sharpe: {best['sharpe']:.3f}, Ann.Sharpe: {best['annualized_sharpe']:.3f}")
 
     print("\n" + "=" * 80)
 
@@ -720,13 +786,17 @@ def main():
         model_is_path, model_oos_path = args.model_is, args.model_oos
 
     # Load data
-    pre, settled, model, nws, cp_tmax = load_all_data(model_is_path, model_oos_path)
+    pre, settled, model, nws = load_all_data(model_is_path, model_oos_path)
 
     # Build merged dataset
     df = build_merged_dataset(pre, settled, model, nws)
 
     # Compute probabilities
     df = add_all_probabilities(df)
+
+    # Validate probability mass by date
+    model_mass = validate_bucket_probability_mass(df, "model_prob")
+    nws_mass = validate_bucket_probability_mass(df, "nws_prob")
 
     # Compute scoring metrics
     scores_df = compute_all_scores(df)
@@ -764,6 +834,11 @@ def main():
     # Calibration data
     cal_df.to_csv(OUTPUT_DIR / "presettlement_calibration.csv", index=False)
     print(f"  Saved presettlement_calibration.csv ({len(cal_df)} rows)")
+
+    model_mass.to_csv(OUTPUT_DIR / "model_probability_mass_check.csv", index=False)
+    nws_mass.to_csv(OUTPUT_DIR / "nws_probability_mass_check.csv", index=False)
+    print(f"  Saved model_probability_mass_check.csv ({len(model_mass)} rows)")
+    print(f"  Saved nws_probability_mass_check.csv ({len(nws_mass)} rows)")
 
     # Trading simulation results
     trading_df.to_csv(OUTPUT_DIR / "trading_simulation_results.csv", index=False)
