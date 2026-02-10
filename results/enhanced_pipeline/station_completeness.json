@@ -1,0 +1,373 @@
+{
+  "USW00094728": {
+    "name": "Central Park, NYC (Target)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00014732": {
+    "name": "LAGUARDIA AP, NY (5mi E)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00094741": {
+    "name": "TETERBORO AP, NJ (7mi NW)",
+    "tmax_valid_days": 9801,
+    "tmin_valid_days": 9800,
+    "total_possible": 9862,
+    "completeness": 0.9938
+  },
+  "USW00014734": {
+    "name": "NEWARK LIBERTY INTL AP, NJ (12mi SW)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00094789": {
+    "name": "JFK INTL AP, NY (14mi SE)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00054743": {
+    "name": "CALDWELL ESSEX CO AP, NJ (18mi W)",
+    "tmax_valid_days": 9297,
+    "tmin_valid_days": 9299,
+    "total_possible": 9862,
+    "completeness": 0.9427
+  },
+  "USW00094745": {
+    "name": "WESTCHESTER CO AP, NY (24mi NE)",
+    "tmax_valid_days": 9768,
+    "tmin_valid_days": 9577,
+    "total_possible": 9862,
+    "completeness": 0.9905
+  },
+  "USW00054787": {
+    "name": "FARMINGDALE REPUBLIC AP, NY (29mi E)",
+    "tmax_valid_days": 9200,
+    "tmin_valid_days": 9199,
+    "total_possible": 9862,
+    "completeness": 0.9329
+  },
+  "USW00054785": {
+    "name": "SOMERSET AP, NJ (38mi W)",
+    "tmax_valid_days": 9127,
+    "tmin_valid_days": 9123,
+    "total_possible": 9862,
+    "completeness": 0.9255
+  },
+  "USW00054779": {
+    "name": "AEROFLEX-ANDOVER AP, NJ (43mi W)",
+    "tmax_valid_days": 9107,
+    "tmin_valid_days": 9108,
+    "total_possible": 9862,
+    "completeness": 0.9234
+  },
+  "USW00054793": {
+    "name": "SUSSEX AP, NJ (45mi NW)",
+    "tmax_valid_days": 8729,
+    "tmin_valid_days": 8727,
+    "total_possible": 9862,
+    "completeness": 0.8851
+  },
+  "USW00004781": {
+    "name": "ISLIP-LI MACARTHUR AP, NY (45mi E)",
+    "tmax_valid_days": 9861,
+    "tmin_valid_days": 9861,
+    "total_possible": 9862,
+    "completeness": 0.9999
+  },
+  "USW00054734": {
+    "name": "DANBURY MUNI AP, CT (48mi NE)",
+    "tmax_valid_days": 9676,
+    "tmin_valid_days": 9676,
+    "total_possible": 9862,
+    "completeness": 0.9811
+  },
+  "USW00094702": {
+    "name": "IGOR I SIKORSKY MEM AP, CT (51mi NE)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00004789": {
+    "name": "MONTGOMERY ORANGE CO AP, NY (53mi N)",
+    "tmax_valid_days": 9714,
+    "tmin_valid_days": 9718,
+    "total_possible": 9862,
+    "completeness": 0.985
+  },
+  "USW00014792": {
+    "name": "TRENTON-MERCER AP, NJ (56mi SW)",
+    "tmax_valid_days": 9793,
+    "tmin_valid_days": 9793,
+    "total_possible": 9862,
+    "completeness": 0.993
+  },
+  "USW00054790": {
+    "name": "SHIRLEY BROOKHAVEN AP, NY (58mi E)",
+    "tmax_valid_days": 9158,
+    "tmin_valid_days": 9159,
+    "total_possible": 9862,
+    "completeness": 0.9286
+  },
+  "USW00014757": {
+    "name": "POUGHKEEPSIE AP, NY (59mi N)",
+    "tmax_valid_days": 8862,
+    "tmin_valid_days": 8863,
+    "total_possible": 9862,
+    "completeness": 0.8986
+  },
+  "USW00014780": {
+    "name": "MCGUIRE AFB, NJ (62mi SW)",
+    "tmax_valid_days": 498,
+    "tmin_valid_days": 386,
+    "total_possible": 9862,
+    "completeness": 0.0505
+  },
+  "USW00064707": {
+    "name": "OXFORD WATERBURY, CT (65mi NE)",
+    "tmax_valid_days": 2640,
+    "tmin_valid_days": 2639,
+    "total_possible": 9862,
+    "completeness": 0.2677
+  },
+  "USW00014758": {
+    "name": "NEW HAVEN TWEED AP, CT (65mi NE)",
+    "tmax_valid_days": 8436,
+    "tmin_valid_days": 8433,
+    "total_possible": 9862,
+    "completeness": 0.8554
+  },
+  "USW00054786": {
+    "name": "DOYLESTOWN AP, PA (68mi SW)",
+    "tmax_valid_days": 9144,
+    "tmin_valid_days": 9144,
+    "total_possible": 9862,
+    "completeness": 0.9272
+  },
+  "USW00064756": {
+    "name": "MILLBROOK 3 W, NY (71mi N)",
+    "tmax_valid_days": 7328,
+    "tmin_valid_days": 7328,
+    "total_possible": 9862,
+    "completeness": 0.7431
+  },
+  "USW00014719": {
+    "name": "WESTHAMPTON GABRESKI AP, NY (71mi E)",
+    "tmax_valid_days": 9331,
+    "tmin_valid_days": 9327,
+    "total_possible": 9862,
+    "completeness": 0.9462
+  },
+  "USW00094732": {
+    "name": "NE PHILA AP, PA (73mi SW)",
+    "tmax_valid_days": 9743,
+    "tmin_valid_days": 9740,
+    "total_possible": 9862,
+    "completeness": 0.9879
+  },
+  "USW00093780": {
+    "name": "S JERSEY RGNL AP, NJ (74mi SW)",
+    "tmax_valid_days": 9615,
+    "tmin_valid_days": 9591,
+    "total_possible": 9862,
+    "completeness": 0.975
+  },
+  "USW00054746": {
+    "name": "MONTICELLO SULLIVAN, NY (77mi NW)",
+    "tmax_valid_days": 1943,
+    "tmin_valid_days": 1942,
+    "total_possible": 9862,
+    "completeness": 0.197
+  },
+  "USW00054789": {
+    "name": "MT POCONO POCONO MOUNTAINS MUN, PA (78mi W)",
+    "tmax_valid_days": 9189,
+    "tmin_valid_days": 9185,
+    "total_possible": 9862,
+    "completeness": 0.9318
+  },
+  "USW00014737": {
+    "name": "ALLENTOWN LEHIGH VLY INTL AP, PA (78mi W)",
+    "tmax_valid_days": 9861,
+    "tmin_valid_days": 9861,
+    "total_possible": 9862,
+    "completeness": 0.9999
+  },
+  "USW00013739": {
+    "name": "PHILA INTL AP, PA (91mi SW)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00054782": {
+    "name": "HERITAGE FLD AP, PA (91mi SW)",
+    "tmax_valid_days": 9357,
+    "tmin_valid_days": 9353,
+    "total_possible": 9862,
+    "completeness": 0.9488
+  },
+  "USW00093730": {
+    "name": "ATLANTIC CITY INTL AP, NJ (97mi S)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00014777": {
+    "name": "WILKES-BARRE/SCRANTON INTL AP, PA (99mi NW)",
+    "tmax_valid_days": 9854,
+    "tmin_valid_days": 9846,
+    "total_possible": 9862,
+    "completeness": 0.9992
+  },
+  "USW00013724": {
+    "name": "ATLANTIC CITY MARINA, NJ (100mi S)",
+    "tmax_valid_days": 9852,
+    "tmin_valid_days": 9852,
+    "total_possible": 9862,
+    "completeness": 0.999
+  },
+  "USW00014740": {
+    "name": "HARTFORD-BRADLEY INTL AP, CT (104mi NE)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00014707": {
+    "name": "GROTON NEW LONDON AP, CT (107mi E)",
+    "tmax_valid_days": 9102,
+    "tmin_valid_days": 9100,
+    "total_possible": 9862,
+    "completeness": 0.9229
+  },
+  "USW00014712": {
+    "name": "READING RGNL AP, PA (108mi W)",
+    "tmax_valid_days": 9454,
+    "tmin_valid_days": 9454,
+    "total_possible": 9862,
+    "completeness": 0.9586
+  },
+  "USW00054780": {
+    "name": "MONTAUK AP, NY (109mi E)",
+    "tmax_valid_days": 9222,
+    "tmin_valid_days": 9222,
+    "total_possible": 9862,
+    "completeness": 0.9351
+  },
+  "USW00014763": {
+    "name": "PITTSFIELD MUNI AP, MA (119mi N)",
+    "tmax_valid_days": 9435,
+    "tmin_valid_days": 9434,
+    "total_possible": 9862,
+    "completeness": 0.9567
+  },
+  "USW00014794": {
+    "name": "WESTERLY STATE AP, RI (119mi E)",
+    "tmax_valid_days": 9229,
+    "tmin_valid_days": 9229,
+    "total_possible": 9862,
+    "completeness": 0.9358
+  },
+  "USW00054737": {
+    "name": "LANCASTER AP, PA (130mi W)",
+    "tmax_valid_days": 9380,
+    "tmin_valid_days": 9380,
+    "total_possible": 9862,
+    "completeness": 0.9511
+  },
+  "USW00054797": {
+    "name": "KINGSTON 1 W, RI (135mi E)",
+    "tmax_valid_days": 8282,
+    "tmin_valid_days": 8283,
+    "total_possible": 9862,
+    "completeness": 0.8398
+  },
+  "USW00014735": {
+    "name": "ALBANY INTL AP, NY (136mi N)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00013707": {
+    "name": "DOVER AFB, DE (139mi SW)",
+    "tmax_valid_days": 0,
+    "tmin_valid_days": 0,
+    "total_possible": 9862,
+    "completeness": 0.0
+  },
+  "USW00054768": {
+    "name": "N ADAMS HARRIMAN AP, MA (139mi N)",
+    "tmax_valid_days": 9757,
+    "tmin_valid_days": 9762,
+    "total_possible": 9862,
+    "completeness": 0.9894
+  },
+  "USW00004725": {
+    "name": "BINGHAMTON, NY (143mi NW)",
+    "tmax_valid_days": 9860,
+    "tmin_valid_days": 9860,
+    "total_possible": 9862,
+    "completeness": 0.9998
+  },
+  "USW00054781": {
+    "name": "BENNINGTON MORSE STATE AP, VT (151mi N)",
+    "tmax_valid_days": 9446,
+    "tmin_valid_days": 9445,
+    "total_possible": 9862,
+    "completeness": 0.9578
+  },
+  "USW00054756": {
+    "name": "ORANGE MUNI AP, MA (151mi NE)",
+    "tmax_valid_days": 9729,
+    "tmin_valid_days": 9728,
+    "total_possible": 9862,
+    "completeness": 0.9865
+  },
+  "USW00014770": {
+    "name": "SELINSGROVE PENN VALLEY AP, PA (152mi W)",
+    "tmax_valid_days": 9797,
+    "tmin_valid_days": 9795,
+    "total_possible": 9862,
+    "completeness": 0.9934
+  },
+  "USW00014750": {
+    "name": "GLENS FALLS AP, NY (178mi N)",
+    "tmax_valid_days": 9845,
+    "tmin_valid_days": 9845,
+    "total_possible": 9862,
+    "completeness": 0.9983
+  },
+  "USW00093786": {
+    "name": "OCEAN CITY MUNI AP, MD (181mi S)",
+    "tmax_valid_days": 9077,
+    "tmin_valid_days": 9078,
+    "total_possible": 9862,
+    "completeness": 0.9204
+  },
+  "USW00014739": {
+    "name": "BOSTON, MA (188mi NE)",
+    "tmax_valid_days": 9862,
+    "tmin_valid_days": 9862,
+    "total_possible": 9862,
+    "completeness": 1.0
+  },
+  "USW00014771": {
+    "name": "SYRACUSE HANCOCK INTL AP, NY (195mi NW)",
+    "tmax_valid_days": 9860,
+    "tmin_valid_days": 9861,
+    "total_possible": 9862,
+    "completeness": 0.9998
+  }
+}

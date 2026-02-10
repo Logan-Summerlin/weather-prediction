@@ -1,0 +1,643 @@
+{
+  "timestamp": "2026-02-10T03:54:44.326143",
+  "pipeline": "enhanced_nn_pipeline.py",
+  "data_source": "NOAA GHCN-Daily bulk downloads (REAL DATA)",
+  "data_range": "1998-01-01 to 2025-12-31",
+  "target_station": "USW00094728",
+  "qualifying_stations": 48,
+  "surrounding_stations": 47,
+  "splits": {
+    "IS": {
+      "train": "1998-01-01 to 2020-12-31",
+      "val": "2021-01-01 to 2022-12-31",
+      "test": "2023-01-01 to 2024-12-31"
+    },
+    "OOS": {
+      "train": "1998-01-01 to 2022-12-31",
+      "val": "2023-01-01 to 2024-12-31",
+      "test": "2025-01-01 to 2025-12-31"
+    }
+  },
+  "experiments": [
+    {
+      "config_name": "Config_A",
+      "split_type": "IS",
+      "description": "TMAX-only lag-1, raw target, [128,64], Huber",
+      "target_type": "raw",
+      "n_features": 50,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 148,
+      "total_epochs": 168,
+      "training_time_sec": 503.4,
+      "total_params": 14849,
+      "metrics": {
+        "train": {
+          "mae": 4.2864,
+          "rmse": 5.6738,
+          "r2": 0.9006,
+          "n": 8400
+        },
+        "val": {
+          "mae": 4.4027,
+          "rmse": 5.8297,
+          "r2": 0.8941,
+          "n": 730
+        },
+        "test": {
+          "mae": 4.453,
+          "rmse": 5.746,
+          "r2": 0.8747,
+          "n": 731
+        },
+        "seasonal_mae": {
+          "DJF": 4.8509,
+          "MAM": 5.7001,
+          "JJA": 3.3224,
+          "SON": 3.9396
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_A_IS.pt"
+    },
+    {
+      "config_name": "Config_A",
+      "split_type": "OOS",
+      "description": "TMAX-only lag-1, raw target, [128,64], Huber",
+      "target_type": "raw",
+      "n_features": 50,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 41,
+      "total_epochs": 61,
+      "training_time_sec": 392.9,
+      "total_params": 14849,
+      "metrics": {
+        "train": {
+          "mae": 4.442,
+          "rmse": 5.8031,
+          "r2": 0.8959,
+          "n": 9130
+        },
+        "val": {
+          "mae": 4.4248,
+          "rmse": 5.7055,
+          "r2": 0.8765,
+          "n": 731
+        },
+        "test": {
+          "mae": 4.5761,
+          "rmse": 5.9843,
+          "r2": 0.8951,
+          "n": 365
+        },
+        "seasonal_mae": {
+          "DJF": 4.5999,
+          "MAM": 6.6665,
+          "JJA": 3.5509,
+          "SON": 3.4758
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_A_OOS.pt"
+    },
+    {
+      "config_name": "Config_B",
+      "split_type": "IS",
+      "description": "TMAX-only lag-1, delta-T target, [128,64], Huber",
+      "target_type": "delta",
+      "n_features": 50,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 112,
+      "total_epochs": 132,
+      "training_time_sec": 1275.7,
+      "total_params": 14849,
+      "metrics": {
+        "train": {
+          "mae": 4.1858,
+          "rmse": 5.5783,
+          "r2": 0.9039,
+          "n": 8400
+        },
+        "val": {
+          "mae": 4.3266,
+          "rmse": 5.7054,
+          "r2": 0.8985,
+          "n": 730
+        },
+        "test": {
+          "mae": 4.3892,
+          "rmse": 5.6991,
+          "r2": 0.8768,
+          "n": 731
+        },
+        "seasonal_mae": {
+          "DJF": 4.6093,
+          "MAM": 5.6703,
+          "JJA": 3.3605,
+          "SON": 3.9152
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_B_IS.pt"
+    },
+    {
+      "config_name": "Config_B",
+      "split_type": "OOS",
+      "description": "TMAX-only lag-1, delta-T target, [128,64], Huber",
+      "target_type": "delta",
+      "n_features": 50,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 56,
+      "total_epochs": 76,
+      "training_time_sec": 474.6,
+      "total_params": 14849,
+      "metrics": {
+        "train": {
+          "mae": 4.3016,
+          "rmse": 5.655,
+          "r2": 0.9012,
+          "n": 9130
+        },
+        "val": {
+          "mae": 4.3505,
+          "rmse": 5.6134,
+          "r2": 0.8804,
+          "n": 731
+        },
+        "test": {
+          "mae": 4.5221,
+          "rmse": 5.9366,
+          "r2": 0.8968,
+          "n": 365
+        },
+        "seasonal_mae": {
+          "DJF": 4.5751,
+          "MAM": 6.4496,
+          "JJA": 3.5202,
+          "SON": 3.5337
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_B_OOS.pt"
+    },
+    {
+      "config_name": "Config_C",
+      "split_type": "IS",
+      "description": "TMAX+TMIN lag-1, delta-T target, [128,64], Huber",
+      "target_type": "delta",
+      "n_features": 98,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 85,
+      "total_epochs": 105,
+      "training_time_sec": 336.0,
+      "total_params": 20993,
+      "metrics": {
+        "train": {
+          "mae": 3.75,
+          "rmse": 5.0277,
+          "r2": 0.9219,
+          "n": 8400
+        },
+        "val": {
+          "mae": 4.0158,
+          "rmse": 5.2481,
+          "r2": 0.9141,
+          "n": 730
+        },
+        "test": {
+          "mae": 4.0778,
+          "rmse": 5.2939,
+          "r2": 0.8937,
+          "n": 731
+        },
+        "seasonal_mae": {
+          "DJF": 4.2679,
+          "MAM": 5.2437,
+          "JJA": 3.206,
+          "SON": 3.5916
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_C_IS.pt"
+    },
+    {
+      "config_name": "Config_C",
+      "split_type": "OOS",
+      "description": "TMAX+TMIN lag-1, delta-T target, [128,64], Huber",
+      "target_type": "delta",
+      "n_features": 98,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 82,
+      "total_epochs": 102,
+      "training_time_sec": 558.8,
+      "total_params": 20993,
+      "metrics": {
+        "train": {
+          "mae": 3.7291,
+          "rmse": 4.9956,
+          "r2": 0.9229,
+          "n": 9130
+        },
+        "val": {
+          "mae": 3.9959,
+          "rmse": 5.2346,
+          "r2": 0.896,
+          "n": 731
+        },
+        "test": {
+          "mae": 3.9917,
+          "rmse": 5.358,
+          "r2": 0.9159,
+          "n": 365
+        },
+        "seasonal_mae": {
+          "DJF": 3.4791,
+          "MAM": 6.0364,
+          "JJA": 3.3711,
+          "SON": 3.0588
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_C_OOS.pt"
+    },
+    {
+      "config_name": "Config_D",
+      "split_type": "IS",
+      "description": "Full features (TMAX+TMIN+diurnal+gradients+trends), delta-T, [128,64], Huber",
+      "target_type": "delta",
+      "n_features": 153,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 49,
+      "total_epochs": 69,
+      "training_time_sec": 186.0,
+      "total_params": 28033,
+      "metrics": {
+        "train": {
+          "mae": 3.3826,
+          "rmse": 4.6489,
+          "r2": 0.9333,
+          "n": 8400
+        },
+        "val": {
+          "mae": 4.0255,
+          "rmse": 5.3262,
+          "r2": 0.9116,
+          "n": 730
+        },
+        "test": {
+          "mae": 4.0898,
+          "rmse": 5.299,
+          "r2": 0.8935,
+          "n": 731
+        },
+        "seasonal_mae": {
+          "DJF": 4.354,
+          "MAM": 5.1285,
+          "JJA": 3.4481,
+          "SON": 3.4256
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_D_IS.pt"
+    },
+    {
+      "config_name": "Config_D",
+      "split_type": "OOS",
+      "description": "Full features (TMAX+TMIN+diurnal+gradients+trends), delta-T, [128,64], Huber",
+      "target_type": "delta",
+      "n_features": 153,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 22,
+      "total_epochs": 42,
+      "training_time_sec": 121.9,
+      "total_params": 28033,
+      "metrics": {
+        "train": {
+          "mae": 3.8618,
+          "rmse": 5.0777,
+          "r2": 0.9203,
+          "n": 9130
+        },
+        "val": {
+          "mae": 3.9465,
+          "rmse": 5.1595,
+          "r2": 0.899,
+          "n": 731
+        },
+        "test": {
+          "mae": 4.1847,
+          "rmse": 5.544,
+          "r2": 0.91,
+          "n": 365
+        },
+        "seasonal_mae": {
+          "DJF": 4.0427,
+          "MAM": 6.0028,
+          "JJA": 3.5236,
+          "SON": 3.1556
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_D_OOS.pt"
+    },
+    {
+      "config_name": "Config_E",
+      "split_type": "IS",
+      "description": "Full features, delta-T, [256,128,64], Huber",
+      "target_type": "delta",
+      "n_features": 153,
+      "hidden_sizes": [
+        256,
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 28,
+      "total_epochs": 48,
+      "training_time_sec": 86.1,
+      "total_params": 80641,
+      "metrics": {
+        "train": {
+          "mae": 3.3929,
+          "rmse": 4.6606,
+          "r2": 0.9329,
+          "n": 8400
+        },
+        "val": {
+          "mae": 4.0188,
+          "rmse": 5.2897,
+          "r2": 0.9128,
+          "n": 730
+        },
+        "test": {
+          "mae": 4.0724,
+          "rmse": 5.3201,
+          "r2": 0.8926,
+          "n": 731
+        },
+        "seasonal_mae": {
+          "DJF": 4.3663,
+          "MAM": 5.3777,
+          "JJA": 3.3326,
+          "SON": 3.2086
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_E_IS.pt"
+    },
+    {
+      "config_name": "Config_E",
+      "split_type": "OOS",
+      "description": "Full features, delta-T, [256,128,64], Huber",
+      "target_type": "delta",
+      "n_features": 153,
+      "hidden_sizes": [
+        256,
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 11,
+      "total_epochs": 31,
+      "training_time_sec": 63.1,
+      "total_params": 80641,
+      "metrics": {
+        "train": {
+          "mae": 3.9571,
+          "rmse": 5.1768,
+          "r2": 0.9172,
+          "n": 9130
+        },
+        "val": {
+          "mae": 4.0241,
+          "rmse": 5.193,
+          "r2": 0.8977,
+          "n": 731
+        },
+        "test": {
+          "mae": 4.1332,
+          "rmse": 5.4646,
+          "r2": 0.9125,
+          "n": 365
+        },
+        "seasonal_mae": {
+          "DJF": 3.9635,
+          "MAM": 5.9411,
+          "JJA": 3.4982,
+          "SON": 3.1152
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_E_OOS.pt"
+    },
+    {
+      "config_name": "Config_F",
+      "split_type": "IS",
+      "description": "Full features, delta-T, [128,64], MAE loss",
+      "target_type": "delta",
+      "n_features": 153,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "mae",
+      "dropout": 0.0,
+      "best_epoch": 39,
+      "total_epochs": 59,
+      "training_time_sec": 83.8,
+      "total_params": 28033,
+      "metrics": {
+        "train": {
+          "mae": 3.4939,
+          "rmse": 4.7878,
+          "r2": 0.9292,
+          "n": 8400
+        },
+        "val": {
+          "mae": 3.9756,
+          "rmse": 5.2288,
+          "r2": 0.9148,
+          "n": 730
+        },
+        "test": {
+          "mae": 4.0483,
+          "rmse": 5.2798,
+          "r2": 0.8942,
+          "n": 731
+        },
+        "seasonal_mae": {
+          "DJF": 4.2368,
+          "MAM": 5.2034,
+          "JJA": 3.2715,
+          "SON": 3.4783
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_F_IS.pt"
+    },
+    {
+      "config_name": "Config_F",
+      "split_type": "OOS",
+      "description": "Full features, delta-T, [128,64], MAE loss",
+      "target_type": "delta",
+      "n_features": 153,
+      "hidden_sizes": [
+        128,
+        64
+      ],
+      "loss_type": "mae",
+      "dropout": 0.0,
+      "best_epoch": 20,
+      "total_epochs": 40,
+      "training_time_sec": 61.2,
+      "total_params": 28033,
+      "metrics": {
+        "train": {
+          "mae": 3.8748,
+          "rmse": 5.1259,
+          "r2": 0.9188,
+          "n": 9130
+        },
+        "val": {
+          "mae": 3.9694,
+          "rmse": 5.1831,
+          "r2": 0.8981,
+          "n": 731
+        },
+        "test": {
+          "mae": 4.1681,
+          "rmse": 5.5239,
+          "r2": 0.9106,
+          "n": 365
+        },
+        "seasonal_mae": {
+          "DJF": 4.0187,
+          "MAM": 6.037,
+          "JJA": 3.4126,
+          "SON": 3.1902
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_F_OOS.pt"
+    },
+    {
+      "config_name": "Config_G",
+      "split_type": "IS",
+      "description": "Full features + lag-2 TMAX, delta-T, [256,128,64], Huber",
+      "target_type": "delta",
+      "n_features": 201,
+      "hidden_sizes": [
+        256,
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 27,
+      "total_epochs": 47,
+      "training_time_sec": 135.5,
+      "total_params": 92929,
+      "metrics": {
+        "train": {
+          "mae": 3.445,
+          "rmse": 4.7103,
+          "r2": 0.9315,
+          "n": 8399
+        },
+        "val": {
+          "mae": 4.063,
+          "rmse": 5.3091,
+          "r2": 0.9121,
+          "n": 730
+        },
+        "test": {
+          "mae": 4.0388,
+          "rmse": 5.2739,
+          "r2": 0.8945,
+          "n": 731
+        },
+        "seasonal_mae": {
+          "DJF": 4.2431,
+          "MAM": 5.3199,
+          "JJA": 3.2392,
+          "SON": 3.3486
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_G_IS.pt"
+    },
+    {
+      "config_name": "Config_G",
+      "split_type": "OOS",
+      "description": "Full features + lag-2 TMAX, delta-T, [256,128,64], Huber",
+      "target_type": "delta",
+      "n_features": 201,
+      "hidden_sizes": [
+        256,
+        128,
+        64
+      ],
+      "loss_type": "huber",
+      "dropout": 0.0,
+      "best_epoch": 19,
+      "total_epochs": 39,
+      "training_time_sec": 167.1,
+      "total_params": 92929,
+      "metrics": {
+        "train": {
+          "mae": 3.6701,
+          "rmse": 4.8985,
+          "r2": 0.9259,
+          "n": 9129
+        },
+        "val": {
+          "mae": 3.9975,
+          "rmse": 5.2135,
+          "r2": 0.8969,
+          "n": 731
+        },
+        "test": {
+          "mae": 3.9715,
+          "rmse": 5.3969,
+          "r2": 0.9147,
+          "n": 365
+        },
+        "seasonal_mae": {
+          "DJF": 3.6385,
+          "MAM": 5.9261,
+          "JJA": 3.1728,
+          "SON": 3.1322
+        }
+      },
+      "model_path": "/home/user/weather-prediction/results/enhanced_pipeline/models/Config_G_OOS.pt"
+    }
+  ]
+}

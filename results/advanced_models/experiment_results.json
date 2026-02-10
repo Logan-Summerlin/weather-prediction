@@ -1,0 +1,1224 @@
+{
+  "timestamp": "2026-02-10T04:00:47.559105",
+  "pipeline": "scripts/advanced_models_eval.py",
+  "data_source": "NOAA GHCN-Daily bulk .dly files (REAL DATA)",
+  "data_range": "1998-01-01 to 2024-12-31",
+  "splits": {
+    "train": "1998-01-01 to 2020-12-31",
+    "val": "2021-01-01 to 2022-12-31",
+    "test": "2023-01-01 to 2024-12-31"
+  },
+  "stations": {
+    "target": "USW00094728",
+    "total_qualifying": 48,
+    "surrounding": 47,
+    "completeness_threshold": 0.8,
+    "completeness_report": {
+      "USW00094728": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00014732": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00094741": {
+        "n_valid": 9801,
+        "total_days": 9862,
+        "completeness": 0.9938
+      },
+      "USW00014734": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00094789": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00054743": {
+        "n_valid": 9297,
+        "total_days": 9862,
+        "completeness": 0.9427
+      },
+      "USW00094745": {
+        "n_valid": 9768,
+        "total_days": 9862,
+        "completeness": 0.9905
+      },
+      "USW00054787": {
+        "n_valid": 9200,
+        "total_days": 9862,
+        "completeness": 0.9329
+      },
+      "USW00054785": {
+        "n_valid": 9127,
+        "total_days": 9862,
+        "completeness": 0.9255
+      },
+      "USW00054779": {
+        "n_valid": 9107,
+        "total_days": 9862,
+        "completeness": 0.9234
+      },
+      "USW00054793": {
+        "n_valid": 8729,
+        "total_days": 9862,
+        "completeness": 0.8851
+      },
+      "USW00004781": {
+        "n_valid": 9861,
+        "total_days": 9862,
+        "completeness": 0.9999
+      },
+      "USW00054734": {
+        "n_valid": 9676,
+        "total_days": 9862,
+        "completeness": 0.9811
+      },
+      "USW00094702": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00004789": {
+        "n_valid": 9714,
+        "total_days": 9862,
+        "completeness": 0.985
+      },
+      "USW00014792": {
+        "n_valid": 9793,
+        "total_days": 9862,
+        "completeness": 0.993
+      },
+      "USW00054790": {
+        "n_valid": 9158,
+        "total_days": 9862,
+        "completeness": 0.9286
+      },
+      "USW00014757": {
+        "n_valid": 8862,
+        "total_days": 9862,
+        "completeness": 0.8986
+      },
+      "USW00014780": {
+        "n_valid": 498,
+        "total_days": 9862,
+        "completeness": 0.0505
+      },
+      "USW00064707": {
+        "n_valid": 2640,
+        "total_days": 9862,
+        "completeness": 0.2677
+      },
+      "USW00014758": {
+        "n_valid": 8436,
+        "total_days": 9862,
+        "completeness": 0.8554
+      },
+      "USW00054786": {
+        "n_valid": 9144,
+        "total_days": 9862,
+        "completeness": 0.9272
+      },
+      "USW00064756": {
+        "n_valid": 7328,
+        "total_days": 9862,
+        "completeness": 0.7431
+      },
+      "USW00014719": {
+        "n_valid": 9331,
+        "total_days": 9862,
+        "completeness": 0.9462
+      },
+      "USW00094732": {
+        "n_valid": 9743,
+        "total_days": 9862,
+        "completeness": 0.9879
+      },
+      "USW00093780": {
+        "n_valid": 9615,
+        "total_days": 9862,
+        "completeness": 0.975
+      },
+      "USW00054746": {
+        "n_valid": 1943,
+        "total_days": 9862,
+        "completeness": 0.197
+      },
+      "USW00054789": {
+        "n_valid": 9189,
+        "total_days": 9862,
+        "completeness": 0.9318
+      },
+      "USW00014737": {
+        "n_valid": 9861,
+        "total_days": 9862,
+        "completeness": 0.9999
+      },
+      "USW00013739": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00054782": {
+        "n_valid": 9357,
+        "total_days": 9862,
+        "completeness": 0.9488
+      },
+      "USW00093730": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00014777": {
+        "n_valid": 9854,
+        "total_days": 9862,
+        "completeness": 0.9992
+      },
+      "USW00013724": {
+        "n_valid": 9852,
+        "total_days": 9862,
+        "completeness": 0.999
+      },
+      "USW00014740": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00014707": {
+        "n_valid": 9102,
+        "total_days": 9862,
+        "completeness": 0.9229
+      },
+      "USW00014712": {
+        "n_valid": 9454,
+        "total_days": 9862,
+        "completeness": 0.9586
+      },
+      "USW00054780": {
+        "n_valid": 9222,
+        "total_days": 9862,
+        "completeness": 0.9351
+      },
+      "USW00014763": {
+        "n_valid": 9435,
+        "total_days": 9862,
+        "completeness": 0.9567
+      },
+      "USW00014794": {
+        "n_valid": 9229,
+        "total_days": 9862,
+        "completeness": 0.9358
+      },
+      "USW00054737": {
+        "n_valid": 9380,
+        "total_days": 9862,
+        "completeness": 0.9511
+      },
+      "USW00054797": {
+        "n_valid": 8282,
+        "total_days": 9862,
+        "completeness": 0.8398
+      },
+      "USW00014735": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00054768": {
+        "n_valid": 9757,
+        "total_days": 9862,
+        "completeness": 0.9894
+      },
+      "USW00004725": {
+        "n_valid": 9860,
+        "total_days": 9862,
+        "completeness": 0.9998
+      },
+      "USW00054781": {
+        "n_valid": 9446,
+        "total_days": 9862,
+        "completeness": 0.9578
+      },
+      "USW00054756": {
+        "n_valid": 9729,
+        "total_days": 9862,
+        "completeness": 0.9865
+      },
+      "USW00014770": {
+        "n_valid": 9797,
+        "total_days": 9862,
+        "completeness": 0.9934
+      },
+      "USW00014750": {
+        "n_valid": 9845,
+        "total_days": 9862,
+        "completeness": 0.9983
+      },
+      "USW00093786": {
+        "n_valid": 9077,
+        "total_days": 9862,
+        "completeness": 0.9204
+      },
+      "USW00014739": {
+        "n_valid": 9862,
+        "total_days": 9862,
+        "completeness": 1.0
+      },
+      "USW00014771": {
+        "n_valid": 9860,
+        "total_days": 9862,
+        "completeness": 0.9998
+      }
+    }
+  },
+  "feature_sets": {
+    "tmax_lag1": {
+      "n_features": 50,
+      "description": "TMAX lag-1 + date + AR"
+    },
+    "tmax_tmin_lag1": {
+      "n_features": 97,
+      "description": "TMAX+TMIN lag-1 + date + AR"
+    },
+    "multilag_3": {
+      "n_features": 146,
+      "features_per_lag": 48,
+      "description": "TMAX lag-1..lag-3 + date + AR"
+    },
+    "full": {
+      "n_features": 144,
+      "description": "TMAX+TMIN+diurnal lag-1 + date + AR"
+    }
+  },
+  "model_results": [
+    {
+      "model": "Ridge_tmax_lag1_a0.1",
+      "architecture": "Ridge(alpha=0.1)",
+      "features": "TMAX lag-1 + date + AR",
+      "n_features": 50,
+      "n_params": 51,
+      "training_time_s": 0.01,
+      "metrics": {
+        "train": {
+          "mae": 4.6362,
+          "rmse": 6.0054,
+          "r2": 0.8886,
+          "mae_DJF": 5.2387,
+          "mae_MAM": 5.6758,
+          "mae_JJA": 3.6326,
+          "mae_SON": 4.0024
+        },
+        "val": {
+          "mae": 4.6548,
+          "rmse": 6.122,
+          "r2": 0.8832,
+          "mae_DJF": 5.2192,
+          "mae_MAM": 5.9994,
+          "mae_JJA": 3.4368,
+          "mae_SON": 3.9686
+        },
+        "test": {
+          "mae": 4.4733,
+          "rmse": 5.7628,
+          "r2": 0.874,
+          "mae_DJF": 4.8259,
+          "mae_MAM": 5.856,
+          "mae_JJA": 3.3567,
+          "mae_SON": 3.8536
+        }
+      }
+    },
+    {
+      "model": "Ridge_tmax_lag1_a1.0",
+      "architecture": "Ridge(alpha=1.0)",
+      "features": "TMAX lag-1 + date + AR",
+      "n_features": 50,
+      "n_params": 51,
+      "training_time_s": 0.0,
+      "metrics": {
+        "train": {
+          "mae": 4.6363,
+          "rmse": 6.0054,
+          "r2": 0.8886,
+          "mae_DJF": 5.2393,
+          "mae_MAM": 5.6757,
+          "mae_JJA": 3.6327,
+          "mae_SON": 4.0024
+        },
+        "val": {
+          "mae": 4.6548,
+          "rmse": 6.1223,
+          "r2": 0.8832,
+          "mae_DJF": 5.2196,
+          "mae_MAM": 6.0011,
+          "mae_JJA": 3.4353,
+          "mae_SON": 3.9681
+        },
+        "test": {
+          "mae": 4.4725,
+          "rmse": 5.7623,
+          "r2": 0.874,
+          "mae_DJF": 4.8258,
+          "mae_MAM": 5.8557,
+          "mae_JJA": 3.3542,
+          "mae_SON": 3.8536
+        }
+      }
+    },
+    {
+      "model": "Ridge_tmax_lag1_a10.0",
+      "architecture": "Ridge(alpha=10.0)",
+      "features": "TMAX lag-1 + date + AR",
+      "n_features": 50,
+      "n_params": 51,
+      "training_time_s": 0.01,
+      "metrics": {
+        "train": {
+          "mae": 4.6383,
+          "rmse": 6.0068,
+          "r2": 0.8886,
+          "mae_DJF": 5.246,
+          "mae_MAM": 5.6753,
+          "mae_JJA": 3.6342,
+          "mae_SON": 4.0027
+        },
+        "val": {
+          "mae": 4.6562,
+          "rmse": 6.1249,
+          "r2": 0.8831,
+          "mae_DJF": 5.2221,
+          "mae_MAM": 6.0173,
+          "mae_JJA": 3.4273,
+          "mae_SON": 3.9628
+        },
+        "test": {
+          "mae": 4.4683,
+          "rmse": 5.7589,
+          "r2": 0.8742,
+          "mae_DJF": 4.8315,
+          "mae_MAM": 5.8515,
+          "mae_JJA": 3.3351,
+          "mae_SON": 3.8545
+        }
+      }
+    },
+    {
+      "model": "Ridge_tmax_lag1_a100.0",
+      "architecture": "Ridge(alpha=100.0)",
+      "features": "TMAX lag-1 + date + AR",
+      "n_features": 50,
+      "n_params": 51,
+      "training_time_s": 0.0,
+      "metrics": {
+        "train": {
+          "mae": 4.6687,
+          "rmse": 6.0379,
+          "r2": 0.8874,
+          "mae_DJF": 5.3183,
+          "mae_MAM": 5.6907,
+          "mae_JJA": 3.652,
+          "mae_SON": 4.0193
+        },
+        "val": {
+          "mae": 4.6843,
+          "rmse": 6.1504,
+          "r2": 0.8821,
+          "mae_DJF": 5.2839,
+          "mae_MAM": 6.1032,
+          "mae_JJA": 3.4141,
+          "mae_SON": 3.9411
+        },
+        "test": {
+          "mae": 4.4786,
+          "rmse": 5.7593,
+          "r2": 0.8742,
+          "mae_DJF": 4.919,
+          "mae_MAM": 5.8097,
+          "mae_JJA": 3.3121,
+          "mae_SON": 3.8742
+        }
+      }
+    },
+    {
+      "model": "Ridge_tmax_tmin_lag1",
+      "architecture": "Ridge(alpha=1.0)",
+      "features": "TMAX+TMIN lag-1 + date + AR",
+      "n_features": 97,
+      "n_params": 98,
+      "training_time_s": 0.09,
+      "metrics": {
+        "train": {
+          "mae": 4.4613,
+          "rmse": 5.7235,
+          "r2": 0.8988,
+          "mae_DJF": 4.9027,
+          "mae_MAM": 5.5009,
+          "mae_JJA": 3.5652,
+          "mae_SON": 3.8788
+        },
+        "val": {
+          "mae": 4.603,
+          "rmse": 5.8828,
+          "r2": 0.8921,
+          "mae_DJF": 5.0444,
+          "mae_MAM": 5.8742,
+          "mae_JJA": 3.6332,
+          "mae_SON": 3.8615
+        },
+        "test": {
+          "mae": 4.3273,
+          "rmse": 5.5663,
+          "r2": 0.8824,
+          "mae_DJF": 4.6201,
+          "mae_MAM": 5.6579,
+          "mae_JJA": 3.3339,
+          "mae_SON": 3.6954
+        }
+      }
+    },
+    {
+      "model": "Ridge_tmax_lag12",
+      "architecture": "Ridge(alpha=1.0)",
+      "features": "TMAX lag-1+lag-2 + date + AR",
+      "n_features": 98,
+      "n_params": 99,
+      "training_time_s": 0.02,
+      "metrics": {
+        "train": {
+          "mae": 4.5293,
+          "rmse": 5.8719,
+          "r2": 0.8935,
+          "mae_DJF": 5.1203,
+          "mae_MAM": 5.5318,
+          "mae_JJA": 3.5638,
+          "mae_SON": 3.9063
+        },
+        "val": {
+          "mae": 4.6236,
+          "rmse": 6.0535,
+          "r2": 0.8858,
+          "mae_DJF": 5.3859,
+          "mae_MAM": 5.8895,
+          "mae_JJA": 3.5138,
+          "mae_SON": 3.7119
+        },
+        "test": {
+          "mae": 4.4503,
+          "rmse": 5.7024,
+          "r2": 0.8766,
+          "mae_DJF": 4.8862,
+          "mae_MAM": 5.6843,
+          "mae_JJA": 3.4046,
+          "mae_SON": 3.8264
+        }
+      }
+    },
+    {
+      "model": "Ridge_full_features",
+      "architecture": "Ridge(alpha=1.0)",
+      "features": "TMAX+TMIN+diurnal lag-1 + date + AR",
+      "n_features": 144,
+      "n_params": 145,
+      "training_time_s": 0.02,
+      "metrics": {
+        "train": {
+          "mae": 4.458,
+          "rmse": 5.718,
+          "r2": 0.899,
+          "mae_DJF": 4.8969,
+          "mae_MAM": 5.4996,
+          "mae_JJA": 3.5609,
+          "mae_SON": 3.8768
+        },
+        "val": {
+          "mae": 4.6106,
+          "rmse": 5.887,
+          "r2": 0.892,
+          "mae_DJF": 5.045,
+          "mae_MAM": 5.8762,
+          "mae_JJA": 3.6413,
+          "mae_SON": 3.8813
+        },
+        "test": {
+          "mae": 4.3284,
+          "rmse": 5.5723,
+          "r2": 0.8822,
+          "mae_DJF": 4.6247,
+          "mae_MAM": 5.6464,
+          "mae_JJA": 3.3387,
+          "mae_SON": 3.7017
+        }
+      }
+    },
+    {
+      "model": "ElasticNet_l1_0.5",
+      "architecture": "ElasticNet(alpha=1.0, l1_ratio=0.5)",
+      "features": "TMAX lag-1 + date + AR",
+      "n_features": 50,
+      "n_params": 51,
+      "training_time_s": 0.52,
+      "metrics": {
+        "train": {
+          "mae": 5.132,
+          "rmse": 6.5709,
+          "r2": 0.8667,
+          "mae_DJF": 5.9942,
+          "mae_MAM": 5.9786,
+          "mae_JJA": 4.166,
+          "mae_SON": 4.3979
+        },
+        "val": {
+          "mae": 5.1337,
+          "rmse": 6.7249,
+          "r2": 0.859,
+          "mae_DJF": 5.9876,
+          "mae_MAM": 6.4829,
+          "mae_JJA": 3.9385,
+          "mae_SON": 4.1336
+        },
+        "test": {
+          "mae": 4.7482,
+          "rmse": 6.0179,
+          "r2": 0.8626,
+          "mae_DJF": 5.3741,
+          "mae_MAM": 5.7922,
+          "mae_JJA": 3.7371,
+          "mae_SON": 4.0926
+        }
+      }
+    },
+    {
+      "model": "MultiLagMLP_256_128_64",
+      "architecture": "MLP [256,128,64], dropout=0.05",
+      "features": "TMAX lag-1..lag-3 + date + AR (flat concat)",
+      "n_features": 146,
+      "n_params": 78849,
+      "training_time_s": 455.3,
+      "best_epoch": 40,
+      "metrics": {
+        "train": {
+          "mae": 4.3143,
+          "rmse": 5.6399,
+          "r2": 0.9018,
+          "mae_DJF": 4.7463,
+          "mae_MAM": 5.281,
+          "mae_JJA": 3.4376,
+          "mae_SON": 3.7957
+        },
+        "val": {
+          "mae": 4.5231,
+          "rmse": 5.9514,
+          "r2": 0.8896,
+          "mae_DJF": 5.1315,
+          "mae_MAM": 5.7861,
+          "mae_JJA": 3.488,
+          "mae_SON": 3.6909
+        },
+        "test": {
+          "mae": 4.4041,
+          "rmse": 5.6418,
+          "r2": 0.8792,
+          "mae_DJF": 4.8019,
+          "mae_MAM": 5.609,
+          "mae_JJA": 3.3565,
+          "mae_SON": 3.8496
+        }
+      }
+    },
+    {
+      "model": "LSTM_h64_L1",
+      "architecture": "LSTM(h=64, L=1) -> Dense(32) -> Dense(1)",
+      "features": "TMAX lag-1..lag-3 + AR, seq_len=3",
+      "n_features": 48,
+      "n_params": 31297,
+      "training_time_s": 557.7,
+      "best_epoch": 60,
+      "metrics": {
+        "train": {
+          "mae": 4.3913,
+          "rmse": 5.7932,
+          "r2": 0.8964,
+          "mae_DJF": 4.7737,
+          "mae_MAM": 5.457,
+          "mae_JJA": 3.4477,
+          "mae_SON": 3.8891
+        },
+        "val": {
+          "mae": 4.7105,
+          "rmse": 6.1931,
+          "r2": 0.8804,
+          "mae_DJF": 5.2618,
+          "mae_MAM": 6.1178,
+          "mae_JJA": 3.5656,
+          "mae_SON": 3.9
+        },
+        "test": {
+          "mae": 4.4504,
+          "rmse": 5.7519,
+          "r2": 0.8745,
+          "mae_DJF": 4.7639,
+          "mae_MAM": 5.6995,
+          "mae_JJA": 3.3246,
+          "mae_SON": 4.0138
+        }
+      }
+    },
+    {
+      "model": "GRU_h64_L1",
+      "architecture": "GRU(h=64, L=1) -> Dense(32) -> Dense(1)",
+      "features": "TMAX lag-1..lag-3 + AR, seq_len=3",
+      "n_features": 48,
+      "n_params": 24001,
+      "training_time_s": 780.9,
+      "best_epoch": 28,
+      "metrics": {
+        "train": {
+          "mae": 4.6275,
+          "rmse": 6.0734,
+          "r2": 0.8861,
+          "mae_DJF": 5.0876,
+          "mae_MAM": 5.6966,
+          "mae_JJA": 3.5894,
+          "mae_SON": 4.1403
+        },
+        "val": {
+          "mae": 4.7522,
+          "rmse": 6.3455,
+          "r2": 0.8745,
+          "mae_DJF": 5.2828,
+          "mae_MAM": 6.2521,
+          "mae_JJA": 3.5347,
+          "mae_SON": 3.9417
+        },
+        "test": {
+          "mae": 4.6742,
+          "rmse": 6.0766,
+          "r2": 0.8599,
+          "mae_DJF": 5.0451,
+          "mae_MAM": 6.023,
+          "mae_JJA": 3.3437,
+          "mae_SON": 4.287
+        }
+      }
+    },
+    {
+      "model": "TemporalConv1D",
+      "architecture": "Conv1d(64,k=2) -> Conv1d(32,k=2) -> Dense(1)",
+      "features": "TMAX lag-1..lag-3 + AR, seq_len=3",
+      "n_features": 48,
+      "n_params": 10369,
+      "training_time_s": 726.1,
+      "best_epoch": 108,
+      "metrics": {
+        "train": {
+          "mae": 4.4643,
+          "rmse": 5.841,
+          "r2": 0.8947,
+          "mae_DJF": 4.9115,
+          "mae_MAM": 5.5178,
+          "mae_JJA": 3.4921,
+          "mae_SON": 3.939
+        },
+        "val": {
+          "mae": 4.6935,
+          "rmse": 6.1773,
+          "r2": 0.881,
+          "mae_DJF": 5.3941,
+          "mae_MAM": 6.0697,
+          "mae_JJA": 3.5666,
+          "mae_SON": 3.7484
+        },
+        "test": {
+          "mae": 4.4975,
+          "rmse": 5.8064,
+          "r2": 0.8721,
+          "mae_DJF": 4.8366,
+          "mae_MAM": 5.7497,
+          "mae_JJA": 3.4478,
+          "mae_SON": 3.9555
+        }
+      }
+    },
+    {
+      "model": "MLP_256_128_64_wd_deltaT",
+      "architecture": "MLP [256,128,64], dropout=0.05, weight_decay=1e-4",
+      "features": "TMAX lag-1 + date + AR, delta-T target",
+      "n_features": 50,
+      "n_params": 54273,
+      "training_time_s": 450.4,
+      "best_epoch": 72,
+      "metrics": {
+        "train": {
+          "mae": 3.8418,
+          "rmse": 5.1848,
+          "r2": 0.917,
+          "mae_DJF": 4.2577,
+          "mae_MAM": 4.5717,
+          "mae_JJA": 3.1681,
+          "mae_SON": 3.3725
+        },
+        "val": {
+          "mae": 4.3713,
+          "rmse": 5.7005,
+          "r2": 0.8987,
+          "mae_DJF": 4.8526,
+          "mae_MAM": 5.5208,
+          "mae_JJA": 3.4058,
+          "mae_SON": 3.709
+        },
+        "test": {
+          "mae": 4.3989,
+          "rmse": 5.645,
+          "r2": 0.8791,
+          "mae_DJF": 4.6386,
+          "mae_MAM": 5.7675,
+          "mae_JJA": 3.3601,
+          "mae_SON": 3.8269
+        }
+      }
+    },
+    {
+      "model": "MLP_256_128_64_wd_raw",
+      "architecture": "MLP [256,128,64], dropout=0.05, weight_decay=1e-4",
+      "features": "TMAX lag-1 + date + AR, raw TMAX target",
+      "n_features": 50,
+      "n_params": 54273,
+      "training_time_s": 335.0,
+      "best_epoch": 38,
+      "metrics": {
+        "train": {
+          "mae": 4.3707,
+          "rmse": 5.7251,
+          "r2": 0.8988,
+          "mae_DJF": 4.8411,
+          "mae_MAM": 5.3799,
+          "mae_JJA": 3.4432,
+          "mae_SON": 3.8218
+        },
+        "val": {
+          "mae": 4.3873,
+          "rmse": 5.791,
+          "r2": 0.8955,
+          "mae_DJF": 4.8786,
+          "mae_MAM": 5.7099,
+          "mae_JJA": 3.2683,
+          "mae_SON": 3.6957
+        },
+        "test": {
+          "mae": 4.4228,
+          "rmse": 5.7114,
+          "r2": 0.8762,
+          "mae_DJF": 4.77,
+          "mae_MAM": 5.7138,
+          "mae_JJA": 3.3089,
+          "mae_SON": 3.8985
+        }
+      }
+    },
+    {
+      "model": "MLP_128_64_wd_raw",
+      "architecture": "MLP [128,64], dropout=0.0, weight_decay=1e-4",
+      "features": "TMAX lag-1 + date + AR, raw TMAX target",
+      "n_features": 50,
+      "n_params": 14849,
+      "training_time_s": 406.8,
+      "best_epoch": 153,
+      "metrics": {
+        "train": {
+          "mae": 4.2923,
+          "rmse": 5.6783,
+          "r2": 0.9004,
+          "mae_DJF": 4.7362,
+          "mae_MAM": 5.3153,
+          "mae_JJA": 3.3749,
+          "mae_SON": 3.7456
+        },
+        "val": {
+          "mae": 4.3759,
+          "rmse": 5.8104,
+          "r2": 0.8948,
+          "mae_DJF": 4.8433,
+          "mae_MAM": 5.6573,
+          "mae_JJA": 3.329,
+          "mae_SON": 3.6765
+        },
+        "test": {
+          "mae": 4.4514,
+          "rmse": 5.7414,
+          "r2": 0.8749,
+          "mae_DJF": 4.8108,
+          "mae_MAM": 5.7228,
+          "mae_JJA": 3.3416,
+          "mae_SON": 3.9304
+        }
+      }
+    }
+  ],
+  "station_sensitivity": [
+    {
+      "n_stations": 10,
+      "model": "StationSens_10stn",
+      "n_features": 13,
+      "mlp_test_mae": 4.7073,
+      "mlp_test_rmse": 6.1075,
+      "mlp_test_r2": 0.8585,
+      "ridge_test_mae": 4.8231,
+      "ridge_test_rmse": 6.2102,
+      "ridge_test_r2": 0.8537,
+      "mlp_metrics": {
+        "train": {
+          "mae": 5.0729,
+          "rmse": 6.5681,
+          "r2": 0.8668,
+          "mae_DJF": 5.9656,
+          "mae_MAM": 6.0361,
+          "mae_JJA": 3.8184,
+          "mae_SON": 4.4825
+        },
+        "val": {
+          "mae": 5.1742,
+          "rmse": 6.7996,
+          "r2": 0.8559,
+          "mae_DJF": 5.9619,
+          "mae_MAM": 6.6636,
+          "mae_JJA": 3.7363,
+          "mae_SON": 4.343
+        },
+        "test": {
+          "mae": 4.7073,
+          "rmse": 6.1075,
+          "r2": 0.8585,
+          "mae_DJF": 5.5364,
+          "mae_MAM": 5.6512,
+          "mae_JJA": 3.4933,
+          "mae_SON": 4.156
+        }
+      },
+      "ridge_metrics": {
+        "train": {
+          "mae": 5.1333,
+          "rmse": 6.6201,
+          "r2": 0.8647,
+          "mae_DJF": 6.0266,
+          "mae_MAM": 6.0754,
+          "mae_JJA": 3.9154,
+          "mae_SON": 4.5266
+        },
+        "val": {
+          "mae": 5.2251,
+          "rmse": 6.8568,
+          "r2": 0.8534,
+          "mae_DJF": 5.9933,
+          "mae_MAM": 6.7537,
+          "mae_JJA": 3.7497,
+          "mae_SON": 4.4118
+        },
+        "test": {
+          "mae": 4.8231,
+          "rmse": 6.2102,
+          "r2": 0.8537,
+          "mae_DJF": 5.6257,
+          "mae_MAM": 5.8504,
+          "mae_JJA": 3.5273,
+          "mae_SON": 4.2962
+        }
+      },
+      "training_time_s": 83.3,
+      "best_epoch": 25,
+      "n_params": 44801
+    },
+    {
+      "n_stations": 20,
+      "model": "StationSens_20stn",
+      "n_features": 23,
+      "mlp_test_mae": 4.6466,
+      "mlp_test_rmse": 6.0504,
+      "mlp_test_r2": 0.8611,
+      "ridge_test_mae": 4.8651,
+      "ridge_test_rmse": 6.258,
+      "ridge_test_r2": 0.8514,
+      "mlp_metrics": {
+        "train": {
+          "mae": 4.9536,
+          "rmse": 6.4507,
+          "r2": 0.8715,
+          "mae_DJF": 5.7663,
+          "mae_MAM": 5.905,
+          "mae_JJA": 3.7747,
+          "mae_SON": 4.3779
+        },
+        "val": {
+          "mae": 5.0576,
+          "rmse": 6.6481,
+          "r2": 0.8622,
+          "mae_DJF": 5.7387,
+          "mae_MAM": 6.5229,
+          "mae_JJA": 3.7194,
+          "mae_SON": 4.2554
+        },
+        "test": {
+          "mae": 4.6466,
+          "rmse": 6.0504,
+          "r2": 0.8611,
+          "mae_DJF": 5.3996,
+          "mae_MAM": 5.8328,
+          "mae_JJA": 3.3195,
+          "mae_SON": 4.0402
+        }
+      },
+      "ridge_metrics": {
+        "train": {
+          "mae": 5.0884,
+          "rmse": 6.5625,
+          "r2": 0.867,
+          "mae_DJF": 5.9774,
+          "mae_MAM": 6.0122,
+          "mae_JJA": 3.9232,
+          "mae_SON": 4.4511
+        },
+        "val": {
+          "mae": 5.2226,
+          "rmse": 6.7948,
+          "r2": 0.8561,
+          "mae_DJF": 5.979,
+          "mae_MAM": 6.7445,
+          "mae_JJA": 3.7972,
+          "mae_SON": 4.3769
+        },
+        "test": {
+          "mae": 4.8651,
+          "rmse": 6.258,
+          "r2": 0.8514,
+          "mae_DJF": 5.6577,
+          "mae_MAM": 5.9649,
+          "mae_JJA": 3.5944,
+          "mae_SON": 4.2497
+        }
+      },
+      "training_time_s": 82.9,
+      "best_epoch": 30,
+      "n_params": 47361
+    },
+    {
+      "n_stations": 30,
+      "model": "StationSens_30stn",
+      "n_features": 33,
+      "mlp_test_mae": 4.5536,
+      "mlp_test_rmse": 5.9183,
+      "mlp_test_r2": 0.8671,
+      "ridge_test_mae": 4.6114,
+      "ridge_test_rmse": 5.967,
+      "ridge_test_r2": 0.8649,
+      "mlp_metrics": {
+        "train": {
+          "mae": 4.6193,
+          "rmse": 6.0475,
+          "r2": 0.8871,
+          "mae_DJF": 5.1468,
+          "mae_MAM": 5.6454,
+          "mae_JJA": 3.5966,
+          "mae_SON": 4.0928
+        },
+        "val": {
+          "mae": 4.7338,
+          "rmse": 6.2628,
+          "r2": 0.8777,
+          "mae_DJF": 5.2629,
+          "mae_MAM": 6.1073,
+          "mae_JJA": 3.541,
+          "mae_SON": 4.0279
+        },
+        "test": {
+          "mae": 4.5536,
+          "rmse": 5.9183,
+          "r2": 0.8671,
+          "mae_DJF": 5.0395,
+          "mae_MAM": 5.7937,
+          "mae_JJA": 3.32,
+          "mae_SON": 4.0639
+        }
+      },
+      "ridge_metrics": {
+        "train": {
+          "mae": 4.8935,
+          "rmse": 6.3164,
+          "r2": 0.8768,
+          "mae_DJF": 5.564,
+          "mae_MAM": 5.9661,
+          "mae_JJA": 3.7877,
+          "mae_SON": 4.2624
+        },
+        "val": {
+          "mae": 4.9677,
+          "rmse": 6.481,
+          "r2": 0.8691,
+          "mae_DJF": 5.6218,
+          "mae_MAM": 6.4675,
+          "mae_JJA": 3.6443,
+          "mae_SON": 4.1426
+        },
+        "test": {
+          "mae": 4.6114,
+          "rmse": 5.967,
+          "r2": 0.8649,
+          "mae_DJF": 5.1434,
+          "mae_MAM": 5.8278,
+          "mae_JJA": 3.3894,
+          "mae_SON": 4.0878
+        }
+      },
+      "training_time_s": 266.6,
+      "best_epoch": 87,
+      "n_params": 49921
+    },
+    {
+      "n_stations": 40,
+      "model": "StationSens_40stn",
+      "n_features": 43,
+      "mlp_test_mae": 4.566,
+      "mlp_test_rmse": 5.901,
+      "mlp_test_r2": 0.8679,
+      "ridge_test_mae": 4.5431,
+      "ridge_test_rmse": 5.8486,
+      "ridge_test_r2": 0.8702,
+      "mlp_metrics": {
+        "train": {
+          "mae": 4.4949,
+          "rmse": 5.8791,
+          "r2": 0.8933,
+          "mae_DJF": 5.0171,
+          "mae_MAM": 5.5598,
+          "mae_JJA": 3.4799,
+          "mae_SON": 3.9269
+        },
+        "val": {
+          "mae": 4.6244,
+          "rmse": 6.0698,
+          "r2": 0.8851,
+          "mae_DJF": 5.1523,
+          "mae_MAM": 6.069,
+          "mae_JJA": 3.4331,
+          "mae_SON": 3.846
+        },
+        "test": {
+          "mae": 4.566,
+          "rmse": 5.901,
+          "r2": 0.8679,
+          "mae_DJF": 5.1521,
+          "mae_MAM": 5.7022,
+          "mae_JJA": 3.3841,
+          "mae_SON": 4.0294
+        }
+      },
+      "ridge_metrics": {
+        "train": {
+          "mae": 4.7468,
+          "rmse": 6.1364,
+          "r2": 0.8837,
+          "mae_DJF": 5.3977,
+          "mae_MAM": 5.8208,
+          "mae_JJA": 3.675,
+          "mae_SON": 4.0995
+        },
+        "val": {
+          "mae": 4.8991,
+          "rmse": 6.3346,
+          "r2": 0.8749,
+          "mae_DJF": 5.5076,
+          "mae_MAM": 6.3954,
+          "mae_JJA": 3.6363,
+          "mae_SON": 4.0612
+        },
+        "test": {
+          "mae": 4.5431,
+          "rmse": 5.8486,
+          "r2": 0.8702,
+          "mae_DJF": 5.1369,
+          "mae_MAM": 5.7912,
+          "mae_JJA": 3.3557,
+          "mae_SON": 3.8913
+        }
+      },
+      "training_time_s": 240.6,
+      "best_epoch": 79,
+      "n_params": 52481
+    },
+    {
+      "n_stations": 47,
+      "model": "StationSens_47stn",
+      "n_features": 50,
+      "mlp_test_mae": 4.428,
+      "mlp_test_rmse": 5.7213,
+      "mlp_test_r2": 0.8758,
+      "ridge_test_mae": 4.4725,
+      "ridge_test_rmse": 5.7623,
+      "ridge_test_r2": 0.874,
+      "mlp_metrics": {
+        "train": {
+          "mae": 4.3228,
+          "rmse": 5.6681,
+          "r2": 0.9008,
+          "mae_DJF": 4.7594,
+          "mae_MAM": 5.338,
+          "mae_JJA": 3.4077,
+          "mae_SON": 3.7887
+        },
+        "val": {
+          "mae": 4.3781,
+          "rmse": 5.7794,
+          "r2": 0.8959,
+          "mae_DJF": 4.86,
+          "mae_MAM": 5.6732,
+          "mae_JJA": 3.2619,
+          "mae_SON": 3.7206
+        },
+        "test": {
+          "mae": 4.428,
+          "rmse": 5.7213,
+          "r2": 0.8758,
+          "mae_DJF": 4.8685,
+          "mae_MAM": 5.7556,
+          "mae_JJA": 3.2133,
+          "mae_SON": 3.8755
+        }
+      },
+      "ridge_metrics": {
+        "train": {
+          "mae": 4.6363,
+          "rmse": 6.0054,
+          "r2": 0.8886,
+          "mae_DJF": 5.2393,
+          "mae_MAM": 5.6757,
+          "mae_JJA": 3.6327,
+          "mae_SON": 4.0024
+        },
+        "val": {
+          "mae": 4.6548,
+          "rmse": 6.1223,
+          "r2": 0.8832,
+          "mae_DJF": 5.2196,
+          "mae_MAM": 6.0011,
+          "mae_JJA": 3.4353,
+          "mae_SON": 3.9681
+        },
+        "test": {
+          "mae": 4.4725,
+          "rmse": 5.7623,
+          "r2": 0.874,
+          "mae_DJF": 4.8258,
+          "mae_MAM": 5.8557,
+          "mae_JJA": 3.3542,
+          "mae_SON": 3.8536
+        }
+      },
+      "training_time_s": 228.0,
+      "best_epoch": 109,
+      "n_params": 54273
+    }
+  ]
+}

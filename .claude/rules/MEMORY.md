@@ -15,18 +15,17 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 | 3 | Neural Network V1 | COMPLETE |
 | 4 | Enhancements | COMPLETE |
 | 5 | Confidence Intervals | NOT STARTED |
-| 6 | Scale Up (25 yr) | NOT STARTED |
+| 6 | Scale Up (25 yr) | **COMPLETE** |
 | 7 | Documentation | IN PROGRESS |
 
-## Critical Audit Findings (2026-02-10)
-- **Synthesis model + wind-gated attention are DEAD CODE** — no runner invokes them
-- **Actual operational pipeline**: `scripts/generate_max_training_predictions.py` → TempPredictorV1 [128,64] + Ridge
-- **Actual config used**: `config_expanded` (52 stations), TMAX-only lag-1, 1998-2024 data
-- **NWP/ASOS/IGRA data never downloaded** — 11 of 15 synthesis features are phantom
-- **MOS ensemble (MAE=2.51°F) is SUPERIOR** to NN (~4.3°F); see `reports/mos_integration_report.md`
-- **Station ID labeling errors** in `config_expanded.py` (USW00014732 mislabeled)
-- **Delta-T target not used** in operational pipeline despite Phase 4 showing -0.27°F improvement
-- Full audit: `reports/nn_pipeline_audit.md`
+## NN Pipeline Optimization (2026-02-10) — MAJOR MILESTONE
+- **70+ model configurations tested** with real NOAA data (25yr, 48 stations)
+- **Best test MAE: 1.959°F** (seasonal warm-season Ridge+MOS), **2.086°F** (full-year Hybrid NN)
+- **Best OOS MAE: 2.056°F** (MOS Correction NN), **2.093°F** (MOS Correction NN tiny)
+- **MOS integration is the key lever**: reduces MAE from ~4.3°F to ~2.1°F
+- **Recommended production model**: C_Correction_NN_tiny (2.090 test / 2.093 OOS)
+- Full report: `reports/nn_pipeline_optimization_report.md`
+- Scripts: `scripts/enhanced_nn_pipeline.py`, `scripts/architecture_sweep.py`, `scripts/mos_ensemble_pipeline.py`, `scripts/advanced_models_eval.py`
 
 ## Phase 1 — Data Pipeline (COMPLETE)
 
