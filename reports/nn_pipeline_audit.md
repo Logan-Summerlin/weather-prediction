@@ -242,12 +242,6 @@ The `models/` directory is empty. No `.pt` checkpoint files exist in the reposit
 | **Lag-2 TMAX** | Small improvement | Trivial to add |
 | **MOS forecasts as input** | Potentially large (MOS MAE=2.51°F) | `data/mos/` files exist |
 
-### Features to consider removing:
-
-| Feature | Concern |
-|---------|---------|
-| Stations with <90% completeness (expanded config allows 80%) | More imputation = more noise |
-| Distant Ring 4 stations (>150mi) | Phase 4.3 found >14 stations degrades performance with small data; check with large data |
 
 ---
 
