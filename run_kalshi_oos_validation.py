@@ -11,9 +11,8 @@ Backtesting Plan (Part 2):
   5. Generate comprehensive results and reports.
 
 All outputs are saved to:
-  - results/kalshi_real_2023_2024/   (in-sample)
-  - results/kalshi_real_2025_oos/    (out-of-sample)
-  - results/kalshi_combined_report/  (combined analysis)
+  - results/kalshi_max_train_backtest/   (in-sample)
+  - results/mos_backtest/                (MOS-integrated backtest)
 
 Usage:
     python run_kalshi_oos_validation.py

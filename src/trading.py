@@ -1014,7 +1014,7 @@ def generate_strategy_grid(
 
 def run_comprehensive_backtest(
     historical_data: pd.DataFrame,
-    output_dir: str = "results/phase3",
+    output_dir: str = "results/kalshi_max_train_backtest",
     strategies: Optional[list] = None,
     max_strategies: int = 500,
 ) -> dict:
@@ -1563,7 +1563,7 @@ def _save_risk_metrics(
 
 def generate_phase3_report(
     backtest_results: dict,
-    output_dir: str = "results/phase3",
+    output_dir: str = "results/kalshi_max_train_backtest",
 ) -> str:
     """Generate a comprehensive Phase 3 trading strategy report.
 

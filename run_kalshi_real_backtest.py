@@ -102,7 +102,7 @@ def load_real_data(data_dir="data"):
     if not os.path.exists(pred_path):
         raise FileNotFoundError(
             f"Real model predictions not found: {pred_path}\n"
-            "Run: python scripts/generate_real_predictions.py"
+            "Run: python scripts/generate_max_training_predictions.py"
         )
 
     market_df = pd.read_csv(market_path)

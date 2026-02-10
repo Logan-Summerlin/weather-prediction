@@ -511,7 +511,7 @@ def plot_training_curves(history: list, save_path: str) -> None:
     history : list[dict]
         Training history (list of epoch dicts).
     save_path : str
-        File path to save the figure (e.g., 'results/nn_v1/training_curves.png').
+        File path to save the figure (e.g., 'results/training_curves.png').
     """
     if not history:
         logger.warning("Empty history — cannot plot training curves")

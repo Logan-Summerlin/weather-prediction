@@ -19,7 +19,7 @@ Outputs:
   - data/model_predictions_2023_2024.csv
   - data/kalshi_historical_2025.csv
   - data/model_predictions_2025.csv
-  - results/kalshi_real_2023_2024/  (all_strategies.csv, plots, reports, etc.)
+  - results/kalshi_max_train_backtest/  (all_strategies.csv, plots, reports, etc.)
 
 Usage:
     python run_kalshi_backtest.py

@@ -167,4 +167,4 @@ The strategy shows strong OOS performance with minimal Sharpe degradation (6.96 
 - `models/expanded_training_report.json` -- Full training metrics
 
 ### Results
-- `results/kalshi_expanded_backtest/` -- All backtest outputs (15 files)
+- `results/kalshi_max_train_backtest/` -- All backtest outputs

@@ -1,9 +1,0 @@
-{
-  "hidden_sizes": [
-    64,
-    32
-  ],
-  "learning_rate": 0.001,
-  "dropout": 0.0,
-  "batch_size": 64
-}

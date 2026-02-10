@@ -66,12 +66,11 @@ The Kalshi public API for settled markets returns **settlement prices** (0 or 10
 - `run_kalshi_real_oos.py` -- OOS validation runner
 - `scripts/fetch_kalshi_markets.py` -- Kalshi API data fetcher
 - `scripts/download_real_ghcn.py` -- GHCN data downloader
-- `scripts/generate_real_predictions.py` -- model prediction generator
+- `scripts/generate_max_training_predictions.py` -- model prediction generator
 
-### Results (73 files across 3 directories)
-- `results/kalshi_real_2023_2024/` -- 27 files (CSVs, PNGs, reports)
-- `results/kalshi_real_2025_oos/` -- 13 files (OOS analysis)
-- `results/kalshi_real_combined/` -- 6 files (combined IS vs OOS)
+### Results
+- `results/kalshi_max_train_backtest/` -- backtest outputs
+- `results/mos_backtest/` -- MOS-integrated backtest outputs
 
 ### Tests
 - `tests/test_run_kalshi_real_oos.py` -- OOS runner tests
