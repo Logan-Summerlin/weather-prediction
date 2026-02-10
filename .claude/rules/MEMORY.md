@@ -18,14 +18,19 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 | 6 | Scale Up (25 yr) | **COMPLETE** |
 | 7 | Documentation | IN PROGRESS |
 
-## NN Pipeline Optimization (2026-02-10) — MAJOR MILESTONE
-- **70+ model configurations tested** with real NOAA data (25yr, 48 stations)
-- **Best test MAE: 1.959°F** (seasonal warm-season Ridge+MOS), **2.086°F** (full-year Hybrid NN)
-- **Best OOS MAE: 2.056°F** (MOS Correction NN), **2.093°F** (MOS Correction NN tiny)
-- **MOS integration is the key lever**: reduces MAE from ~4.3°F to ~2.1°F
-- **Recommended production model**: C_Correction_NN_tiny (2.090 test / 2.093 OOS)
-- Full report: `reports/nn_pipeline_optimization_report.md`
-- Scripts: `scripts/enhanced_nn_pipeline.py`, `scripts/architecture_sweep.py`, `scripts/mos_ensemble_pipeline.py`, `scripts/advanced_models_eval.py`
+## Phase 1 Improvement (2026-02-10) — NEW BEST
+- **100+ model configurations** across 5 workstreams (features, probabilistic, ensemble, architecture, synthesis)
+- **Best test MAE: 1.987°F** (5-seed ensemble with combined features) — SUB-2°F!
+- **Best OOS MAE: 2.010°F** (single A_NN_64_32 seed 42), **2.018°F** (5-seed ensemble)
+- Key new features: MOS error memory (7/14/30d rolling bias), MOS×station interactions, temporal (day length, solar elevation, anomaly), spatial (gradients, frontal proxy)
+- Probabilistic output: NLL→CRPS training, 95% PI coverage ≈ 95%, CRPS ≈ 1.48°F
+- **Recommended**: A_NN_64_32 combined features (production), 5-seed ensemble (max accuracy), D_Probabilistic (trading)
+- Report: `reports/phase1_improvement_report.md`
+- Scripts: `scripts/phase1_*.py` (5 scripts), Results: `results/phase1_*/` (5 dirs)
+
+## Prior: NN Pipeline Optimization (2026-02-10)
+- 70+ configs tested. Prior best: C_Correction_NN_tiny (2.090 test / 2.093 OOS)
+- MOS integration key lever: 4.3→2.1°F. Scripts: `scripts/mos_ensemble_pipeline.py` etc.
 
 ## Key Implementation Lessons
 - No NOAA API token needed — bulk .dly downloads from `https://www.ncei.noaa.gov/pub/data/ghcn/daily/all/` work reliably
