@@ -7,7 +7,7 @@ End-to-end script that:
   3. Creates DataLoaders and trains the model
   4. Evaluates on the test set using the evaluation framework
   5. Compares results against baseline numbers
-  6. Saves all results to results/nn_v1/
+  6. Saves all results to the configured results directory
   7. Generates diagnostic plots
 
 Usage:

@@ -1,7 +1,7 @@
 # NN Pipeline Optimization Report
 
 **Date:** 2026-02-10
-**Objective:** Implement nn_pipeline_audit.md recommendations and push MAE below 2.0 F
+**Objective:** Implement pipeline audit recommendations and push MAE below 2.0 F
 **Data:** Real NOAA GHCN-Daily observations, 25+ years (1998-2024), ~48 qualifying stations
 
 ---

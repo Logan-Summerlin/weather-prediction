@@ -5,7 +5,7 @@ Loads processed data from data/processed/, fits and evaluates all baseline
 models (Persistence, Climatology, Linear Regression, Ridge), generates
 comprehensive metrics, visualizations, and a full evaluation report.
 
-Results are saved to results/baselines/.
+Results are saved to a results/ subdirectory.
 """
 
 import os

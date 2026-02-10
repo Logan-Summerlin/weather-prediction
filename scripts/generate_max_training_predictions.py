@@ -2,9 +2,7 @@
 """
 Generate Maximum-Training Predictions for NYC Temperature.
 
-Unlike the previous pipeline (generate_expanded_predictions.py) which trained
-a single model on 1998-2019 for both IS and OOS predictions, this script
-trains TWO separate models, each using the MAXIMUM available training data
+Trains TWO separate models, each using the MAXIMUM available training data
 for its respective prediction period:
 
   Model A (IS predictions for 2023-2024):

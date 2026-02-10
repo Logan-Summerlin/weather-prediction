@@ -27,98 +27,55 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 - Full report: `reports/nn_pipeline_optimization_report.md`
 - Scripts: `scripts/enhanced_nn_pipeline.py`, `scripts/architecture_sweep.py`, `scripts/mos_ensemble_pipeline.py`, `scripts/advanced_models_eval.py`
 
-## Phase 1 — Data Pipeline (COMPLETE)
-
-### Files Delivered
-- `config.py` — 14 surrounding stations + Central Park, 2018-2022, all hyperparams
-- `src/data_collection.py` — GHCN .dly bulk download + fixed-width parser
-- `src/data_preprocessing.py` — merge, lag-1 features, cyclical dates, split, scale
-- `tests/test_data_collection.py` — 29 tests
-- `tests/test_data_preprocessing.py` — 32 tests
-- `data/stations.csv` — 15 stations with coordinates, distances, directions
-- `reports/phase1_pm_report.md` — PM completion report
-- `.gitignore` — excludes raw data, caches, model checkpoints
-
-### Data Summary
-- 15 stations (1 target + 14 surrounding), all >99% completeness
-- 30 features: 28 lagged station TMAX/TMIN + sin_day + cos_day
-- Train: 1277 rows (2018-01-02 to 2021-07-01)
-- Val: 274 rows (2021-07-02 to 2022-04-01)
-- Test: 274 rows (2022-04-02 to 2022-12-31)
-- Target mean: 62.6°F, std: 17.8°F, range: 13.1–98.1°F
-
-### Implementation Lessons
+## Key Implementation Lessons
 - No NOAA API token needed — bulk .dly downloads from `https://www.ncei.noaa.gov/pub/data/ghcn/daily/all/` work reliably
 - GHCN .dly format: 21-char header + 31 × 8-char daily values; temps in tenths °C; -9999 = missing; non-blank qflag = failed QC
 - Temperature conversion: `(value / 10) * 9/5 + 32`
 - Scaler fit on training data only — no leakage
 - Chronological split (no shuffling) to avoid temporal leakage
 - Forward-fill ≤3 days, then impute remaining NaNs with training-set column means
-- All 61 tests pass; pipeline is end-to-end operational
+- Delta-T target: biggest single improvement for station-only models
+- Without MOS, station-only NN plateaus at ~4.0°F MAE regardless of architecture
+- MOS residual correction is the most robust approach (smallest IS/OOS gap)
 
-## Phase 2 — Baseline Models (COMPLETE)
+## Key Results Summary
+### Baselines (5yr data, 14 stations)
+- Persistence: MAE=5.06°F | Climatology: MAE=6.15°F | Ridge: MAE=4.33°F
 
-### Files Delivered
-- `src/baselines.py` — 4 models: Persistence, Climatology, Linear Regression, Ridge
-- `src/evaluate.py` — Full evaluation framework: metrics, seasonal breakdown, 5 plot types, report generation
-- `tests/test_baselines.py` — 61 tests
-- `tests/test_evaluate.py` — 55 tests
-- `run_baselines.py` — End-to-end evaluation script
-- `results/baselines/` — 17 PNG plots + evaluation report
-- `reports/phase2_pm_report.md` — PM completion report
+### Phase 4 Best (5yr, enhanced features)
+- NN Delta+Huber+AR: MAE=3.95°F
 
-### Baseline Results (Test Set, n=274)
-- Persistence: MAE=5.06°F, R²=0.799
-- Climatology: MAE=6.15°F, R²=0.747
-- Linear Regression: MAE=4.35°F, R²=0.875
-- **Ridge (alpha=1.0): MAE=4.33°F, R²=0.876** (best baseline)
+### Optimization Best (25yr, 48 stations, MOS)
+- C_Correction_NN_tiny: 2.090°F test / 2.093°F OOS (production recommendation)
+- B_Hybrid_NN: 2.086°F test / 2.177°F OOS
+- E_warm_Ridge (seasonal): 1.959°F test / 2.244°F OOS
 
-### Key Findings
-- Ridge ≈ OLS: multicollinearity not causing instability
-- Surrounding stations add ~0.7°F MAE improvement over persistence
-- Winter/spring are hardest seasons (MAE 1-2°F higher)
-- Stretch goal (≤2°F) requires roughly halving best baseline error
-- 177 total tests pass (61 baselines + 55 evaluate + 61 Phase 1)
+## Station Network
+- 48 qualifying stations (≥80% completeness over 1998-2024) from ~52 candidates
+- Config: `config_expanded.py`, registry: `src/station_registry.py`
+- Geography gap analysis: `reports/station_geography_report.md`
+- ESE gap (LI south shore) confirmed unfillable; SSE ocean gap irreducible
 
-## Phase 3 — Neural Network V1 (COMPLETE)
+## Active File Reference
+| Category | Key Files |
+|----------|-----------|
+| Config | `config.py`, `config_expanded.py` |
+| Data pipeline | `src/data_collection.py`, `src/data_preprocessing.py` |
+| Models | `src/model.py` (TempPredictorV1) |
+| Training | `src/train.py` |
+| Evaluation | `src/evaluate.py`, `src/baselines.py` |
+| Optimization scripts | `scripts/enhanced_nn_pipeline.py`, `scripts/architecture_sweep.py`, `scripts/mos_ensemble_pipeline.py`, `scripts/advanced_models_eval.py` |
+| Kalshi/Trading | `src/trading.py`, `src/kalshi_client.py`, `src/kalshi_backtester.py` |
+| Market proxy | `src/market_proxy.py`, `src/enhanced_market_proxy.py`, `src/mos_market_proxy.py` |
+| Backtest scripts | `scripts/run_max_train_backtest.py`, `scripts/run_mos_backtest.py` |
+| MOS data | `scripts/download_iem_mos.py`, `scripts/validate_mos_quality.py` |
+| Reports | `reports/nn_pipeline_optimization_report.md`, `reports/mos_integration_report.md` |
 
-### Key Results
-- NN V1 [64,32]: Test MAE=4.29°F, RMSE=5.69, R²=0.869
-- Beats Ridge by 0.04°F (0.9%) — marginal improvement
-- Dropout=0.0 optimal; model has 4,097 parameters
-- 318 total tests pass
-
-## Phase 4 — Enhancements (COMPLETE)
-
-### Files Delivered
-- `src/data_preprocessing_v2.py` — Delta-T target, autoregressive input, sector features, trends
-- `src/train_v2.py` — Huber/MAE/MSE loss, delta-T reconstruction
-- `src/models_v2.py` — EnhancedMLP, MultiLagMLP, LSTMPredictor, StationAttentionModel
-- `src/experiments.py` — Sensitivity experiment framework
-- `run_phase4.py`, `run_experiments.py` — Runner scripts
-- Tests: 200 new tests (55+42+69+34), 525 total pass
-
-### Best Results (Test Set, n=274)
-- **NN Delta+Huber+AR: MAE=3.95°F, RMSE=5.33, R²=0.885** (best overall)
-- Delta-T target: biggest single improvement (-0.27°F over raw)
-- Autoregressive NYC TMAX(t-1): adds 0.07°F improvement
-- Full enhanced features (79 feat) overfits with current data size
-
-### Sensitivity Findings
-- Huber loss best for delta-T; MSE better for raw TMAX
-- TMAX features dominate; TMIN alone is weakest
-- Date features contribute ~0.2°F; low dropout optimal
-- Larger architectures don't help with limited data
-
-### Phase 4.3 — Station Expansion (COMPLETE)
-- Expanded from 14 to 50 surrounding stations (51 total incl. target)
-- `config_expanded.py`, `src/station_registry.py`, `src/station_discovery.py`
-- `src/data_preprocessing_expanded.py` with missingness masking
-- Station count sensitivity: optimal ~10-14 stations with 5-year data
-- More stations degrade performance due to overfitting (202+ features / 1277 samples)
-- Infrastructure ready for Phase 6 (25-year data) to exploit expanded stations
-- 652 total tests pass
-- **Geography gap analysis completed** (`reports/station_geography_report.md`):
-  - S near-field gap filled (~50mi McGuire-Dix-Lakehurst NJ); SW Ring3 gap filled (~130mi Dover AFB DE)
-  - ESE gap (Farmingdale-JFK, 96-132 deg) confirmed unfillable — no active GHCN station on LI south shore
-  - SSE ocean gap accepted as irreducible; total ~52 surrounding stations post-gap-fill
+## Cleanup Log (2026-02-10)
+Deleted outdated/superseded files from Phases 1-4:
+- 12 results directories (baselines, nn_v1, phase3, phase4, phase4_expanded, experiments, station_sensitivity, 5 old kalshi dirs)
+- 6 runner scripts (run_experiments, run_hp_tuning, run_phase3, run_phase4, run_phase4_expanded, run_station_sensitivity)
+- 5 src modules (experiments, models_v2, train_v2, data_preprocessing_v2, data_preprocessing_expanded)
+- 5 test files (matching deleted src modules)
+- 7 reports (phase1-4 PM reports, phase3_kalshi, nn_pipeline_audit)
+- 3 scripts (generate_expanded_predictions, generate_real_predictions, run_expanded_backtest)

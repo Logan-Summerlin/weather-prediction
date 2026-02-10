@@ -21,8 +21,8 @@ Note on market probabilities:
   clearly documented as a limitation.
 
 Output directories:
-  - results/kalshi_real_2025_oos/
-  - results/kalshi_real_combined/
+  - results/kalshi_max_train_backtest/
+  - results/mos_backtest/
 
 Usage:
     python run_kalshi_real_oos.py

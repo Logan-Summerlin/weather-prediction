@@ -1,8 +1,0 @@
-{
-  "n_strategies": 500,
-  "n_with_trades": 500,
-  "best_strategy": "S0271_ev0.02_fractional_kelly_kf0.10_fee0.05_mp0.05_br10000",
-  "best_pnl": 2256.652900220638,
-  "best_roi": 0.2256652900220638,
-  "best_sharpe": 2.926264493978685
-}
