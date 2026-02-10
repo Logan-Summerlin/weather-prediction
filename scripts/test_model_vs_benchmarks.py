@@ -11,6 +11,7 @@ Computes Brier scores, log scores, calibration metrics, and trading simulations.
 Outputs to results/prediction_market_benchmark/
 """
 
+import argparse
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
@@ -29,6 +30,11 @@ TRADING_THRESHOLDS = [0.02, 0.05, 0.10, 0.15, 0.20]
 OUTPUT_DIR = Path("results/prediction_market_benchmark")
 N_CAL_BINS = 10
 
+DEFAULT_MODEL_IS = "data/best_model_predictions_2023_2024.csv"
+DEFAULT_MODEL_OOS = "data/best_model_predictions_2025.csv"
+LEGACY_MODEL_IS = "data/max_train_nn_predictions_is.csv"
+LEGACY_MODEL_OOS = "data/max_train_nn_predictions_oos.csv"
+
 SEASON_MAP = {12: "Winter", 1: "Winter", 2: "Winter",
               3: "Spring", 4: "Spring", 5: "Spring",
               6: "Summer", 7: "Summer", 8: "Summer",
@@ -38,7 +44,7 @@ SEASON_MAP = {12: "Winter", 1: "Winter", 2: "Winter",
 # ==============================================================================
 # Data Loading & Merging
 # ==============================================================================
-def load_all_data():
+def load_all_data(model_is_path=DEFAULT_MODEL_IS, model_oos_path=DEFAULT_MODEL_OOS):
     """Load all data sources and return as dict."""
     print("Loading data...")
     pre = pd.read_csv("data/kalshi_presettlement.csv")
@@ -46,8 +52,8 @@ def load_all_data():
     s25 = pd.read_csv("data/real_kalshi_2025.csv")
     settled = pd.concat([s23, s25], ignore_index=True)
 
-    model_is = pd.read_csv("data/max_train_nn_predictions_is.csv")
-    model_oos = pd.read_csv("data/max_train_nn_predictions_oos.csv")
+    model_is = pd.read_csv(model_is_path)
+    model_oos = pd.read_csv(model_oos_path)
     model = pd.concat([model_is, model_oos], ignore_index=True)
 
     nws = pd.read_csv("results/prediction_market_benchmark/nws_probability_forecasts.csv")
@@ -55,7 +61,7 @@ def load_all_data():
 
     print(f"  Pre-settlement: {len(pre)} rows, {pre['date'].nunique()} dates")
     print(f"  Settled:        {len(settled)} rows, {settled['date'].nunique()} dates")
-    print(f"  Model preds:    {len(model)} rows")
+    print(f"  Model preds:    {len(model)} rows (IS={model_is_path}, OOS={model_oos_path})")
     print(f"  NWS forecasts:  {len(nws)} rows")
     return pre, settled, model, nws, cp_tmax
 
@@ -698,9 +704,23 @@ def print_summary(df, scores_df, cal_df, trading_df):
 # ==============================================================================
 # Main
 # ==============================================================================
+def parse_args():
+    parser = argparse.ArgumentParser(description="Benchmark model probabilities vs Kalshi and NWS")
+    parser.add_argument("--model-is", default=DEFAULT_MODEL_IS, help="CSV path for 2023-2024 model predictions")
+    parser.add_argument("--model-oos", default=DEFAULT_MODEL_OOS, help="CSV path for 2025 model predictions")
+    parser.add_argument("--use-legacy-model", action="store_true", help="Use legacy max-train NN predictions")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+    if args.use_legacy_model:
+        model_is_path, model_oos_path = LEGACY_MODEL_IS, LEGACY_MODEL_OOS
+    else:
+        model_is_path, model_oos_path = args.model_is, args.model_oos
+
     # Load data
-    pre, settled, model, nws, cp_tmax = load_all_data()
+    pre, settled, model, nws, cp_tmax = load_all_data(model_is_path, model_oos_path)
 
     # Build merged dataset
     df = build_merged_dataset(pre, settled, model, nws)

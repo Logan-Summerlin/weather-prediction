@@ -28,6 +28,7 @@ import math
 import copy
 import logging
 import warnings
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -1049,6 +1050,7 @@ def run_model_e(data, all_results):
 
     n_feat = data["n_features"]
     per_seed_preds = {split: [] for split in ["train", "val", "test", "oos"]}
+    seed_state_dicts = {}
 
     for seed in ENSEMBLE_SEEDS:
         logger.info("--- Seed %d ---", seed)
@@ -1058,6 +1060,7 @@ def run_model_e(data, all_results):
                  data["val"]["X"], data["val"]["y_resid"],
                  lr=1e-3, epochs=300, patience=20, loss_fn_name="huber",
                  weight_decay=DEFAULT_WD)
+        seed_state_dicts[str(seed)] = {k: v.detach().cpu() for k, v in model.state_dict().items()}
 
         for split in ["train", "val", "test", "oos"]:
             pred_resid = predict_nn(model, data[split]["X"])
@@ -1075,7 +1078,59 @@ def run_model_e(data, all_results):
                           data[split]["dates"], f"E_Ensemble {split}")
         all_results[f"E_Ensemble_5seed_{split}"] = r
 
-    return per_seed_preds
+    return {
+        "per_seed_preds": per_seed_preds,
+        "seed_state_dicts": seed_state_dicts,
+    }
+
+
+def _build_benchmark_prediction_files(data, ensemble_result):
+    """Create benchmark-ready daily prediction files from the 5-seed ensemble."""
+    per_seed_preds = ensemble_result["per_seed_preds"]
+
+    # Estimate month-specific sigma from IS residuals (2023-2024 test window).
+    test_dates = pd.to_datetime(data["test"]["dates"])
+    test_actual = data["test"]["y_actual"]
+    test_pred = np.mean(per_seed_preds["test"], axis=0)
+    test_err = test_actual - test_pred
+
+    sigma_by_month = {}
+    for month in range(1, 13):
+        m = test_dates.month == month
+        if np.any(m):
+            sigma_by_month[month] = float(np.std(test_err[m], ddof=1))
+
+    global_sigma = float(np.std(test_err, ddof=1))
+    sigma_by_month = {
+        m: float(np.clip(sigma_by_month.get(m, global_sigma), SIGMA_FLOOR, SIGMA_CAP))
+        for m in range(1, 13)
+    }
+
+    def _make_split_df(split):
+        dates = pd.to_datetime(data[split]["dates"])
+        mu = np.mean(per_seed_preds[split], axis=0)
+        sigma = [sigma_by_month[int(m)] for m in dates.month]
+        return pd.DataFrame({
+            "date": dates.strftime("%Y-%m-%d"),
+            "model_mu": mu,
+            "model_sigma": sigma,
+            "actual_tmax": data[split]["y_actual"],
+        })
+
+    pred_is = _make_split_df("test")
+    pred_oos = _make_split_df("oos")
+
+    os.makedirs(os.path.join(PROJECT_ROOT, "data"), exist_ok=True)
+    is_path = os.path.join(PROJECT_ROOT, "data", "best_model_predictions_2023_2024.csv")
+    oos_path = os.path.join(PROJECT_ROOT, "data", "best_model_predictions_2025.csv")
+    pred_is.to_csv(is_path, index=False)
+    pred_oos.to_csv(oos_path, index=False)
+    logger.info("Saved benchmark prediction files: %s, %s", is_path, oos_path)
+
+    sigma_path = os.path.join(RESULTS_DIR, "best_model_sigma_by_month.json")
+    with open(sigma_path, "w") as f:
+        json.dump({str(k): v for k, v in sigma_by_month.items()}, f, indent=2)
+    logger.info("Saved month-wise sigma estimates to %s", sigma_path)
 
 
 def run_model_f(data, all_results):
@@ -1214,8 +1269,9 @@ def main():
         logger.error("Model D failed: %s", e, exc_info=True)
 
     # Model E: 5-seed Ensemble
+    ensemble_artifacts = None
     try:
-        ensemble_preds = run_model_e(data, all_results)
+        ensemble_artifacts = run_model_e(data, all_results)
     except Exception as e:
         logger.error("Model E failed: %s", e, exc_info=True)
 
@@ -1308,6 +1364,25 @@ def main():
         }, model_path)
         logger.info("Saved best single model (%s, test MAE=%.3f) to %s",
                     best_model_name, best_test_mae, model_path)
+
+    if ensemble_artifacts is not None:
+        ensemble_ckpt_path = os.path.join(RESULTS_DIR, "best_ensemble_5seed.pt")
+        torch.save({
+            "model_name": "E_Ensemble_5seed",
+            "hidden_sizes": [64, 32],
+            "dropout": 0.15,
+            "n_features": data["n_features"],
+            "feature_names": data["feature_names"],
+            "seed_state_dicts": ensemble_artifacts["seed_state_dicts"],
+        }, ensemble_ckpt_path)
+        logger.info("Saved reusable ensemble checkpoint to %s", ensemble_ckpt_path)
+
+        scaler_path = os.path.join(RESULTS_DIR, "best_ensemble_scaler.pkl")
+        with open(scaler_path, "wb") as f:
+            pickle.dump(data.get("scaler"), f)
+        logger.info("Saved scaler to %s", scaler_path)
+
+        _build_benchmark_prediction_files(data, ensemble_artifacts)
 
     # ---- Step 7: Print comprehensive comparison ----
     logger.info("\n" + "=" * 120)
