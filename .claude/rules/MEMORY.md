@@ -16,7 +16,17 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 | 4 | Enhancements | COMPLETE |
 | 5 | Confidence Intervals | NOT STARTED |
 | 6 | Scale Up (25 yr) | NOT STARTED |
-| 7 | Documentation | NOT STARTED |
+| 7 | Documentation | IN PROGRESS |
+
+## Critical Audit Findings (2026-02-10)
+- **Synthesis model + wind-gated attention are DEAD CODE** — no runner invokes them
+- **Actual operational pipeline**: `scripts/generate_max_training_predictions.py` → TempPredictorV1 [128,64] + Ridge
+- **Actual config used**: `config_expanded` (52 stations), TMAX-only lag-1, 1998-2024 data
+- **NWP/ASOS/IGRA data never downloaded** — 11 of 15 synthesis features are phantom
+- **MOS ensemble (MAE=2.51°F) is SUPERIOR** to NN (~4.3°F); see `reports/mos_integration_report.md`
+- **Station ID labeling errors** in `config_expanded.py` (USW00014732 mislabeled)
+- **Delta-T target not used** in operational pipeline despite Phase 4 showing -0.27°F improvement
+- Full audit: `reports/nn_pipeline_audit.md`
 
 ## Phase 1 — Data Pipeline (COMPLETE)
 
