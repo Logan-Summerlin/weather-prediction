@@ -72,9 +72,28 @@ def _calibrate_seasonal(cal_df: pd.DataFrame) -> dict[str, IsotonicRegression]:
     return out
 
 
-def load_base_dataset() -> pd.DataFrame:
-    model_is = pd.read_csv(ROOT / "data" / "best_model_predictions_2023_2024.csv")
-    model_oos = pd.read_csv(ROOT / "data" / "best_model_predictions_2025.csv")
+def load_base_dataset(
+    model_is_path: str | Path | None = None,
+    model_oos_path: str | Path | None = None,
+) -> pd.DataFrame:
+    """Load the benchmark join dataset.
+
+    Parameters
+    ----------
+    model_is_path : str | Path | None
+        Path to model predictions for 2023-2024. If None, uses canonical
+        best-model artifact in ``data/best_model_predictions_2023_2024.csv``.
+    model_oos_path : str | Path | None
+        Path to model predictions for 2025. If None, uses canonical
+        best-model artifact in ``data/best_model_predictions_2025.csv``.
+    """
+    if model_is_path is None:
+        model_is_path = ROOT / "data" / "best_model_predictions_2023_2024.csv"
+    if model_oos_path is None:
+        model_oos_path = ROOT / "data" / "best_model_predictions_2025.csv"
+
+    model_is = pd.read_csv(model_is_path)
+    model_oos = pd.read_csv(model_oos_path)
     model = pd.concat([model_is, model_oos], ignore_index=True)
 
     pre = pd.read_csv(ROOT / "data" / "kalshi_presettlement.csv")

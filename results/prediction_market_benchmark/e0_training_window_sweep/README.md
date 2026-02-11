@@ -1,0 +1,9 @@
+# E0 Baseline Training-Window Sweep (4y/8y/12y/16y)
+
+This sweep retrains the E0 testbed forecast model with varying history lengths and re-runs the E0 benchmark.
+
+ window_years model_a_train_start model_b_train_start  model_a_train_samples  model_b_train_samples  is_mae  oos_mae  overall_model_brier  overall_nws_brier  overall_presettlement_brier  oos_model_brier  best_model_all_trading_pnl  best_model_oos_trading_pnl  best_model_all_roi_pct  best_model_oos_roi_pct  model_a_best_epoch  model_b_best_epoch
+            4          2017-01-01          2019-01-01                   1461                   1461  4.6145   4.6986             0.183780           0.141775                     0.127061         0.182317                     -290.59                      -48.63                  -19.27                  -14.43                  86                 105
+            8          2013-01-01          2015-01-01                   2922                   2922  4.6117   4.7616             0.183981           0.141775                     0.127061         0.182649                     -287.31                      -48.38                  -19.23                  -14.33                  68                  68
+           12          2009-01-01          2011-01-01                   4383                   4383  4.6071   4.6617             0.183583           0.141775                     0.127061         0.181418                     -288.62                      -50.84                  -19.38                  -15.07                  52                  46
+           16          2005-01-01          2007-01-01                   5844                   5844  4.5395   4.7025             0.183266           0.141775                     0.127061         0.182034                     -289.48                      -51.36                  -19.54                  -15.42                  42                  29

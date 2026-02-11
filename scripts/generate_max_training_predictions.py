@@ -252,7 +252,7 @@ def build_features(station_data, qualifying_ids):
 # ===========================================================================
 # Step 4: Split, impute, and scale for a given model configuration
 # ===========================================================================
-def prepare_model_splits(X, y, dates, train_end, val_start, val_end, pred_start, pred_end, label):
+def prepare_model_splits(X, y, dates, train_end, val_start, val_end, pred_start, pred_end, label, train_start=DATA_START):
     """Create train/val/pred splits, impute NaNs, and scale.
 
     Scaler is fit on training data only to prevent leakage.
@@ -260,7 +260,7 @@ def prepare_model_splits(X, y, dates, train_end, val_start, val_end, pred_start,
     Parameters
     ----------
     X, y, dates : full feature matrix, target, and date series
-    train_end, val_start, val_end, pred_start, pred_end : split boundaries
+    train_start, train_end, val_start, val_end, pred_start, pred_end : split boundaries
     label : str, descriptive label for logging (e.g., "Model_A_IS")
 
     Returns
@@ -272,7 +272,7 @@ def prepare_model_splits(X, y, dates, train_end, val_start, val_end, pred_start,
     idx = pd.to_datetime(dates.values)
 
     # Split masks
-    train_mask = (idx >= pd.Timestamp(DATA_START)) & (idx <= pd.Timestamp(train_end))
+    train_mask = (idx >= pd.Timestamp(train_start)) & (idx <= pd.Timestamp(train_end))
     val_mask = (idx >= pd.Timestamp(val_start)) & (idx <= pd.Timestamp(val_end))
     pred_mask = (idx >= pd.Timestamp(pred_start)) & (idx <= pd.Timestamp(pred_end))
 

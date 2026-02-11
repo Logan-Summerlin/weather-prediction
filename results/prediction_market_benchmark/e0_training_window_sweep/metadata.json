@@ -1,0 +1,13 @@
+{
+  "windows_tested": [
+    4,
+    8,
+    12,
+    16
+  ],
+  "benchmark_variant": "E0_baseline_ensemble",
+  "prediction_periods": {
+    "is": "2023-2024",
+    "oos": "2025"
+  }
+}
