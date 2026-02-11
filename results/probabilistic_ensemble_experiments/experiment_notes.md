@@ -1,25 +1,31 @@
-# Probabilistic Ensemble Experiments (E0-E8)
+# Probabilistic Ensemble Experiments (E0-E8) — Best-Model-Based
 
-                         experiment     crps      nll       mae  bucket_brier  bucket_log  sigma_ale_mean  sigma_epi_mean
-           E8_feature_pruning_sweep 2.578682 3.186354  2.203869      0.059523    0.994150             NaN             NaN
-E3_weighted_ensemble_E4_uncertainty 2.938679 3.368091  2.291748      0.066705    1.136169        11.18174         0.67332
-            E7_regularization_sweep 2.958688 3.358185  2.465213      0.066329    1.133276             NaN             NaN
-               E0_baseline_ensemble 3.037672 3.408631  2.315317      0.068318    1.170637             NaN             NaN
-            E2_seasonal_calibration 3.037672 3.408631  2.315317      0.034710    0.589513             NaN             NaN
-                 E1_global_isotonic 3.037672 3.408631  2.315317      0.033120    0.541749             NaN             NaN
-                        E6_quantile 3.604543 3.341316  4.970491      0.067606    1.151526             NaN             NaN
-                            E5_mdn2 8.445590 4.184897 11.831335      0.096151    1.937303             NaN             NaN
+All experiments in this file are derived from canonical best-model predictions (data/best_model_predictions_*).
+
+                         experiment     crps      nll      mae  bucket_brier  bucket_log
+E3_weighted_ensemble_E4_uncertainty 1.428507 2.342912 1.991580      0.032601    0.486044
+       E4_uncertainty_decomposition 1.428621 2.342114 1.991580      0.032600    0.485398
+                 E1_global_isotonic 1.428917 2.342318 1.991580      0.032655    0.486796
+               E0_baseline_ensemble 1.428917 2.342318 1.991580      0.032617    0.485052
+            E2_seasonal_calibration 1.428917 2.342318 1.991580      0.033421    0.559228
+                            E5_mdn2 1.430663 2.343573 1.999526      0.032408    0.483187
+            E7_regularization_sweep 1.434352 2.354375 1.991580      0.032685    0.491174
+                        E6_quantile 1.450947 2.355189 2.039437      0.033126    0.489073
+           E8_feature_pruning_sweep 1.456030 2.366666 2.039437      0.034331    0.571002
 
 ## Benchmark
 ```json
 {
-  "best_experiment": "E8_feature_pruning_sweep",
-  "baseline_crps": 3.0376720428466797,
-  "best_crps": 2.5786824226379395,
-  "improvement_pct": 15.109913569820705,
-  "baseline_cov90": 1.0,
-  "baseline_cov95": 1.0,
-  "weighted_cov90": 1.0,
-  "weighted_cov95": 1.0
+  "lineage": "all_experiments_best_model_based",
+  "calibration_period": "2023",
+  "test_period": "2024",
+  "best_experiment": "E3_weighted_ensemble_E4_uncertainty",
+  "baseline_crps": 1.428916605678299,
+  "best_crps": 1.428506947916711,
+  "improvement_pct": 0.028669116165355557,
+  "baseline_cov90": 0.8961748633879781,
+  "baseline_cov95": 0.953551912568306,
+  "best_cov90": 0.8879781420765027,
+  "best_cov95": 0.9453551912568307
 }
 ```

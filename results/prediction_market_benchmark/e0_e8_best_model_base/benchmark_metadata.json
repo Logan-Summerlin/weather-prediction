@@ -1,0 +1,20 @@
+{
+  "lineage": "all_variants_best_model_based",
+  "variants": [
+    "E0_baseline_ensemble",
+    "E1_global_isotonic",
+    "E2_seasonal_calibration",
+    "E3_weighted_ensemble_E4_uncertainty",
+    "E4_uncertainty_decomposition",
+    "E5_mdn2",
+    "E6_quantile",
+    "E7_regularization_sweep",
+    "E8_feature_pruning_sweep"
+  ],
+  "top2": [
+    "E3_weighted_ensemble_E4_uncertainty",
+    "E1_global_isotonic"
+  ],
+  "calibration_period": "2023",
+  "benchmark_period": "2023-2025"
+}

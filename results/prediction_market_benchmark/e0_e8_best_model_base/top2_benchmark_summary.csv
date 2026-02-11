@@ -1,0 +1,3 @@
+model,overall_model_brier,overall_nws_brier,overall_presettlement_brier,oos_model_brier,oos_nws_brier,best_model_all_trading_pnl,best_model_oos_trading_pnl
+E3_weighted_ensemble_E4_uncertainty,0.13330568387307173,0.14177533077188792,0.12706111379754997,0.13004572811498297,0.13929810649267152,-124.66,-21.17
+E1_global_isotonic,0.13337175695832976,0.14177533077188792,0.12706111379754997,0.13050014164278523,0.13929810649267152,-123.32,-18.24
