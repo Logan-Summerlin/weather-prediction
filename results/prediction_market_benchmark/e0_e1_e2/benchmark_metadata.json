@@ -1,0 +1,15 @@
+{
+  "models": [
+    "E0_baseline_ensemble",
+    "E1_global_isotonic",
+    "E2_seasonal_calibration"
+  ],
+  "source_experiment_notes": "results/probabilistic_ensemble_experiments/experiment_notes.md",
+  "model_source": [
+    "data/best_model_predictions_2023_2024.csv",
+    "data/best_model_predictions_2025.csv"
+  ],
+  "calibration_period": "2023",
+  "n_rows": 6204,
+  "n_dates": 1089
+}
