@@ -1,0 +1,19 @@
+{
+  "best_model_derived": [
+    "E0_baseline_ensemble",
+    "E1_global_isotonic",
+    "E2_seasonal_calibration"
+  ],
+  "not_best_model_derived": [
+    "E3_weighted_ensemble_E4_uncertainty",
+    "E5_mdn2",
+    "E6_quantile",
+    "E7_regularization_sweep",
+    "E8_feature_pruning_sweep"
+  ],
+  "e0_parity_max_abs_brier_diff": 0.0,
+  "top2_selected": [
+    "E1_global_isotonic",
+    "E0_baseline_ensemble"
+  ]
+}

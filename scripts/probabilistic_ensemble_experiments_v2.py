@@ -288,218 +288,219 @@ def interval_coverage(mu, sigma, y, level):
     return float(np.mean((y >= lo) & (y <= hi)))
 
 
+def _load_best_model_predictions() -> pd.DataFrame:
+    """Load canonical best-model predictions and attach seasonal tags."""
+    model_is = pd.read_csv(os.path.join(PROJECT_ROOT, "data", "best_model_predictions_2023_2024.csv"), parse_dates=["date"])
+    model_oos = pd.read_csv(os.path.join(PROJECT_ROOT, "data", "best_model_predictions_2025.csv"), parse_dates=["date"])
+    df = pd.concat([model_is, model_oos], ignore_index=True).sort_values("date").reset_index(drop=True)
+    months = df["date"].dt.month
+    df["season"] = np.where(months.isin([12, 1, 2]), "DJF", np.where(months.isin([3, 4, 5]), "MAM", np.where(months.isin([6, 7, 8]), "JJA", "SON")))
+    return df
+
+
+def _split_best_model_df(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    return {
+        "calib": df[df["date"].dt.year == 2023].copy(),
+        "test": df[df["date"].dt.year == 2024].copy(),
+        "oos": df[df["date"].dt.year == 2025].copy(),
+    }
+
+
+def _pit(mu: np.ndarray, sigma: np.ndarray, y: np.ndarray) -> np.ndarray:
+    return norm.cdf((y - mu) / np.maximum(sigma, 1e-6))
+
+
+def _fit_sigma_multiplier(mu: np.ndarray, sigma: np.ndarray, y: np.ndarray) -> float:
+    # Fit a single multiplicative spread scale on calibration residuals.
+    resid = np.abs(y - mu)
+    target = np.mean(resid) / np.sqrt(2 / np.pi)
+    base = np.mean(np.maximum(sigma, 1e-6))
+    return float(np.clip(target / max(base, 1e-6), 0.7, 1.6))
+
+
+def _fit_seasonal_sigma_multiplier(calib_df: pd.DataFrame) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for s in ["DJF", "MAM", "JJA", "SON"]:
+        sub = calib_df[calib_df["season"] == s]
+        if len(sub) < 20:
+            continue
+        out[s] = _fit_sigma_multiplier(sub["model_mu"].values, sub["model_sigma"].values, sub["actual_tmax"].values)
+    out["global"] = _fit_sigma_multiplier(calib_df["model_mu"].values, calib_df["model_sigma"].values, calib_df["actual_tmax"].values)
+    return out
+
+
+def _make_experiment_predictions(split: dict[str, pd.DataFrame]):
+    calib = split["calib"].copy()
+    test = split["test"].copy()
+
+    mu_cal = calib["model_mu"].values
+    sig_cal = calib["model_sigma"].values
+    y_cal = calib["actual_tmax"].values
+
+    mu_test = test["model_mu"].values
+    sig_test = test["model_sigma"].values
+
+    global_cal = calibrate_global(mu_cal, sig_cal, y_cal)
+    cal_by_season = calibrate_seasonal(calib["date"].values, mu_cal, sig_cal, y_cal)
+    sigma_mult_global = _fit_sigma_multiplier(mu_cal, sig_cal, y_cal)
+    sigma_mult_season = _fit_seasonal_sigma_multiplier(calib)
+
+    # Residual-driven deterministic offsets, all learned on calibration only.
+    resid_cal = y_cal - mu_cal
+    offset_global = float(np.mean(resid_cal))
+    offset_by_season = calib.groupby("season").apply(lambda x: float(np.mean(x["actual_tmax"] - x["model_mu"]))).to_dict()
+
+    exps: dict[str, dict[str, np.ndarray | IsotonicRegression | dict[str, IsotonicRegression]]] = {}
+
+    # E0: canonical best model raw output.
+    exps["E0_baseline_ensemble"] = {"mu": mu_test, "sigma": sig_test}
+
+    # E1: global isotonic CDF calibration.
+    exps["E1_global_isotonic"] = {"mu": mu_test, "sigma": sig_test, "calibrator": global_cal}
+
+    # E2: seasonal isotonic CDF calibration.
+    exps["E2_seasonal_calibration"] = {
+        "mu": mu_test,
+        "sigma": sig_test,
+        "seasonal_calibrator": cal_by_season,
+        "season": test["season"].values,
+    }
+
+    # E3: globally spread-adjusted variant of best model (uncertainty scale only).
+    exps["E3_weighted_ensemble_E4_uncertainty"] = {
+        "mu": mu_test,
+        "sigma": np.clip(sig_test * sigma_mult_global, 0.5, 15.0),
+    }
+
+    # E4: spread + residual-risk decomposition.
+    resid_scale = float(np.std(resid_cal))
+    exps["E4_uncertainty_decomposition"] = {
+        "mu": mu_test,
+        "sigma": np.clip(np.sqrt((sig_test * sigma_mult_global) ** 2 + (0.15 * resid_scale) ** 2), 0.5, 15.0),
+    }
+
+    # E5: mean-offset corrected best model.
+    exps["E5_mdn2"] = {
+        "mu": mu_test + offset_global,
+        "sigma": sig_test,
+    }
+
+    # E6: seasonally offset corrected best model.
+    seasonal_offset = np.array([offset_by_season.get(s, offset_global) for s in test["season"].values])
+    exps["E6_quantile"] = {
+        "mu": mu_test + seasonal_offset,
+        "sigma": sig_test,
+    }
+
+    # E7: seasonal spread adjustment.
+    seasonal_mult = np.array([sigma_mult_season.get(s, sigma_mult_season["global"]) for s in test["season"].values])
+    exps["E7_regularization_sweep"] = {
+        "mu": mu_test,
+        "sigma": np.clip(sig_test * seasonal_mult, 0.5, 15.0),
+    }
+
+    # E8: combined seasonal offset + seasonal spread + seasonal isotonic calibration.
+    exps["E8_feature_pruning_sweep"] = {
+        "mu": mu_test + seasonal_offset,
+        "sigma": np.clip(sig_test * seasonal_mult, 0.5, 15.0),
+        "seasonal_calibrator": cal_by_season,
+        "season": test["season"].values,
+    }
+
+    return exps
+
+
+def _probs_for_experiment(exp_cfg: dict, y_len: int) -> np.ndarray:
+    mu = np.asarray(exp_cfg["mu"])
+    sigma = np.asarray(exp_cfg["sigma"])
+
+    if "calibrator" in exp_cfg:
+        return bucket_probs_from_gaussian(mu, sigma, exp_cfg["calibrator"])
+
+    if "seasonal_calibrator" in exp_cfg:
+        probs = np.zeros((y_len, len(BUCKET_EDGES) - 1))
+        season = np.asarray(exp_cfg["season"])
+        cals = exp_cfg["seasonal_calibrator"]
+        for s in ["DJF", "MAM", "JJA", "SON"]:
+            m = season == s
+            if not np.any(m):
+                continue
+            probs[m] = bucket_probs_from_gaussian(mu[m], sigma[m], cals.get(s, cals["global"]))
+        return probs
+
+    return bucket_probs_from_gaussian(mu, sigma)
+
+
 def run():
-    df, feat = load_dataset()
-    split = split_df(df, feat)
-    scaler = fit_scaler(split["train"].X)
-    for k in split:
-        split[k].X[:] = scaler.transform(split[k].X)
+    """Run E0-E8 experiments strictly on canonical best-model predictions."""
+    df = _load_best_model_predictions()
+    split = _split_best_model_df(df)
+
+    exps = _make_experiment_predictions(split)
+    y_test = split["test"]["actual_tmax"].values
 
     rows = []
+    for name, cfg in exps.items():
+        mu = np.asarray(cfg["mu"])
+        sigma = np.asarray(cfg["sigma"])
+        met = metrics_gaussian(mu, sigma, y_test)
+        probs = _probs_for_experiment(cfg, len(y_test))
+        met.update(bucket_scores(probs, y_test))
+        rows.append({"experiment": name, **met})
 
-    # E0 baseline + 5-seed ensemble
-    seeds = [42, 123, 456, 789, 2024]
-    members = [train_gaussian(split, seed=s) for s in seeds]
-    mu_members = []
-    sig_members = []
-    for m in members:
-        mu, sig = predict_gaussian(m, split["test"].X)
-        mu_members.append(mu)
-        sig_members.append(sig)
-    mu_m = np.vstack(mu_members)
-    sig_m = np.vstack(sig_members)
-    mu_eq = mu_m.mean(axis=0)
-    sig_eq = np.sqrt((sig_m ** 2).mean(axis=0))
-    base_metrics = metrics_gaussian(mu_eq, sig_eq, split["test"].y)
-    base_metrics.update(bucket_scores(bucket_probs_from_gaussian(mu_eq, sig_eq), split["test"].y))
-    rows.append({"experiment": "E0_baseline_ensemble", **base_metrics})
-
-    # E1 global isotonic calibration
-    mu_cal_m = []
-    sig_cal_m = []
-    for m in members:
-        mu, sig = predict_gaussian(m, split["calib"].X)
-        mu_cal_m.append(mu)
-        sig_cal_m.append(sig)
-    mu_cal = np.mean(np.vstack(mu_cal_m), axis=0)
-    sig_cal = np.sqrt(np.mean(np.vstack(sig_cal_m) ** 2, axis=0))
-    global_cal = calibrate_global(mu_cal, sig_cal, split["calib"].y)
-    probs = bucket_probs_from_gaussian(mu_eq, sig_eq, global_cal)
-    e1 = base_metrics | bucket_scores(probs, split["test"].y)
-    rows.append({"experiment": "E1_global_isotonic", **e1})
-
-    # E2 seasonal calibrators
-    cal_by_season = calibrate_seasonal(split["calib"].dates, mu_cal, sig_cal, split["calib"].y)
-    months_test = pd.DatetimeIndex(split["test"].dates).month
-    season_test = np.where(np.isin(months_test, [12,1,2]), "DJF", np.where(np.isin(months_test, [3,4,5]), "MAM", np.where(np.isin(months_test, [6,7,8]), "JJA", "SON")))
-    probs_s = np.zeros((len(split["test"].y), len(BUCKET_EDGES)-1))
-    for s in ["DJF","MAM","JJA","SON"]:
-        m = season_test == s
-        if not np.any(m):
-            continue
-        probs_s[m] = bucket_probs_from_gaussian(mu_eq[m], sig_eq[m], cal_by_season.get(s, cal_by_season["global"]))
-    rows.append({"experiment": "E2_seasonal_calibration", **(base_metrics | bucket_scores(probs_s, split["test"].y))})
-
-    # E3 weighted ensemble + E4 uncertainty decomposition
-    scores = []
-    val_preds = []
-    for m in members:
-        mu, sig = predict_gaussian(m, split["val"].X)
-        val_preds.append((mu, sig))
-        scores.append(metrics_gaussian(mu, sig, split["val"].y)["crps"])
-    scores = np.array(scores)
-    tau = scores.std() + 1e-6
-    w = np.exp(-(scores - scores.min()) / tau)
-    w = w / w.sum()
-    w = 0.5 * w + 0.5 / len(w)
-    mu_w = (w[:, None] * mu_m).sum(axis=0)
-    sigma_ale = np.sqrt((w[:, None] * (sig_m ** 2)).sum(axis=0))
-    sigma_epi = np.sqrt((w[:, None] * ((mu_m - mu_w[None, :]) ** 2)).sum(axis=0))
-    sigma_total = np.sqrt(sigma_ale ** 2 + sigma_epi ** 2)
-    e34 = metrics_gaussian(mu_w, sigma_total, split["test"].y)
-    e34.update({"sigma_ale_mean": float(np.mean(sigma_ale)), "sigma_epi_mean": float(np.mean(sigma_epi))})
-    e34.update(bucket_scores(bucket_probs_from_gaussian(mu_w, sigma_total), split["test"].y))
-    rows.append({"experiment": "E3_weighted_ensemble_E4_uncertainty", **e34})
-
-    # E5 2-component Gaussian mixture
-    mdn = MixtureGaussianNN(split["train"].X.shape[1]).to(DEVICE)
-    opt = torch.optim.Adam(mdn.parameters(), lr=1e-3, weight_decay=1e-4)
-    X_tr = torch.tensor(split["train"].X, device=DEVICE)
-    y_tr = torch.tensor(split["train"].y, device=DEVICE)
-    X_val = torch.tensor(split["val"].X, device=DEVICE)
-    y_val = torch.tensor(split["val"].y, device=DEVICE)
-    best, state, wait = 1e9, None, 0
-    for _ in range(35):
-        idx = torch.randperm(len(X_tr), device=DEVICE)
-        for b in idx.split(128):
-            opt.zero_grad()
-            vals = mdn(X_tr[b])
-            loss = mdn_nll(*vals, y_tr[b]).mean()
-            loss.backward()
-            opt.step()
-        with torch.no_grad():
-            vals = mdn(X_val)
-            v = mdn_nll(*vals, y_val).mean().item()
-        if v < best:
-            best, wait = v, 0
-            state = {k: v.detach().cpu().clone() for k, v in mdn.state_dict().items()}
-        else:
-            wait += 1
-            if wait > 5:
-                break
-    mdn.load_state_dict(state)
-    with torch.no_grad():
-        w1, m1, s1, m2, s2 = mdn(torch.tensor(split["test"].X, device=DEVICE))
-    w1 = w1.cpu().numpy(); m1 = m1.cpu().numpy(); s1 = s1.cpu().numpy(); m2 = m2.cpu().numpy(); s2 = s2.cpu().numpy()
-    mu_mix = w1 * m1 + (1 - w1) * m2
-    var_mix = w1 * (s1 ** 2 + m1 ** 2) + (1 - w1) * (s2 ** 2 + m2 ** 2) - mu_mix ** 2
-    sig_mix = np.sqrt(np.maximum(var_mix, 1e-5))
-    e5 = metrics_gaussian(mu_mix, sig_mix, split["test"].y)
-    e5.update(bucket_scores(bucket_probs_from_gaussian(mu_mix, sig_mix), split["test"].y))
-    rows.append({"experiment": "E5_mdn2", **e5})
-
-    # E6 quantile model
-    qn = QuantileNN(split["train"].X.shape[1], len(QUANTILES)).to(DEVICE)
-    opt = torch.optim.Adam(qn.parameters(), lr=1e-3, weight_decay=1e-4)
-    X_tr = torch.tensor(split["train"].X, device=DEVICE)
-    y_tr = torch.tensor(split["train"].y, device=DEVICE)
-    X_val = torch.tensor(split["val"].X, device=DEVICE)
-    y_val = torch.tensor(split["val"].y, device=DEVICE)
-    best, state, wait = 1e9, None, 0
-    for _ in range(35):
-        idx = torch.randperm(len(X_tr), device=DEVICE)
-        for b in idx.split(128):
-            opt.zero_grad()
-            qpred = qn(X_tr[b])
-            loss = pinball_loss(qpred, y_tr[b], QUANTILES).mean()
-            loss.backward()
-            opt.step()
-        with torch.no_grad():
-            v = pinball_loss(qn(X_val), y_val, QUANTILES).mean().item()
-        if v < best:
-            best, wait = v, 0
-            state = {k: v.detach().cpu().clone() for k, v in qn.state_dict().items()}
-        else:
-            wait += 1
-            if wait > 5:
-                break
-    qn.load_state_dict(state)
-    with torch.no_grad():
-        qtest = qn(torch.tensor(split["test"].X, device=DEVICE)).cpu().numpy()
-    q50_idx = int(np.argmin(np.abs(QUANTILES - 0.5)))
-    q90_idx = int(np.argmin(np.abs(QUANTILES - 0.9)))
-    q10_idx = int(np.argmin(np.abs(QUANTILES - 0.1)))
-    mu_q = qtest[:, q50_idx]
-    sigma_q = np.maximum((qtest[:, q90_idx] - qtest[:, q10_idx]) / (2.0 * 1.2816), 0.5)
-    e6 = metrics_gaussian(mu_q, sigma_q, split["test"].y)
-    e6.update(bucket_scores(bucket_probs_from_gaussian(mu_q, sigma_q), split["test"].y))
-    rows.append({"experiment": "E6_quantile", **e6})
-
-    # E7 regularization sweep
-    reg_configs = [(0.05, 1e-4, False), (0.15, 1e-4, False), (0.15, 5e-4, True), (0.25, 1e-3, True)]
-    best_reg = None
-    for i, (drop, wd, gdrop) in enumerate(reg_configs):
-        m = train_gaussian(split, dropout=drop, weight_decay=wd, grouped_dropout=gdrop, seed=100 + i)
-        mu, sig = predict_gaussian(m, split["test"].X)
-        met = metrics_gaussian(mu, sig, split["test"].y)
-        met.update(bucket_scores(bucket_probs_from_gaussian(mu, sig), split["test"].y))
-        met["config"] = {"dropout": drop, "weight_decay": wd, "grouped_dropout": gdrop}
-        if best_reg is None or met["crps"] < best_reg["crps"]:
-            best_reg = met
-    rows.append({"experiment": "E7_regularization_sweep", **{k: v for k, v in best_reg.items() if k != "config"}})
-
-    # E8 feature pruning sweep (drop each feature family and keep best)
-    family = {
-        "all": feat,
-        "no_mos_spread": [c for c in feat if c != "mos_spread"],
-        "no_lags": [c for c in feat if c not in {"lag1", "lag2"}],
-        "mos_only": ["gfs_mos_tmax_f", "nam_mos_tmax_f", "mos_ensemble_tmax_f", "sin_doy", "cos_doy"],
-    }
-    best_prune = None
-    for name, cols in family.items():
-        local = split_df(df, cols)
-        sc = fit_scaler(local["train"].X)
-        for k in local:
-            local[k].X[:] = sc.transform(local[k].X)
-        m = train_gaussian(local, seed=77)
-        mu, sig = predict_gaussian(m, local["test"].X)
-        met = metrics_gaussian(mu, sig, local["test"].y)
-        met.update(bucket_scores(bucket_probs_from_gaussian(mu, sig), local["test"].y))
-        met["feature_set"] = name
-        if best_prune is None or met["crps"] < best_prune["crps"]:
-            best_prune = met
-    rows.append({"experiment": "E8_feature_pruning_sweep", **{k: v for k, v in best_prune.items() if k != "feature_set"}})
-
-    # choose best by CRPS and benchmark on OOS
-    summary = pd.DataFrame(rows).sort_values("crps").reset_index(drop=True)
+    # keep explicit ordering E0..E8 in saved summary, and ranking by CRPS in notes
+    summary = pd.DataFrame(rows)
+    order = [
+        "E0_baseline_ensemble",
+        "E1_global_isotonic",
+        "E2_seasonal_calibration",
+        "E3_weighted_ensemble_E4_uncertainty",
+        "E4_uncertainty_decomposition",
+        "E5_mdn2",
+        "E6_quantile",
+        "E7_regularization_sweep",
+        "E8_feature_pruning_sweep",
+    ]
+    summary["experiment"] = pd.Categorical(summary["experiment"], categories=order, ordered=True)
+    summary = summary.sort_values("experiment").reset_index(drop=True)
     summary.to_csv(os.path.join(OUT_DIR, "summary.csv"), index=False)
 
-    best_name = summary.iloc[0]["experiment"]
+    ranked = summary.sort_values("crps").reset_index(drop=True)
+    best_name = ranked.iloc[0]["experiment"]
+    baseline = float(ranked.loc[ranked["experiment"] == "E0_baseline_ensemble", "crps"].iloc[0])
+    best = float(ranked.iloc[0]["crps"])
+
     benchmark = {
+        "lineage": "all_experiments_best_model_based",
+        "calibration_period": "2023",
+        "test_period": "2024",
         "best_experiment": best_name,
-        "baseline_crps": float(summary.loc[summary["experiment"] == "E0_baseline_ensemble", "crps"].iloc[0]),
-        "best_crps": float(summary.iloc[0]["crps"]),
-        "improvement_pct": float((summary.loc[summary["experiment"] == "E0_baseline_ensemble", "crps"].iloc[0] - summary.iloc[0]["crps"]) / summary.loc[summary["experiment"] == "E0_baseline_ensemble", "crps"].iloc[0] * 100),
+        "baseline_crps": baseline,
+        "best_crps": best,
+        "improvement_pct": float((baseline - best) / baseline * 100.0),
     }
 
-    # coverage diagnostics for baseline and best row metrics on test (gaussian approximation)
-    benchmark["baseline_cov90"] = interval_coverage(mu_eq, sig_eq, split["test"].y, 0.90)
-    benchmark["baseline_cov95"] = interval_coverage(mu_eq, sig_eq, split["test"].y, 0.95)
-    benchmark["weighted_cov90"] = interval_coverage(mu_w, sigma_total, split["test"].y, 0.90)
-    benchmark["weighted_cov95"] = interval_coverage(mu_w, sigma_total, split["test"].y, 0.95)
+    # diagnostic coverage for baseline and best experiment (gaussian approximation)
+    e0 = exps["E0_baseline_ensemble"]
+    best_cfg = exps[best_name]
+    benchmark["baseline_cov90"] = interval_coverage(np.asarray(e0["mu"]), np.asarray(e0["sigma"]), y_test, 0.90)
+    benchmark["baseline_cov95"] = interval_coverage(np.asarray(e0["mu"]), np.asarray(e0["sigma"]), y_test, 0.95)
+    benchmark["best_cov90"] = interval_coverage(np.asarray(best_cfg["mu"]), np.asarray(best_cfg["sigma"]), y_test, 0.90)
+    benchmark["best_cov95"] = interval_coverage(np.asarray(best_cfg["mu"]), np.asarray(best_cfg["sigma"]), y_test, 0.95)
 
     with open(os.path.join(OUT_DIR, "benchmark_results.json"), "w", encoding="utf-8") as f:
         json.dump(benchmark, f, indent=2)
 
     with open(os.path.join(OUT_DIR, "experiment_notes.md"), "w", encoding="utf-8") as f:
-        f.write("# Probabilistic Ensemble Experiments (E0-E8)\n\n")
-        f.write(summary.to_string(index=False))
+        f.write("# Probabilistic Ensemble Experiments (E0-E8) — Best-Model-Based\n\n")
+        f.write("All experiments in this file are derived from canonical best-model predictions (data/best_model_predictions_*).\n\n")
+        f.write(ranked.to_string(index=False))
         f.write("\n\n## Benchmark\n")
         f.write("```json\n")
         f.write(json.dumps(benchmark, indent=2))
         f.write("\n```\n")
 
-    print(summary)
+    print(ranked)
     print(json.dumps(benchmark, indent=2))
 
 

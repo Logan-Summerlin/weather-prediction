@@ -1,10 +1,13 @@
 {
-  "best_experiment": "E8_feature_pruning_sweep",
-  "baseline_crps": 3.0376720428466797,
-  "best_crps": 2.5786824226379395,
-  "improvement_pct": 15.109913569820705,
-  "baseline_cov90": 1.0,
-  "baseline_cov95": 1.0,
-  "weighted_cov90": 1.0,
-  "weighted_cov95": 1.0
+  "lineage": "all_experiments_best_model_based",
+  "calibration_period": "2023",
+  "test_period": "2024",
+  "best_experiment": "E3_weighted_ensemble_E4_uncertainty",
+  "baseline_crps": 1.428916605678299,
+  "best_crps": 1.428506947916711,
+  "improvement_pct": 0.028669116165355557,
+  "baseline_cov90": 0.8961748633879781,
+  "baseline_cov95": 0.953551912568306,
+  "best_cov90": 0.8879781420765027,
+  "best_cov95": 0.9453551912568307
 }

@@ -1,0 +1,3 @@
+model,overall_model_brier,overall_nws_brier,overall_presettlement_brier,oos_model_brier,oos_nws_brier,best_model_all_trading_pnl,best_model_oos_trading_pnl
+E1_global_isotonic,0.1334121005263738,0.1417753307718879,0.1270611137975499,0.1306061664610531,0.1392981064926715,-121.42,-16.8
+E0_baseline_ensemble,0.1335165484415357,0.1417753307718879,0.1270611137975499,0.1301897912589733,0.1392981064926715,-121.53,-19.52
