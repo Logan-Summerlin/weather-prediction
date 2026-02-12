@@ -223,10 +223,18 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
     rows: list[dict[str, float | str | int]] = []
     edge = df["model_prob"].values - df["presettlement_prob"].values
     spread = ((df["ask_cents"].fillna(df["presettlement_prob"] * 100) - df["bid_cents"].fillna(df["presettlement_prob"] * 100)).clip(lower=0) / 100.0).values
-    sigma_norm = np.clip((df["model_sigma"].values - np.percentile(df["model_sigma"].values, 5)) /
-                         (np.percentile(df["model_sigma"].values, 95) - np.percentile(df["model_sigma"].values, 5) + 1e-6), 0, 1)
+    sigma_low = np.percentile(df["model_sigma"].values, 5)
+    sigma_high = np.percentile(df["model_sigma"].values, 95)
+    sigma_norm = np.clip((df["model_sigma"].values - sigma_low) / (sigma_high - sigma_low + 1e-6), 0, 1)
     liquidity = np.clip(1.0 - spread / 0.20, 0.0, 1.0)
     quality = np.abs(edge) * liquidity * (1.0 - 0.5 * sigma_norm)
+
+    ask_all = df["ask_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
+    bid_all = df["bid_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
+    outcome_all = df["actual_outcome"].values.astype(float)
+
+    rng = np.random.default_rng(20260212)
+    n_boot = 1000
 
     for period in ["All", "IS", "OOS"]:
         m = np.ones(len(df), dtype=bool) if period == "All" else df["period"].values == period
@@ -235,31 +243,48 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
         sub_quality = quality[m]
         sub_spread = spread[m]
         sub_sigma_norm = sigma_norm[m]
-        ask = sub["ask_cents"].fillna(sub["presettlement_prob"] * 100).values / 100.0
-        bid = sub["bid_cents"].fillna(sub["presettlement_prob"] * 100).values / 100.0
-        outcome = sub["actual_outcome"].values.astype(float)
+        sub_ask = ask_all[m]
+        sub_bid = bid_all[m]
+        sub_outcome = outcome_all[m]
 
         for q_cut in [0.02, 0.03, 0.04, 0.05]:
             dyn_threshold = 0.01 + 0.5 * sub_spread + 0.04 * sub_sigma_norm
             buy_yes = (sub_edge > dyn_threshold) & (sub_quality > q_cut)
             buy_no = (sub_edge < -dyn_threshold) & (sub_quality > q_cut)
-            if not (buy_yes.any() or buy_no.any()):
-                net_pnl = 0.0
-                trades = 0
-                win_rate = 0.0
-                total_cost = 0.0
+
+            yes_payout = np.where(sub_outcome[buy_yes] == 1, 1.0, 0.0)
+            yes_net = yes_payout - yes_payout * bench.FEE_RATE - sub_ask[buy_yes]
+            no_payout = np.where(sub_outcome[buy_no] == 0, 1.0, 0.0)
+            no_net = no_payout - no_payout * bench.FEE_RATE - (1.0 - sub_bid[buy_no])
+
+            all_net = np.concatenate([yes_net, no_net])
+            all_cost = np.concatenate([sub_ask[buy_yes], 1.0 - sub_bid[buy_no]])
+            all_wins = np.concatenate([sub_outcome[buy_yes] == 1, sub_outcome[buy_no] == 0])
+
+            net_pnl = float(all_net.sum()) if len(all_net) else 0.0
+            total_cost = float(all_cost.sum()) if len(all_cost) else 0.0
+            trades = int(len(all_net))
+            win_rate = float(np.mean(all_wins)) if len(all_wins) else 0.0
+
+            if trades == 0:
+                pnl_ci_low, pnl_ci_high = 0.0, 0.0
+                roi_ci_low, roi_ci_high = 0.0, 0.0
             else:
-                yes_payout = np.where(outcome[buy_yes] == 1, 1.0, 0.0)
-                yes_net = yes_payout - yes_payout * bench.FEE_RATE - ask[buy_yes]
-                no_payout = np.where(outcome[buy_no] == 0, 1.0, 0.0)
-                no_net = no_payout - no_payout * bench.FEE_RATE - (1.0 - bid[buy_no])
-                all_net = np.concatenate([yes_net, no_net])
-                all_cost = np.concatenate([ask[buy_yes], 1.0 - bid[buy_no]])
-                all_wins = np.concatenate([outcome[buy_yes] == 1, outcome[buy_no] == 0])
-                net_pnl = float(all_net.sum())
-                total_cost = float(all_cost.sum())
-                trades = int(len(all_net))
-                win_rate = float(np.mean(all_wins)) if len(all_wins) else 0.0
+                trades_df = pd.DataFrame({"date": np.concatenate([sub["date"].values[buy_yes], sub["date"].values[buy_no]]),
+                                          "net": all_net,
+                                          "cost": all_cost})
+                by_date = trades_df.groupby("date", as_index=False)[["net", "cost"]].sum()
+                day_net = by_date["net"].values
+                day_cost = by_date["cost"].values
+                n_days = len(day_net)
+
+                sampled_idx = rng.integers(0, n_days, size=(n_boot, n_days))
+                boot_net = day_net[sampled_idx].sum(axis=1)
+                boot_cost = day_cost[sampled_idx].sum(axis=1)
+                boot_roi = np.where(boot_cost > 0, 100.0 * boot_net / boot_cost, 0.0)
+
+                pnl_ci_low, pnl_ci_high = np.percentile(boot_net, [2.5, 97.5]).tolist()
+                roi_ci_low, roi_ci_high = np.percentile(boot_roi, [2.5, 97.5]).tolist()
 
             rows.append({
                 "model": label,
@@ -269,6 +294,11 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
                 "net_pnl": round(net_pnl, 2),
                 "roi_pct": round((100.0 * net_pnl / total_cost), 2) if total_cost > 0 else 0.0,
                 "win_rate": round(win_rate, 4),
+                "pnl_ci95_low": round(float(pnl_ci_low), 2),
+                "pnl_ci95_high": round(float(pnl_ci_high), 2),
+                "roi_ci95_low": round(float(roi_ci_low), 2),
+                "roi_ci95_high": round(float(roi_ci_high), 2),
+                "bootstrap_samples": n_boot,
             })
     return pd.DataFrame(rows)
 

@@ -257,7 +257,7 @@ It should come from **regime-aware distribution modeling + conditional calibrati
    - Added dynamic edge-quality gating experiment for the best-Brier model in `scripts/run_e0_e8_best_model_benchmark.py`.
    - Implemented quality score from: `|edge|`, quoted spread proxy, and model uncertainty (`sigma`-normalized).
    - Implemented dynamic threshold: `0.01 + 0.5*spread + 0.04*sigma_norm`, then quality cut filters.
-   - Results artifact added: `results/prediction_market_benchmark/e0_e8_best_model_base/ev_edge_quality_gating_results.csv`.
+   - Results artifact added: `results/prediction_market_benchmark/e0_e8_best_model_base/ev_edge_quality_gating_results.csv` (now includes 95% bootstrap CIs for net P&L and ROI).
 
 ### Results from implementation run
 
@@ -282,9 +282,13 @@ Interpretation:
 - Best all-period gated result in this run:
   - quality_cut=0.05, trades=1,813, net P&L = **-69.84**, ROI **-10.76%**.
 - OOS gated outcomes remained negative across cuts (roughly **-47.5 to -56.6** net P&L).
+- Added date-block bootstrap confidence intervals (`n=1000`) for gated strategies:
+  - Best all-period cut (`q=0.05`) net P&L 95% CI: **[-97.19, -42.89]**; ROI 95% CI: **[-14.85%, -6.62%]**.
+  - Best OOS cut (`q=0.05`) net P&L 95% CI: **[-67.30, -26.59]**; ROI 95% CI: **[-17.97%, -7.11%]**.
 
 Interpretation:
 - Sparse selective trading alone is insufficient with current edge quality definition.
+- CI bands remain strictly negative in this run, increasing confidence that this prototype is not yet tradable.
 - We still need stronger calibration confidence signals + tighter microstructure filters (staleness/depth/queue-position proxies) and likely better model edge quality on tradable tails.
 
 ### Not yet implemented (from this memo)
@@ -306,7 +310,7 @@ Interpretation:
 - [x] EV-aware edge-quality + dynamic-threshold prototype (first pass, still negative P&L).
 - [ ] Liquidity/depth/staleness-aware dynamic thresholds using richer market microstructure.
 - [ ] Cluster exposure limits + explicit capped fractional Kelly in this benchmark script family.
-- [ ] Bootstrap confidence intervals for gated strategy variants.
+- [x] Bootstrap confidence intervals for gated strategy variants (date-block bootstrap, n=1000).
 
 #### Phase D
 - [ ] Paper-trading gate criteria automation and monitoring integration.
