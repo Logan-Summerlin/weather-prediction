@@ -19,5 +19,6 @@
   "calibration_period": "2023",
   "benchmark_period": "2023-2025",
   "ev_gating_results": "ev_edge_quality_gating_results.csv",
-  "contract_timesafe_audit": "contract_and_timesafe_audit.json"
+  "contract_timesafe_audit": "contract_and_timesafe_audit.json",
+  "paper_trading_gate": "paper_trading_gate_report.json"
 }

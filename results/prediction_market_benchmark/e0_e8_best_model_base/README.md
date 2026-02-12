@@ -47,7 +47,12 @@ E3_weighted_ensemble_E4_uncertainty    OOS         0.05       910       0.25   -
     "rows_with_missing_between_bounds": 0,
     "rows_with_missing_above_low": 0,
     "rows_with_missing_below_high": 0,
-    "days_with_non_unit_probability_mass": 1086
+    "days_with_non_unit_probability_mass": 1086,
+    "rows_with_unparseable_ticker": 0,
+    "rows_with_ticker_date_mismatch": 0,
+    "rows_with_ticker_strike_mismatch": 0,
+    "rows_with_unexpected_ticker_kind": 0,
+    "rows_with_outcome_rule_mismatch": 95
   },
   "time_safety": {
     "decision_cutoff_utc_hour": 5,
@@ -57,5 +62,40 @@ E3_weighted_ensemble_E4_uncertainty    OOS         0.05       910       0.25   -
     "snapshot_lag_hours_p10": 0.0,
     "snapshot_lag_hours_p50": 0.0,
     "snapshot_lag_hours_p90": 3.0
+  }
+}
+
+## Paper-trading gate report
+
+{
+  "top_model": "E3_weighted_ensemble_E4_uncertainty",
+  "promotion_ready": false,
+  "checks": {
+    "oos_brier_beats_presettlement": {
+      "pass": false,
+      "oos_model_brier": 0.13004572811498297,
+      "presettlement_brier": 0.12706111379754997
+    },
+    "oos_gated_pnl_positive_with_positive_ci": {
+      "pass": false,
+      "best_oos_gated": {
+        "quality_cut": 0.04,
+        "trades": 1053,
+        "net_pnl": -11.1,
+        "roi_pct": -11.51,
+        "pnl_ci95_low": -16.74,
+        "pnl_ci95_high": -5.95
+      }
+    },
+    "calibration_ece_gate": {
+      "pass": true,
+      "ece": 0.02284814226776027,
+      "threshold": 0.03
+    },
+    "tail_reliability_gate": {
+      "pass": false,
+      "max_abs_bin_gap": 0.5133113877132489,
+      "threshold": 0.2
+    }
   }
 }

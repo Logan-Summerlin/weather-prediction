@@ -9,7 +9,12 @@
     "rows_with_missing_between_bounds": 0,
     "rows_with_missing_above_low": 0,
     "rows_with_missing_below_high": 0,
-    "days_with_non_unit_probability_mass": 1086
+    "days_with_non_unit_probability_mass": 1086,
+    "rows_with_unparseable_ticker": 0,
+    "rows_with_ticker_date_mismatch": 0,
+    "rows_with_ticker_strike_mismatch": 0,
+    "rows_with_unexpected_ticker_kind": 0,
+    "rows_with_outcome_rule_mismatch": 95
   },
   "time_safety": {
     "decision_cutoff_utc_hour": 5,
