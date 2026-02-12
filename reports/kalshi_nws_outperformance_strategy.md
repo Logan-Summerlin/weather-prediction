@@ -368,3 +368,52 @@ Interpretation:
 
 #### Phase D
 - [~] Paper-trading gate criteria automation and monitoring integration. *(implemented in benchmark harness with `paper_trading_gate_report.json`; still pending live-monitor wiring and rolling-window alerting)*
+
+
+### Implemented in this sprint (follow-up)
+
+7. **Calibration-confidence-aware gating + explicit slippage model (Phase C advancement)**
+   - Extended `scripts/run_e0_e8_best_model_benchmark.py` EV gating quality with a chronological calibration-confidence factor.
+   - Confidence is estimated from 2023-only season × direction × sigma-bin reliability gaps and sample size.
+   - Added execution slippage penalty in simulated fill cost: `min(0.02, 0.25*spread + 0.015*(1-depth) + 0.01*staleness)`.
+
+8. **OOS stress slices for execution robustness (Phase C backtest standards)**
+   - Expanded gating report to include segment-level stress slices:
+     - `OOS_DJF`, `OOS_MAM`, `OOS_JJA`, `OOS_SON`, and `OOS_volatile`.
+   - This directly operationalizes the plan requirement to stress-test by season and volatility regime.
+
+### Results from follow-up implementation run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast/Brier impact
+- Top forecast model remains unchanged: **E3_weighted_ensemble_E4_uncertainty**.
+- OOS model Brier remains **0.1300457**, still above pre-settlement **0.1270611**.
+- Conclusion: this sprint’s work improved execution realism/diagnostics rather than forecast skill.
+
+#### Trading/EV impact with calibration-confidence + slippage
+- Best all-period gated slice: quality_cut=0.05, trades=1,213, net P&L **-17.76**, ROI **-15.03%** (95% CI **[-23.66, -11.35]**).
+- Best OOS gated slice: quality_cut=0.05, trades=841, net P&L **-13.34**, ROI **-16.42%** (95% CI **[-17.88, -8.37]**).
+- Interpretation: adding realistic slippage and calibration-confidence weighting did not uncover a positive edge; negative EV remains statistically robust.
+
+#### OOS stress-slice diagnostics (new)
+- `OOS_DJF`: net P&L **-1.33**, CI **[-3.65, +1.03]**.
+- `OOS_MAM`: net P&L **-3.87**, CI **[-5.91, -1.85]**.
+- `OOS_JJA`: net P&L **-2.05**, CI **[-5.16, +1.36]**.
+- `OOS_SON`: net P&L **-5.24**, CI **[-7.55, -3.03]**.
+- `OOS_volatile`: net P&L **-2.74**, CI **[-5.27, -0.25]**.
+- Interpretation: losses concentrate most reliably in MAM/SON and remain negative in volatile regimes; no regime currently supports scale-up.
+
+### Updated outstanding task list status
+
+#### Phase C
+- [x] Add edge quality score using market quality + model uncertainty.
+- [x] Add calibration-confidence term to quality score.
+- [x] Dynamic threshold by liquidity/uncertainty/depth/staleness.
+- [x] Capped fractional Kelly + cluster exposure limits.
+- [x] Add slippage-aware fill assumptions.
+- [x] Bootstrap confidence intervals for OOS P&L.
+- [x] Stress slices by season + volatility regime.
+- [ ] Add queue-position and cancellation-rate proxies (not yet available in current data feed).
+- [ ] Add live execution latency model linked to order placement timestamps.

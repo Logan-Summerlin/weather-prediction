@@ -379,7 +379,52 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
     stale_norm = np.clip(staleness_hours.values / 8.0, 0.0, 1.0)
 
     liquidity = np.clip(1.0 - spread / 0.20, 0.0, 1.0)
-    quality = np.abs(edge) * liquidity * (1.0 - 0.5 * sigma_norm) * (0.3 + 0.7 * depth) * (1.0 - 0.35 * stale_norm)
+
+    # Calibration-confidence proxy from chronological calibration year only.
+    cal = df[df["date_dt"].dt.year == 2023].copy()
+    if len(cal):
+        cal["season"] = _season_from_month(cal["date_dt"].dt.month.values)
+        cal["sigma_bin"] = _bin_labels(
+            cal["model_sigma"].values,
+            np.quantile(cal["model_sigma"].values, [0.0, 0.5, 1.0]),
+            ["lo", "hi"],
+        )
+        cell_stats = (
+            cal.groupby(["season", "direction", "sigma_bin"], as_index=False)
+            .agg(
+                n=("actual_outcome", "size"),
+                mean_pred=("model_prob", "mean"),
+                mean_obs=("actual_outcome", "mean"),
+            )
+        )
+        cell_stats["abs_gap"] = (cell_stats["mean_pred"] - cell_stats["mean_obs"]).abs()
+        cell_stats["confidence"] = np.clip(
+            (cell_stats["n"] / 90.0) * (1.0 - cell_stats["abs_gap"] / 0.20),
+            0.0,
+            1.0,
+        )
+        conf_map = {
+            (r["season"], r["direction"], r["sigma_bin"]): float(r["confidence"])
+            for _, r in cell_stats.iterrows()
+        }
+        global_conf = float(np.clip(cell_stats["confidence"].mean(), 0.1, 1.0))
+    else:
+        conf_map = {}
+        global_conf = 0.5
+
+    df = df.copy()
+    df["season"] = _season_from_month(df["date_dt"].dt.month.values)
+    df["sigma_bin"] = _bin_labels(
+        df["model_sigma"].values,
+        np.quantile(df["model_sigma"].values, [0.0, 0.5, 1.0]),
+        ["lo", "hi"],
+    )
+    cal_conf = np.array([
+        conf_map.get((s, d, b), global_conf)
+        for s, d, b in zip(df["season"].values, df["direction"].values, df["sigma_bin"].values)
+    ])
+
+    quality = np.abs(edge) * liquidity * (1.0 - 0.5 * sigma_norm) * (0.3 + 0.7 * depth) * (1.0 - 0.35 * stale_norm) * (0.5 + 0.5 * cal_conf)
 
     ask_all = df["ask_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
     bid_all = df["bid_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
@@ -388,8 +433,18 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
     rng = np.random.default_rng(20260212)
     n_boot = 1000
 
-    for period in ["All", "IS", "OOS"]:
-        m = np.ones(len(df), dtype=bool) if period == "All" else df["period"].values == period
+    period_masks = {
+        "All": np.ones(len(df), dtype=bool),
+        "IS": df["period"].values == "IS",
+        "OOS": df["period"].values == "OOS",
+        "OOS_DJF": (df["period"].values == "OOS") & (df["season"].values == "DJF"),
+        "OOS_MAM": (df["period"].values == "OOS") & (df["season"].values == "MAM"),
+        "OOS_JJA": (df["period"].values == "OOS") & (df["season"].values == "JJA"),
+        "OOS_SON": (df["period"].values == "OOS") & (df["season"].values == "SON"),
+        "OOS_volatile": (df["period"].values == "OOS") & (sigma_norm > 0.67),
+    }
+
+    for period, m in period_masks.items():
         sub = df.loc[m].copy()
         sub_edge = edge[m]
         sub_quality = quality[m]
@@ -435,15 +490,19 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
             frac_kelly = np.clip(0.25 * kelly, 0.0, 0.30)
             stake = np.where(buy_yes | buy_no, np.maximum(0.25, frac_kelly), 0.0)
 
+            slippage = np.clip(0.25 * sub_spread + 0.015 * (1.0 - sub_depth) + 0.01 * sub_stale, 0.0, 0.02)
+            exec_yes_cost = np.clip(sub_ask + slippage, 0.0, 1.0)
+            exec_no_cost = np.clip((1.0 - sub_bid) + slippage, 0.0, 1.0)
+
             yes_payout = np.where(sub_outcome[buy_yes] == 1, 1.0, 0.0)
             yes_stake = stake[buy_yes]
             no_stake = stake[buy_no]
-            yes_net = yes_stake * (yes_payout - yes_payout * bench.FEE_RATE - sub_ask[buy_yes])
+            yes_net = yes_stake * (yes_payout - yes_payout * bench.FEE_RATE - exec_yes_cost[buy_yes])
             no_payout = np.where(sub_outcome[buy_no] == 0, 1.0, 0.0)
-            no_net = no_stake * (no_payout - no_payout * bench.FEE_RATE - (1.0 - sub_bid[buy_no]))
+            no_net = no_stake * (no_payout - no_payout * bench.FEE_RATE - exec_no_cost[buy_no])
 
             all_net = np.concatenate([yes_net, no_net])
-            all_cost = np.concatenate([yes_stake * sub_ask[buy_yes], no_stake * (1.0 - sub_bid[buy_no])])
+            all_cost = np.concatenate([yes_stake * exec_yes_cost[buy_yes], no_stake * exec_no_cost[buy_no]])
             all_wins = np.concatenate([sub_outcome[buy_yes] == 1, sub_outcome[buy_no] == 0])
 
             net_pnl = float(all_net.sum()) if len(all_net) else 0.0
