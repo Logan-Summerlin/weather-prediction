@@ -240,3 +240,73 @@ Mitigation:
 You likely already have enough forecasting skill to beat NWS consistently.  
 To beat Kalshi PreSettlement robustly, the next leap is unlikely to come from larger generic networks alone.
 It should come from **regime-aware distribution modeling + conditional calibration + selective EV-aware execution** under realistic market microstructure constraints.
+
+---
+
+## 9) Implementation tracker (started 2026-02-12)
+
+### Implemented in this sprint
+
+1. **Conditional calibration grid prototype (partial Phase B.3)**
+   - Added `E9_conditional_calibration_grid` into `scripts/run_e0_e8_best_model_benchmark.py`.
+   - Method implemented: season × spread-tercile × regime-tercile calibration key with hierarchical fallback (cell → season → global).
+   - Regime proxy used for first pass: absolute day-over-day change in model `mu` (stable/transition/volatile bins).
+   - Training/calibration chronology preserved (fit on 2023 only; evaluated on 2023–2025 benchmark set).
+
+2. **EV-aware execution gating prototype (partial Phase C)**
+   - Added dynamic edge-quality gating experiment for the best-Brier model in `scripts/run_e0_e8_best_model_benchmark.py`.
+   - Implemented quality score from: `|edge|`, quoted spread proxy, and model uncertainty (`sigma`-normalized).
+   - Implemented dynamic threshold: `0.01 + 0.5*spread + 0.04*sigma_norm`, then quality cut filters.
+   - Results artifact added: `results/prediction_market_benchmark/e0_e8_best_model_base/ev_edge_quality_gating_results.csv`.
+
+### Results from implementation run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast/Brier impact
+- `E9_conditional_calibration_grid` did **not** improve over prior variants in this first pass.
+- It matched `E2_seasonal_calibration` exactly in this run:
+  - Overall model Brier: **0.1342465**
+  - OOS model Brier: **0.1315870**
+- Current best variant remains **E3_weighted_ensemble_E4_uncertainty**:
+  - Overall model Brier: **0.1333057**
+  - OOS model Brier: **0.1300457**
+
+Interpretation:
+- Conditional cells were likely too sparse with one calibration year and fell back heavily to seasonal/global calibrators.
+- Next iteration should either (a) simplify cell granularity or (b) use a larger calibration window while preserving chronological purity.
+
+#### Trading/EV impact (dynamic gating)
+- Dynamic gating reduced trade count materially (e.g., 5,183 baseline-style threshold-0.02 model trades historically vs ~1.8k–2.6k gated in these cuts), but remained negative P&L in this prototype.
+- Best all-period gated result in this run:
+  - quality_cut=0.05, trades=1,813, net P&L = **-69.84**, ROI **-10.76%**.
+- OOS gated outcomes remained negative across cuts (roughly **-47.5 to -56.6** net P&L).
+
+Interpretation:
+- Sparse selective trading alone is insufficient with current edge quality definition.
+- We still need stronger calibration confidence signals + tighter microstructure filters (staleness/depth/queue-position proxies) and likely better model edge quality on tradable tails.
+
+### Not yet implemented (from this memo)
+
+#### Phase A
+- [ ] Re-validate contract site/day-boundary/inclusivity rounding with automated checks.
+- [ ] Add explicit time-safe feature-audit artifact per run.
+
+#### Phase B
+- [ ] WGA-MDN model training/evaluation integration in benchmark harness.
+- [ ] Synthesis-Stacker with market-state inputs.
+- [x] Conditional calibration grid prototype (first pass, no gain yet).
+- [ ] Capacity sweep for residual + synthesis backbones under strict calibration gates.
+- [ ] Station expansion ablation ladder.
+- [ ] Data-history extension run.
+- [ ] AVN/ETA MOS backfill feasibility implementation.
+
+#### Phase C
+- [x] EV-aware edge-quality + dynamic-threshold prototype (first pass, still negative P&L).
+- [ ] Liquidity/depth/staleness-aware dynamic thresholds using richer market microstructure.
+- [ ] Cluster exposure limits + explicit capped fractional Kelly in this benchmark script family.
+- [ ] Bootstrap confidence intervals for gated strategy variants.
+
+#### Phase D
+- [ ] Paper-trading gate criteria automation and monitoring integration.

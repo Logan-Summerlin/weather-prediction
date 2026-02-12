@@ -1,0 +1,13 @@
+model,period,quality_cut,n_trades,net_pnl,roi_pct,win_rate
+E3_weighted_ensemble_E4_uncertainty,All,0.02,2584,-113.58,-12.09,0.3437
+E3_weighted_ensemble_E4_uncertainty,All,0.03,2460,-107.15,-12.02,0.3427
+E3_weighted_ensemble_E4_uncertainty,All,0.04,2114,-91.43,-11.96,0.3425
+E3_weighted_ensemble_E4_uncertainty,All,0.05,1813,-69.84,-10.76,0.3436
+E3_weighted_ensemble_E4_uncertainty,IS,0.02,1200,-56.99,-12.42,0.36
+E3_weighted_ensemble_E4_uncertainty,IS,0.03,1129,-51.15,-11.85,0.3623
+E3_weighted_ensemble_E4_uncertainty,IS,0.04,915,-41.3,-12.02,0.3552
+E3_weighted_ensemble_E4_uncertainty,IS,0.05,738,-22.34,-8.06,0.3713
+E3_weighted_ensemble_E4_uncertainty,OOS,0.02,1384,-56.59,-11.77,0.3295
+E3_weighted_ensemble_E4_uncertainty,OOS,0.03,1331,-56.0,-12.18,0.3261
+E3_weighted_ensemble_E4_uncertainty,OOS,0.04,1199,-50.13,-11.9,0.3328
+E3_weighted_ensemble_E4_uncertainty,OOS,0.05,1075,-47.5,-12.77,0.3247
