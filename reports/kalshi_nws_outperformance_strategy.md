@@ -417,3 +417,55 @@ Run command:
 - [x] Stress slices by season + volatility regime.
 - [ ] Add queue-position and cancellation-rate proxies (not yet available in current data feed).
 - [ ] Add live execution latency model linked to order placement timestamps.
+
+### Implemented in this sprint (microstructure-proxy follow-up)
+
+9. **Queue/cancellation proxy integration in EV gating (Phase C advancement)**
+   - Updated `scripts/run_e0_e8_best_model_benchmark.py` with explicit microstructure proxies derived from available snapshot fields:
+     - `queue_pressure` from spread, depth (`volume`/`open_interest`), and quote-vs-mid imbalance,
+     - `cancel_proxy` from daily spread instability (cross-sectional spread std + p90 spread),
+     - `latency_seconds` proxy combining staleness, queue pressure, and cancellation pressure.
+   - Extended dynamic edge threshold and slippage model to include queue/cancellation/latency penalties.
+   - Added new diagnostics to gating artifact: `avg_queue_pressure`, `avg_cancel_proxy`, `avg_latency_seconds`.
+
+10. **Expanded gating sweep range and stricter filter permutation**
+   - Added `quality_cut=0.06` to evaluate sparse high-conviction execution.
+   - Preserved chronological calibration discipline and date-block bootstrap (`n=1000`) for confidence intervals.
+
+### Results from microstructure-proxy follow-up run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast/Brier impact
+- Top forecast variant unchanged: **E3_weighted_ensemble_E4_uncertainty**.
+- OOS model Brier remains **0.1300457** vs pre-settlement **0.1270611**.
+- Interpretation: this iteration improved execution modeling realism, not forecast skill.
+
+#### Trading/EV impact with queue/cancel/latency penalties
+- Best all-period gated cut in this run:
+  - quality_cut=0.06, trades=953, net P&L **-12.88**, ROI **-14.09%**, CI **[-18.06, -7.81]**.
+- Best OOS gated cut in this run:
+  - quality_cut=0.06, trades=706, net P&L **-10.45**, ROI **-15.24%**, CI **[-14.99, -5.90]**.
+- Stress slices (best cut per slice):
+  - `OOS_DJF`: **-1.39**, CI **[-3.68, +0.82]**
+  - `OOS_MAM`: **-2.15**, CI **[-4.13, -0.35]**
+  - `OOS_JJA`: **-2.25**, CI **[-5.17, +0.93]**
+  - `OOS_SON`: **-4.59**, CI **[-6.79, -2.45]**
+  - `OOS_volatile`: **-1.60**, CI **[-3.84, +0.45]**
+
+Interpretation:
+- Microstructure-aware penalties reduced turnover further and tightened diagnostics, but profitability remains negative with a strictly negative OOS all-period CI.
+- Main failure regime remains SON/MAM; selective windows (DJF/JJA/volatile) show wider CIs that are not yet robustly positive.
+
+### Updated outstanding task list status (post follow-up)
+
+#### Phase C
+- [x] Add queue-position proxy from available quote/depth/staleness fields.
+- [x] Add cancellation-rate proxy from daily quote instability.
+- [~] Add live execution latency model linked to actual order placement timestamps. *(proxy latency is implemented; real order-event latency still pending live execution logs)*
+
+#### Remaining highest-priority gaps
+- [ ] Forecast-quality lift (Phase B) to close Brier gap vs pre-settlement; execution optimization alone is not enough.
+- [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).
+- [ ] WGA-MDN and synthesis stacker implementation/evaluation in benchmark harness.

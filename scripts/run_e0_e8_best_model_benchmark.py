@@ -380,6 +380,36 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
 
     liquidity = np.clip(1.0 - spread / 0.20, 0.0, 1.0)
 
+    ask_all = df["ask_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
+    bid_all = df["bid_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
+    mid = np.clip(0.5 * (ask_all + bid_all), 1e-6, 1.0 - 1e-6)
+    imbalance = np.clip(np.abs(df["presettlement_prob"].values - mid) / (spread + 1e-3), 0.0, 1.0)
+    queue_pressure = np.clip((1.0 - depth) * (spread / 0.20) * (0.6 + 0.4 * imbalance), 0.0, 1.0)
+
+    # Daily cancellation proxy from quote instability (high spread dispersion / tail spread).
+    daily_spread = pd.DataFrame({"date": df["date"].values, "spread": spread}).groupby("date", as_index=False).agg(
+        spread_std=("spread", "std"),
+        spread_p90=("spread", lambda x: float(np.nanpercentile(x, 90))),
+    )
+    daily_spread = daily_spread.fillna(0.0)
+    spread_std_norm = np.clip(
+        daily_spread["spread_std"].values / (np.nanpercentile(daily_spread["spread_std"].values, 90) + 1e-6),
+        0.0,
+        1.0,
+    )
+    spread_p90_norm = np.clip(
+        daily_spread["spread_p90"].values / (np.nanpercentile(daily_spread["spread_p90"].values, 90) + 1e-6),
+        0.0,
+        1.0,
+    )
+    daily_spread["cancel_proxy"] = np.clip(0.5 * spread_std_norm + 0.5 * spread_p90_norm, 0.0, 1.0)
+    cancel_proxy_map = dict(zip(daily_spread["date"].values, daily_spread["cancel_proxy"].values))
+    cancel_proxy = np.array([cancel_proxy_map.get(d, 0.5) for d in df["date"].values])
+
+    # Execution latency proxy in seconds (queue/cancel pressure + staleness).
+    latency_seconds = 15.0 + 35.0 * stale_norm + 45.0 * queue_pressure + 20.0 * cancel_proxy
+    latency_norm = np.clip((latency_seconds - 15.0) / 120.0, 0.0, 1.0)
+
     # Calibration-confidence proxy from chronological calibration year only.
     cal = df[df["date_dt"].dt.year == 2023].copy()
     if len(cal):
@@ -424,10 +454,18 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
         for s, d, b in zip(df["season"].values, df["direction"].values, df["sigma_bin"].values)
     ])
 
-    quality = np.abs(edge) * liquidity * (1.0 - 0.5 * sigma_norm) * (0.3 + 0.7 * depth) * (1.0 - 0.35 * stale_norm) * (0.5 + 0.5 * cal_conf)
+    quality = (
+        np.abs(edge)
+        * liquidity
+        * (1.0 - 0.5 * sigma_norm)
+        * (0.3 + 0.7 * depth)
+        * (1.0 - 0.30 * stale_norm)
+        * (1.0 - 0.20 * queue_pressure)
+        * (1.0 - 0.15 * cancel_proxy)
+        * (1.0 - 0.20 * latency_norm)
+        * (0.5 + 0.5 * cal_conf)
+    )
 
-    ask_all = df["ask_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
-    bid_all = df["bid_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
     outcome_all = df["actual_outcome"].values.astype(float)
 
     rng = np.random.default_rng(20260212)
@@ -456,13 +494,26 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
 
         sub_depth = depth[m]
         sub_stale = stale_norm[m]
+        sub_queue = queue_pressure[m]
+        sub_cancel = cancel_proxy[m]
+        sub_latency = latency_norm[m]
+        sub_latency_seconds = latency_seconds[m]
         sub_model = sub["model_prob"].values
         sub_market = sub["presettlement_prob"].values
 
-        for q_cut in [0.02, 0.03, 0.04, 0.05]:
-            dyn_threshold = 0.01 + 0.5 * sub_spread + 0.04 * sub_sigma_norm + 0.02 * (1.0 - sub_depth) + 0.01 * sub_stale
-            buy_yes = (sub_edge > dyn_threshold) & (sub_quality > q_cut)
-            buy_no = (sub_edge < -dyn_threshold) & (sub_quality > q_cut)
+        for q_cut in [0.02, 0.03, 0.04, 0.05, 0.06]:
+            dyn_threshold = (
+                0.01
+                + 0.5 * sub_spread
+                + 0.04 * sub_sigma_norm
+                + 0.02 * (1.0 - sub_depth)
+                + 0.01 * sub_stale
+                + 0.015 * sub_queue
+                + 0.010 * sub_cancel
+                + 0.010 * sub_latency
+            )
+            buy_yes = (sub_edge > dyn_threshold) & (sub_quality >= q_cut)
+            buy_no = (sub_edge < -dyn_threshold) & (sub_quality >= q_cut)
 
             # Contract cluster exposure control: max 2 positions per (date, neighboring strike neighborhood).
             strike = np.where(np.isnan(sub["threshold_low"].values), sub["threshold_high"].values, sub["threshold_low"].values)
@@ -490,7 +541,16 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
             frac_kelly = np.clip(0.25 * kelly, 0.0, 0.30)
             stake = np.where(buy_yes | buy_no, np.maximum(0.25, frac_kelly), 0.0)
 
-            slippage = np.clip(0.25 * sub_spread + 0.015 * (1.0 - sub_depth) + 0.01 * sub_stale, 0.0, 0.02)
+            slippage = np.clip(
+                0.20 * sub_spread
+                + 0.015 * (1.0 - sub_depth)
+                + 0.01 * sub_stale
+                + 0.008 * sub_queue
+                + 0.006 * sub_cancel
+                + 0.006 * sub_latency,
+                0.0,
+                0.025,
+            )
             exec_yes_cost = np.clip(sub_ask + slippage, 0.0, 1.0)
             exec_no_cost = np.clip((1.0 - sub_bid) + slippage, 0.0, 1.0)
 
@@ -544,6 +604,9 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
                 "roi_ci95_low": round(float(roi_ci_low), 2),
                 "roi_ci95_high": round(float(roi_ci_high), 2),
                 "bootstrap_samples": n_boot,
+                "avg_queue_pressure": round(float(np.mean(sub_queue[buy_yes | buy_no])) if trades else 0.0, 4),
+                "avg_cancel_proxy": round(float(np.mean(sub_cancel[buy_yes | buy_no])) if trades else 0.0, 4),
+                "avg_latency_seconds": round(float(np.mean(sub_latency_seconds[buy_yes | buy_no])) if trades else 0.0, 2),
             })
     return pd.DataFrame(rows)
 
