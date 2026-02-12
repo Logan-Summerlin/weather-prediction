@@ -60,6 +60,21 @@ def load_dataset() -> tuple[pd.DataFrame, list[str]]:
     df["sin_doy"] = np.sin(2 * np.pi * doy / 365.25)
     df["cos_doy"] = np.cos(2 * np.pi * doy / 365.25)
 
+    aux_cols = [
+        "knyc_mos_wind_speed_mph",
+        "knyc_mos_wind_dir_deg",
+        "knyc_mos_cloud_cover_code",
+        "knyc_mos_dewpoint_f",
+        "knyc_mos_rel_humidity_pct",
+        "other_station_avg_wind_speed_mph",
+        "other_station_avg_precip_prob",
+        "other_station_avg_snow_indicator",
+    ]
+    for col in aux_cols:
+        if col not in df.columns:
+            df[col] = np.nan
+    df[aux_cols] = df[aux_cols].sort_index().ffill(limit=3)
+
     features = [
         "gfs_mos_tmax_f",
         "lag1",
@@ -69,17 +84,28 @@ def load_dataset() -> tuple[pd.DataFrame, list[str]]:
         "gfs_resid_7d",
         "gfs_resid_14d",
         "gfs_abs_resid_7d",
+        "knyc_mos_wind_speed_mph",
+        "knyc_mos_wind_dir_deg",
+        "knyc_mos_cloud_cover_code",
+        "knyc_mos_dewpoint_f",
+        "knyc_mos_rel_humidity_pct",
+        "other_station_avg_wind_speed_mph",
+        "other_station_avg_precip_prob",
+        "other_station_avg_snow_indicator",
         "sin_doy",
         "cos_doy",
     ]
-    df = df.dropna(subset=features + ["residual_gfs", "nyc_tmax"]).copy()
+    df[features] = df[features].replace([np.inf, -np.inf], np.nan)
+    med = df.loc["2003-01-01":"2018-12-31", features].median(numeric_only=True)
+    df[features] = df[features].fillna(med).fillna(0.0)
+    df = df.dropna(subset=["residual_gfs", "nyc_tmax"]).copy()
     return df, features
 
 
 def split_df(df: pd.DataFrame, features: list[str]):
     windows = {
-        "train": ("2004-01-01", "2021-12-31"),
-        "val": ("2022-01-01", "2022-12-31"),
+        "train": ("2003-01-01", "2018-12-31"),
+        "val": ("2019-01-01", "2022-12-31"),
         "calib": ("2023-01-01", "2023-12-31"),
         "test": ("2024-01-01", "2024-12-31"),
         "oos": ("2025-01-01", "2025-12-31"),

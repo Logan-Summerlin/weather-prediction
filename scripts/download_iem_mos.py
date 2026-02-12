@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import requests
+import numpy as np
 
 # ---------------------------------------------------------------------------
 # Project setup
@@ -43,8 +44,11 @@ logger = logging.getLogger(__name__)
 IEM_MOS_URL = "https://mesonet.agron.iastate.edu/cgi-bin/request/mos.py"
 STATION = "KNYC"
 MODELS = ["GFS", "NAM"]
-START_YEAR = 2004  # Earliest available GFS MOS data for KNYC
+START_YEAR = 2003  # Earliest reliable GFS-like MOS data for KNYC in IEM archive
 END_YEAR = 2026    # Up to current year
+NETWORK_START_YEAR = 2018  # Practical range for multi-station aggregate features
+AVN_START_YEAR = 1998
+AVN_END_YEAR = 2003
 MAX_RETRIES = 4
 INITIAL_BACKOFF_SECONDS = 2.0
 REQUEST_TIMEOUT = 120  # seconds
@@ -143,7 +147,10 @@ def parse_mos_csv(raw_csv: str) -> pd.DataFrame:
     pd.DataFrame
         Parsed DataFrame with columns: runtime, ftime, model, n_x, tmp, ...
     """
-    df = pd.read_csv(StringIO(raw_csv), parse_dates=["runtime", "ftime"])
+    df = pd.read_csv(StringIO(raw_csv))
+    for col in ["runtime", "ftime"]:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
     return df
 
 
@@ -235,6 +242,86 @@ def extract_tmax_forecasts(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def _compute_relative_humidity_from_f(tmp_f: pd.Series, dpt_f: pd.Series) -> pd.Series:
+    """Compute relative humidity (%) from temperature and dewpoint in Fahrenheit."""
+    tmp_c = (tmp_f - 32.0) * (5.0 / 9.0)
+    dpt_c = (dpt_f - 32.0) * (5.0 / 9.0)
+    es = 6.112 * np.exp((17.67 * tmp_c) / (tmp_c + 243.5))
+    e = 6.112 * np.exp((17.67 * dpt_c) / (dpt_c + 243.5))
+    rh = 100.0 * (e / es)
+    return rh.clip(lower=0.0, upper=100.0)
+
+
+def extract_daily_feature_forecasts(df: pd.DataFrame) -> pd.DataFrame:
+    """Extract day-ahead MOS daily features aligned to target-date Tmax.
+
+    Uses same target-date alignment + runtime-priority logic as TMAX extraction.
+    """
+    if df.empty:
+        return pd.DataFrame(
+            columns=[
+                "date", "tmp", "dpt", "cld", "wdr", "wsp", "p06", "snw", "runtime", "model",
+            ]
+        )
+
+    mask = df["n_x"].notna() & (df["ftime"].dt.hour == 0)
+    base = df.loc[mask].copy()
+    if base.empty:
+        return pd.DataFrame(
+            columns=[
+                "date", "tmp", "dpt", "cld", "wdr", "wsp", "p06", "snw", "runtime", "model",
+            ]
+        )
+
+    base["target_date"] = base["ftime"].dt.date - pd.Timedelta(days=1)
+    base["runtime_hour"] = base["runtime"].dt.hour
+    base["runtime_date"] = base["runtime"].dt.date
+
+    rows = []
+    for target_date, group in base.groupby("target_date"):
+        target_dt = pd.Timestamp(target_date)
+        day_before = (target_dt - pd.Timedelta(days=1)).date()
+
+        def _priority(row):
+            rd = row["runtime_date"]
+            rh = row["runtime_hour"]
+            if rd == day_before and rh == 12:
+                return 100
+            if rd == day_before and rh == 18:
+                return 90
+            if rd == day_before and rh == 6:
+                return 80
+            if rd == day_before and rh == 0:
+                return 70
+            if rd == target_date and rh == 0:
+                return 60
+            if rd == target_date and rh == 6:
+                return 50
+            return 10
+
+        group = group.copy()
+        group["priority"] = group.apply(_priority, axis=1)
+        best = group.sort_values("priority", ascending=False).iloc[0]
+        rows.append(
+            {
+                "date": target_date,
+                "tmp": best.get("tmp", np.nan),
+                "dpt": best.get("dpt", np.nan),
+                "cld": best.get("cld", np.nan),
+                "wdr": best.get("wdr", np.nan),
+                "wsp": best.get("wsp", np.nan),
+                "p06": best.get("p06", np.nan),
+                "snw": best.get("snw", np.nan),
+                "runtime": best.get("runtime"),
+                "model": best.get("model"),
+            }
+        )
+
+    out = pd.DataFrame(rows)
+    out["date"] = pd.to_datetime(out["date"])
+    return out.sort_values("date").reset_index(drop=True)
+
+
 def download_model_full(station: str, model: str) -> pd.DataFrame:
     """Download full historical MOS archive for a single model.
 
@@ -291,6 +378,86 @@ def download_model_full(station: str, model: str) -> pd.DataFrame:
     )
     return tmax_df
 
+
+def download_model_daily_features_full(station: str, model: str, start_year: int = START_YEAR, end_year: int = END_YEAR) -> pd.DataFrame:
+    """Download MOS archive and extract daily feature forecasts."""
+    all_chunks = []
+    for year in range(start_year, end_year + 1):
+        raw = download_mos_chunk(station, model, year)
+        if raw is None:
+            continue
+        try:
+            all_chunks.append(parse_mos_csv(raw))
+        except Exception as exc:
+            logger.error("Failed to parse daily-feature chunk %s %s %d: %s", station, model, year, exc)
+        time.sleep(0.35)
+
+    if not all_chunks:
+        return pd.DataFrame(columns=["date", "tmp", "dpt", "cld", "wdr", "wsp", "p06", "snw", "runtime", "model"])
+
+    combined = pd.concat(all_chunks, ignore_index=True)
+    return extract_daily_feature_forecasts(combined)
+
+
+def build_station_aggregate_features() -> pd.DataFrame:
+    """Build daily average MOS features across non-KNYC nearby stations."""
+    mapping_path = os.path.join(PROJECT_ROOT, "data", "asos_station_mapping.csv")
+    expanded_path = os.path.join(PROJECT_ROOT, "data", "stations_expanded.csv")
+    mapping = pd.read_csv(mapping_path)
+    expanded = pd.read_csv(expanded_path)
+
+    map_lut = mapping.set_index("station_id")["icao"].to_dict()
+    prioritized = expanded.sort_values(["priority", "distance_mi"], ascending=[False, True])["station_id"].tolist()
+    station_codes = []
+    for sid in prioritized:
+        icao = str(map_lut.get(sid, "")).upper()
+        if not icao or icao == "NAN" or icao == "KNYC":
+            continue
+        row = mapping[mapping["station_id"] == sid]
+        if row.empty or str(row.iloc[0]["asos_available"]).lower() != "yes":
+            continue
+        station_codes.append(icao)
+        if len(station_codes) >= 8:
+            break
+
+    station_daily = []
+    for station in station_codes:
+        daily = download_model_daily_features_full(station, "GFS", start_year=NETWORK_START_YEAR, end_year=END_YEAR)
+        if daily.empty:
+            continue
+        slim = daily[["date", "wsp", "p06", "snw"]].copy()
+        slim["station"] = station
+        station_daily.append(slim)
+
+    if not station_daily:
+        return pd.DataFrame(columns=["date", "other_station_avg_wind_speed_mph", "other_station_avg_precip_prob", "other_station_avg_snow_indicator"])
+
+    all_daily = pd.concat(station_daily, ignore_index=True)
+    agg = all_daily.groupby("date", as_index=False).agg(
+        other_station_avg_wind_speed_mph=("wsp", "mean"),
+        other_station_avg_precip_prob=("p06", "mean"),
+        other_station_avg_snow_indicator=("snw", "mean"),
+    )
+    return agg
+
+
+
+
+def download_model_range(station: str, model: str, start_year: int, end_year: int) -> pd.DataFrame:
+    """Download model archive for a custom year range and extract Tmax forecasts."""
+    all_chunks = []
+    for year in range(start_year, end_year + 1):
+        raw = download_mos_chunk(station, model, year)
+        if raw is None:
+            continue
+        try:
+            all_chunks.append(parse_mos_csv(raw))
+        except Exception as exc:
+            logger.error("Failed to parse %s %s %d in range download: %s", station, model, year, exc)
+        time.sleep(0.35)
+    if not all_chunks:
+        return pd.DataFrame(columns=["date", "tmax_forecast_f", "runtime", "model"])
+    return extract_tmax_forecasts(pd.concat(all_chunks, ignore_index=True))
 
 def build_combined_mos(
     gfs_df: pd.DataFrame,
@@ -402,6 +569,22 @@ def main() -> None:
     logger.info("=" * 60)
     gfs_df = download_model_full(STATION, "GFS")
 
+    # Attempt AVN MOS back-extension (legacy GFS predecessor)
+    logger.info("=" * 60)
+    logger.info("STEP 1b: Downloading AVN MOS archive for %s", STATION)
+    logger.info("=" * 60)
+    avn_df = download_model_range(STATION, "AVN", AVN_START_YEAR, AVN_END_YEAR)
+    if not avn_df.empty:
+        avn_for_merge = avn_df.rename(columns={"tmax_forecast_f": "avn_mos_tmax_f", "runtime": "avn_runtime"})
+        gfs_df = gfs_df.merge(avn_for_merge[["date", "avn_mos_tmax_f", "avn_runtime"]], on="date", how="outer")
+        if "gfs_mos_tmax_f" not in gfs_df.columns:
+            gfs_df["gfs_mos_tmax_f"] = np.nan
+        if "runtime" not in gfs_df.columns:
+            gfs_df["runtime"] = pd.NaT
+        gfs_df["gfs_mos_tmax_f"] = gfs_df["gfs_mos_tmax_f"].combine_first(gfs_df["avn_mos_tmax_f"])
+        gfs_df["runtime"] = gfs_df["runtime"].combine_first(gfs_df["avn_runtime"])
+        gfs_df = gfs_df.drop(columns=["avn_mos_tmax_f", "avn_runtime"]).sort_values("date").reset_index(drop=True)
+
     # Download NAM MOS
     logger.info("=" * 60)
     logger.info("STEP 2: Downloading NAM MOS archive for %s", STATION)
@@ -411,6 +594,32 @@ def main() -> None:
     if gfs_df.empty and nam_df.empty:
         logger.error("FATAL: No MOS data downloaded. Check network connectivity.")
         sys.exit(1)
+
+    # Download KNYC GFS daily MOS feature forecasts (wind/cloud/dewpoint/precip/snow)
+    logger.info("=" * 60)
+    logger.info("STEP 2b: Downloading KNYC GFS daily feature MOS")
+    logger.info("=" * 60)
+    gfs_knyc_daily = download_model_daily_features_full(STATION, "GFS")
+    if not gfs_knyc_daily.empty:
+        gfs_knyc_daily = gfs_knyc_daily.rename(
+            columns={
+                "wsp": "knyc_mos_wind_speed_mph",
+                "wdr": "knyc_mos_wind_dir_deg",
+                "cld": "knyc_mos_cloud_cover_code",
+                "dpt": "knyc_mos_dewpoint_f",
+                "tmp": "knyc_mos_tmp_f",
+                "p06": "knyc_mos_precip_prob",
+                "snw": "knyc_mos_snow_indicator",
+            }
+        )
+        gfs_knyc_daily["knyc_mos_rel_humidity_pct"] = _compute_relative_humidity_from_f(
+            gfs_knyc_daily["knyc_mos_tmp_f"], gfs_knyc_daily["knyc_mos_dewpoint_f"]
+        )
+
+    logger.info("=" * 60)
+    logger.info("STEP 2c: Downloading nearby-station GFS MOS daily features for network averages")
+    logger.info("=" * 60)
+    station_agg_daily = build_station_aggregate_features()
 
     # Save individual model files
     gfs_out_path = os.path.join(MOS_DATA_DIR, "gfs_mos_knyc.csv")
@@ -436,6 +645,20 @@ def main() -> None:
     logger.info("STEP 3: Building combined MOS ensemble")
     logger.info("=" * 60)
     combined_df = build_combined_mos(gfs_df, nam_df)
+    if not gfs_knyc_daily.empty:
+        merged_cols = [
+            "date",
+            "knyc_mos_wind_speed_mph",
+            "knyc_mos_wind_dir_deg",
+            "knyc_mos_cloud_cover_code",
+            "knyc_mos_dewpoint_f",
+            "knyc_mos_rel_humidity_pct",
+            "knyc_mos_precip_prob",
+            "knyc_mos_snow_indicator",
+        ]
+        combined_df = combined_df.merge(gfs_knyc_daily[merged_cols], on="date", how="left")
+    if not station_agg_daily.empty:
+        combined_df = combined_df.merge(station_agg_daily, on="date", how="left")
     combined_df.to_csv(combined_out_path, index=False)
     logger.info("Saved combined MOS to %s", combined_out_path)
 

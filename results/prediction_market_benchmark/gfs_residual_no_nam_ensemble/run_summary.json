@@ -9,37 +9,45 @@
     "gfs_resid_7d",
     "gfs_resid_14d",
     "gfs_abs_resid_7d",
+    "knyc_mos_wind_speed_mph",
+    "knyc_mos_wind_dir_deg",
+    "knyc_mos_cloud_cover_code",
+    "knyc_mos_dewpoint_f",
+    "knyc_mos_rel_humidity_pct",
+    "other_station_avg_wind_speed_mph",
+    "other_station_avg_precip_prob",
+    "other_station_avg_snow_indicator",
     "sin_doy",
     "cos_doy"
   ],
   "residual_target": "nyc_tmax - gfs_mos_tmax_f",
   "validation_metrics_residual": {
     "val": {
-      "crps": 1.7650666236877441,
-      "nll": 2.5863828659057617,
-      "mae": 2.394076108932495
+      "crps": 1.7733439207077026,
+      "nll": 2.5743000507354736,
+      "mae": 2.4472920894622803
     },
     "calib": {
-      "crps": 1.698891043663025,
-      "nll": 2.5455684661865234,
-      "mae": 2.3589086532592773
+      "crps": 1.709116816520691,
+      "nll": 2.5539863109588623,
+      "mae": 2.3772473335266113
     },
     "test": {
-      "crps": 1.57366144657135,
-      "nll": 2.440945625305176,
-      "mae": 2.164426565170288
+      "crps": 1.59317946434021,
+      "nll": 2.45630145072937,
+      "mae": 2.1901140213012695
     },
     "oos": {
-      "crps": 1.6367532014846802,
-      "nll": 2.4673171043395996,
-      "mae": 2.2654342651367188
+      "crps": 1.6465637683868408,
+      "nll": 2.481605052947998,
+      "mae": 2.257017135620117
     }
   },
   "benchmark": {
-    "overall_model_brier": 0.14232294231844417,
+    "overall_model_brier": 0.14307048476085643,
     "overall_nws_brier": 0.14177533077188792,
     "overall_presettlement_brier": 0.12706111379754997,
-    "oos_model_brier": 0.13775507051475855,
+    "oos_model_brier": 0.13815117493254,
     "oos_nws_brier": 0.13929810649267152,
     "oos_presettlement_brier": 0.09883887859128825
   }
