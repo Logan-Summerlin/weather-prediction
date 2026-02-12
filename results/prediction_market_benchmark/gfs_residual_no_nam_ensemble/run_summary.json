@@ -1,0 +1,46 @@
+{
+  "model": "gfs_residual_no_nam_ensemble",
+  "features": [
+    "gfs_mos_tmax_f",
+    "lag1",
+    "lag2",
+    "gfs_resid_lag1",
+    "gfs_resid_3d",
+    "gfs_resid_7d",
+    "gfs_resid_14d",
+    "gfs_abs_resid_7d",
+    "sin_doy",
+    "cos_doy"
+  ],
+  "residual_target": "nyc_tmax - gfs_mos_tmax_f",
+  "validation_metrics_residual": {
+    "val": {
+      "crps": 1.7650666236877441,
+      "nll": 2.5863828659057617,
+      "mae": 2.394076108932495
+    },
+    "calib": {
+      "crps": 1.698891043663025,
+      "nll": 2.5455684661865234,
+      "mae": 2.3589086532592773
+    },
+    "test": {
+      "crps": 1.57366144657135,
+      "nll": 2.440945625305176,
+      "mae": 2.164426565170288
+    },
+    "oos": {
+      "crps": 1.6367532014846802,
+      "nll": 2.4673171043395996,
+      "mae": 2.2654342651367188
+    }
+  },
+  "benchmark": {
+    "overall_model_brier": 0.14232294231844417,
+    "overall_nws_brier": 0.14177533077188792,
+    "overall_presettlement_brier": 0.12706111379754997,
+    "oos_model_brier": 0.13775507051475855,
+    "oos_nws_brier": 0.13929810649267152,
+    "oos_presettlement_brier": 0.09883887859128825
+  }
+}
