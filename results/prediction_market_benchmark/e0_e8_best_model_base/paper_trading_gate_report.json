@@ -10,12 +10,12 @@
     "oos_gated_pnl_positive_with_positive_ci": {
       "pass": false,
       "best_oos_gated": {
-        "quality_cut": 0.05,
-        "trades": 841,
-        "net_pnl": -13.34,
-        "roi_pct": -16.42,
-        "pnl_ci95_low": -17.88,
-        "pnl_ci95_high": -8.37
+        "quality_cut": 0.06,
+        "trades": 706,
+        "net_pnl": -10.45,
+        "roi_pct": -15.24,
+        "pnl_ci95_low": -14.99,
+        "pnl_ci95_high": -5.9
       }
     },
     "calibration_ece_gate": {
