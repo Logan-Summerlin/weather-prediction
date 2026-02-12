@@ -68,7 +68,56 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
         "offset_global": offset_global,
         "offset_by_season": offset_by_season,
         "resid_scale": resid_scale,
+        "conditional_cal": _fit_conditional_calibration(calib),
     }
+
+
+def _fit_conditional_calibration(calib: pd.DataFrame) -> dict[str, object]:
+    """Fit isotonic CDF calibrators on season x spread-bin x regime-bin cells."""
+    cal = calib.sort_values("date_dt").copy()
+    cal["season"] = _season_from_month(cal["date_dt"].dt.month.values)
+    cal["spread_bin"] = pd.qcut(cal["model_sigma"], q=3, labels=["lo", "mid", "hi"], duplicates="drop").astype(str)
+    cal["mu_change"] = cal["model_mu"].diff().abs().fillna(0.0)
+    cal["regime_bin"] = pd.qcut(cal["mu_change"], q=3, labels=["stable", "transition", "volatile"], duplicates="drop").astype(str)
+
+    calibrators: dict[str, object] = {}
+    min_points = 35
+    for (season, spread_bin, regime_bin), grp in cal.groupby(["season", "spread_bin", "regime_bin"]):
+        if len(grp) < min_points:
+            continue
+        key = f"{season}|{spread_bin}|{regime_bin}"
+        calibrators[key] = exp.calibrate_global(grp["model_mu"].values, grp["model_sigma"].values, grp["actual_tmax"].values)
+
+    # Hierarchical fallbacks.
+    fallbacks = {
+        "global": exp.calibrate_global(cal["model_mu"].values, cal["model_sigma"].values, cal["actual_tmax"].values)
+    }
+    for season, grp in cal.groupby("season"):
+        if len(grp) >= min_points:
+            fallbacks[f"season|{season}"] = exp.calibrate_global(grp["model_mu"].values, grp["model_sigma"].values, grp["actual_tmax"].values)
+    for spread_bin, grp in cal.groupby("spread_bin"):
+        if len(grp) >= min_points:
+            fallbacks[f"spread|{spread_bin}"] = exp.calibrate_global(grp["model_mu"].values, grp["model_sigma"].values, grp["actual_tmax"].values)
+
+    sigma_edges = np.quantile(cal["model_sigma"].values, [0.0, 1 / 3, 2 / 3, 1.0])
+    sigma_edges = np.unique(sigma_edges)
+    mu_change_edges = np.quantile(cal["mu_change"].values, [0.0, 1 / 3, 2 / 3, 1.0])
+    mu_change_edges = np.unique(mu_change_edges)
+
+    return {
+        "calibrators": calibrators,
+        "fallbacks": fallbacks,
+        "sigma_edges": sigma_edges,
+        "mu_change_edges": mu_change_edges,
+    }
+
+
+def _bin_labels(values: np.ndarray, edges: np.ndarray, labels: list[str]) -> np.ndarray:
+    if len(edges) < 2:
+        return np.array([labels[0]] * len(values))
+    idx = np.digitize(values, edges[1:-1], right=True)
+    idx = np.clip(idx, 0, len(labels) - 1)
+    return np.array([labels[i] for i in idx])
 
 
 def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
@@ -101,6 +150,8 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         mult = np.array([cfg["sigma_mult_season"].get(s, cfg["sigma_mult_season"]["global"]) for s in season])
         mu = mu + offsets
         sigma = np.clip(sigma * mult, 0.5, 15.0)
+    elif variant == "E9_conditional_calibration_grid":
+        pass
     else:
         raise ValueError(variant)
 
@@ -126,6 +177,37 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
             lo_cal = np.where(np.isnan(out.loc[m, "threshold_low"].values), 0.0, np.clip(cal.predict(f_lo[m]), 1e-6, 1 - 1e-6))
             hi_cal = np.where(np.isnan(out.loc[m, "threshold_high"].values), 1.0, np.clip(cal.predict(f_hi[m]), 1e-6, 1 - 1e-6))
             out.loc[m, "model_prob"] = np.clip(hi_cal - lo_cal, 1e-6, 1.0)
+    elif variant == "E9_conditional_calibration_grid":
+        f_lo = np.where(np.isnan(out["threshold_low"].values), 0.0, e012._cdf(out["threshold_low"].values, mu, sigma))
+        f_hi = np.where(np.isnan(out["threshold_high"].values), 1.0, e012._cdf(out["threshold_high"].values, mu, sigma))
+        by_date = out[["date", "date_dt", "model_mu", "model_sigma"]].drop_duplicates("date").sort_values("date_dt").copy()
+        by_date["mu_change"] = by_date["model_mu"].diff().abs().fillna(0.0)
+        sigma_bin = _bin_labels(
+            by_date["model_sigma"].values,
+            cfg["conditional_cal"]["sigma_edges"],
+            ["lo", "mid", "hi"],
+        )
+        regime_bin = _bin_labels(
+            by_date["mu_change"].values,
+            cfg["conditional_cal"]["mu_change_edges"],
+            ["stable", "transition", "volatile"],
+        )
+        by_date["season"] = _season_from_month(by_date["date_dt"].dt.month.values)
+        by_date["cond_key"] = by_date["season"] + "|" + sigma_bin + "|" + regime_bin
+        out = out.merge(by_date[["date", "cond_key", "season"]], on="date", how="left", suffixes=("", "_cond"))
+        out["model_prob"] = np.nan
+
+        calibrators = cfg["conditional_cal"]["calibrators"]
+        fallbacks = cfg["conditional_cal"]["fallbacks"]
+
+        for key in out["cond_key"].dropna().unique():
+            m = out["cond_key"] == key
+            season_key = key.split("|")[0]
+            cal = calibrators.get(key, fallbacks.get(f"season|{season_key}", fallbacks["global"]))
+            lo_cal = np.where(np.isnan(out.loc[m, "threshold_low"].values), 0.0, np.clip(cal.predict(f_lo[m]), 1e-6, 1 - 1e-6))
+            hi_cal = np.where(np.isnan(out.loc[m, "threshold_high"].values), 1.0, np.clip(cal.predict(f_hi[m]), 1e-6, 1 - 1e-6))
+            out.loc[m, "model_prob"] = np.clip(hi_cal - lo_cal, 1e-6, 1.0)
+        out.drop(columns=[c for c in ["cond_key", "season_cond"] if c in out.columns], inplace=True)
     else:
         out["model_prob"] = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
 
@@ -134,6 +216,61 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         out[col] = out[col].clip(bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
 
     return out
+
+
+def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
+    """EV-aware dynamic threshold gating to reduce low-quality/high-cost trades."""
+    rows: list[dict[str, float | str | int]] = []
+    edge = df["model_prob"].values - df["presettlement_prob"].values
+    spread = ((df["ask_cents"].fillna(df["presettlement_prob"] * 100) - df["bid_cents"].fillna(df["presettlement_prob"] * 100)).clip(lower=0) / 100.0).values
+    sigma_norm = np.clip((df["model_sigma"].values - np.percentile(df["model_sigma"].values, 5)) /
+                         (np.percentile(df["model_sigma"].values, 95) - np.percentile(df["model_sigma"].values, 5) + 1e-6), 0, 1)
+    liquidity = np.clip(1.0 - spread / 0.20, 0.0, 1.0)
+    quality = np.abs(edge) * liquidity * (1.0 - 0.5 * sigma_norm)
+
+    for period in ["All", "IS", "OOS"]:
+        m = np.ones(len(df), dtype=bool) if period == "All" else df["period"].values == period
+        sub = df.loc[m].copy()
+        sub_edge = edge[m]
+        sub_quality = quality[m]
+        sub_spread = spread[m]
+        sub_sigma_norm = sigma_norm[m]
+        ask = sub["ask_cents"].fillna(sub["presettlement_prob"] * 100).values / 100.0
+        bid = sub["bid_cents"].fillna(sub["presettlement_prob"] * 100).values / 100.0
+        outcome = sub["actual_outcome"].values.astype(float)
+
+        for q_cut in [0.02, 0.03, 0.04, 0.05]:
+            dyn_threshold = 0.01 + 0.5 * sub_spread + 0.04 * sub_sigma_norm
+            buy_yes = (sub_edge > dyn_threshold) & (sub_quality > q_cut)
+            buy_no = (sub_edge < -dyn_threshold) & (sub_quality > q_cut)
+            if not (buy_yes.any() or buy_no.any()):
+                net_pnl = 0.0
+                trades = 0
+                win_rate = 0.0
+                total_cost = 0.0
+            else:
+                yes_payout = np.where(outcome[buy_yes] == 1, 1.0, 0.0)
+                yes_net = yes_payout - yes_payout * bench.FEE_RATE - ask[buy_yes]
+                no_payout = np.where(outcome[buy_no] == 0, 1.0, 0.0)
+                no_net = no_payout - no_payout * bench.FEE_RATE - (1.0 - bid[buy_no])
+                all_net = np.concatenate([yes_net, no_net])
+                all_cost = np.concatenate([ask[buy_yes], 1.0 - bid[buy_no]])
+                all_wins = np.concatenate([outcome[buy_yes] == 1, outcome[buy_no] == 0])
+                net_pnl = float(all_net.sum())
+                total_cost = float(all_cost.sum())
+                trades = int(len(all_net))
+                win_rate = float(np.mean(all_wins)) if len(all_wins) else 0.0
+
+            rows.append({
+                "model": label,
+                "period": period,
+                "quality_cut": q_cut,
+                "n_trades": trades,
+                "net_pnl": round(net_pnl, 2),
+                "roi_pct": round((100.0 * net_pnl / total_cost), 2) if total_cost > 0 else 0.0,
+                "win_rate": round(win_rate, 4),
+            })
+    return pd.DataFrame(rows)
 
 
 def _run_variant(base_df: pd.DataFrame, variant: str, cfg: dict, save_artifacts: bool = False) -> dict:
@@ -186,11 +323,17 @@ def main() -> None:
         "E6_quantile",
         "E7_regularization_sweep",
         "E8_feature_pruning_sweep",
+        "E9_conditional_calibration_grid",
     ]
 
     rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
     summary = pd.DataFrame(rows).sort_values("overall_model_brier").reset_index(drop=True)
     summary.to_csv(OUT_ROOT / "e0_e8_benchmark_summary.csv", index=False)
+
+    top_model_name = summary.iloc[0]["model"]
+    top_df = _apply_variant(base_df, top_model_name, cfg)
+    gating_df = _run_edge_quality_gating(top_df, top_model_name)
+    gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results.csv", index=False)
 
     top2 = summary.head(2).copy()
     top2.to_csv(OUT_ROOT / "top2_benchmark_summary.csv", index=False)
@@ -206,6 +349,7 @@ def main() -> None:
                 "top2": top2["model"].tolist(),
                 "calibration_period": "2023",
                 "benchmark_period": "2023-2025",
+                "ev_gating_results": "ev_edge_quality_gating_results.csv",
             },
             f,
             indent=2,
@@ -216,6 +360,8 @@ def main() -> None:
         f.write(summary.to_string(index=False))
         f.write("\n\n## Top 2\n\n")
         f.write(top2.to_string(index=False))
+        f.write("\n\n## EV-aware dynamic edge gating (best-Brier model)\n\n")
+        f.write(gating_df.to_string(index=False))
         f.write("\n")
 
     print("Saved:")

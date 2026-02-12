@@ -9,12 +9,14 @@
     "E5_mdn2",
     "E6_quantile",
     "E7_regularization_sweep",
-    "E8_feature_pruning_sweep"
+    "E8_feature_pruning_sweep",
+    "E9_conditional_calibration_grid"
   ],
   "top2": [
     "E3_weighted_ensemble_E4_uncertainty",
     "E1_global_isotonic"
   ],
   "calibration_period": "2023",
-  "benchmark_period": "2023-2025"
+  "benchmark_period": "2023-2025",
+  "ev_gating_results": "ev_edge_quality_gating_results.csv"
 }
