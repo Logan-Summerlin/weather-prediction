@@ -20,16 +20,42 @@ E3_weighted_ensemble_E4_uncertainty             0.133306           0.141775     
 
 ## EV-aware dynamic edge gating (best-Brier model)
 
-                              model period  quality_cut  n_trades  net_pnl  roi_pct  win_rate  pnl_ci95_low  pnl_ci95_high  roi_ci95_low  roi_ci95_high  bootstrap_samples
-E3_weighted_ensemble_E4_uncertainty    All         0.02      2584  -113.58   -12.09    0.3437       -143.64         -79.76        -15.30          -8.58               1000
-E3_weighted_ensemble_E4_uncertainty    All         0.03      2460  -107.15   -12.02    0.3427       -138.38         -75.39        -15.56          -8.50               1000
-E3_weighted_ensemble_E4_uncertainty    All         0.04      2114   -91.43   -11.96    0.3425       -120.74         -61.44        -15.70          -8.03               1000
-E3_weighted_ensemble_E4_uncertainty    All         0.05      1813   -69.84   -10.76    0.3436        -97.19         -42.89        -14.85          -6.62               1000
-E3_weighted_ensemble_E4_uncertainty     IS         0.02      1200   -56.99   -12.42    0.3600        -81.21         -33.27        -17.65          -7.35               1000
-E3_weighted_ensemble_E4_uncertainty     IS         0.03      1129   -51.15   -11.85    0.3623        -74.27         -29.06        -17.42          -6.81               1000
-E3_weighted_ensemble_E4_uncertainty     IS         0.04       915   -41.30   -12.02    0.3552        -62.01         -20.13        -17.92          -5.94               1000
-E3_weighted_ensemble_E4_uncertainty     IS         0.05       738   -22.34    -8.06    0.3713        -40.85          -4.81        -14.53          -1.71               1000
-E3_weighted_ensemble_E4_uncertainty    OOS         0.02      1384   -56.59   -11.77    0.3295        -77.36         -36.00        -15.86          -7.48               1000
-E3_weighted_ensemble_E4_uncertainty    OOS         0.03      1331   -56.00   -12.18    0.3261        -76.35         -34.19        -16.72          -7.49               1000
-E3_weighted_ensemble_E4_uncertainty    OOS         0.04      1199   -50.13   -11.90    0.3328        -70.41         -29.04        -16.74          -6.85               1000
-E3_weighted_ensemble_E4_uncertainty    OOS         0.05      1075   -47.50   -12.77    0.3247        -67.30         -26.59        -17.97          -7.11               1000
+                              model period  quality_cut  n_trades  avg_stake  net_pnl  roi_pct  win_rate  pnl_ci95_low  pnl_ci95_high  roi_ci95_low  roi_ci95_high  bootstrap_samples
+E3_weighted_ensemble_E4_uncertainty    All         0.02      2223       0.25   -24.41   -11.77    0.3540        -31.73         -16.53        -15.36          -8.04               1000
+E3_weighted_ensemble_E4_uncertainty    All         0.03      1883       0.25   -21.37   -12.16    0.3526        -28.28         -13.90        -16.10          -7.95               1000
+E3_weighted_ensemble_E4_uncertainty    All         0.04      1580       0.25   -15.95   -10.84    0.3570        -22.60          -9.01        -15.24          -6.23               1000
+E3_weighted_ensemble_E4_uncertainty    All         0.05      1321       0.25   -14.95   -12.41    0.3437        -21.41          -8.72        -17.42          -7.22               1000
+E3_weighted_ensemble_E4_uncertainty     IS         0.02       915       0.25   -10.81   -11.84    0.3781        -16.11          -5.56        -17.57          -6.10               1000
+E3_weighted_ensemble_E4_uncertainty     IS         0.03       697       0.25    -8.38   -12.25    0.3702        -13.02          -3.97        -19.10          -5.74               1000
+E3_weighted_ensemble_E4_uncertainty     IS         0.04       527       0.25    -4.85    -9.57    0.3738         -8.92          -0.58        -17.45          -1.20               1000
+E3_weighted_ensemble_E4_uncertainty     IS         0.05       411       0.25    -3.26    -8.77    0.3552         -6.88           0.25        -18.38           0.65               1000
+E3_weighted_ensemble_E4_uncertainty    OOS         0.02      1308       0.25   -13.61   -11.72    0.3372        -18.58          -8.43        -15.99          -7.28               1000
+E3_weighted_ensemble_E4_uncertainty    OOS         0.03      1186       0.25   -12.99   -12.10    0.3423        -18.21          -7.13        -17.02          -6.75               1000
+E3_weighted_ensemble_E4_uncertainty    OOS         0.04      1053       0.25   -11.10   -11.51    0.3485        -16.74          -5.95        -17.31          -6.20               1000
+E3_weighted_ensemble_E4_uncertainty    OOS         0.05       910       0.25   -11.69   -14.03    0.3385        -16.36          -6.80        -19.37          -8.35               1000
+
+## Contract/time-safe audit
+
+{
+  "contract_alignment": {
+    "directions_seen": [
+      "above",
+      "below",
+      "between"
+    ],
+    "rows_with_invalid_threshold_order": 0,
+    "rows_with_missing_between_bounds": 0,
+    "rows_with_missing_above_low": 0,
+    "rows_with_missing_below_high": 0,
+    "days_with_non_unit_probability_mass": 1086
+  },
+  "time_safety": {
+    "decision_cutoff_utc_hour": 5,
+    "snapshot_rows_total": 6204,
+    "snapshot_rows_after_cutoff": 0,
+    "snapshot_rows_after_cutoff_pct": 0.0,
+    "snapshot_lag_hours_p10": 0.0,
+    "snapshot_lag_hours_p50": 0.0,
+    "snapshot_lag_hours_p90": 3.0
+  }
+}

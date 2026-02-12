@@ -1,0 +1,23 @@
+{
+  "contract_alignment": {
+    "directions_seen": [
+      "above",
+      "below",
+      "between"
+    ],
+    "rows_with_invalid_threshold_order": 0,
+    "rows_with_missing_between_bounds": 0,
+    "rows_with_missing_above_low": 0,
+    "rows_with_missing_below_high": 0,
+    "days_with_non_unit_probability_mass": 1086
+  },
+  "time_safety": {
+    "decision_cutoff_utc_hour": 5,
+    "snapshot_rows_total": 6204,
+    "snapshot_rows_after_cutoff": 0,
+    "snapshot_rows_after_cutoff_pct": 0.0,
+    "snapshot_lag_hours_p10": 0.0,
+    "snapshot_lag_hours_p50": 0.0,
+    "snapshot_lag_hours_p90": 3.0
+  }
+}
