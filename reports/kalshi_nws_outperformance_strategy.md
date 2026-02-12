@@ -259,6 +259,17 @@ It should come from **regime-aware distribution modeling + conditional calibrati
    - Implemented dynamic threshold: `0.01 + 0.5*spread + 0.04*sigma_norm`, then quality cut filters.
    - Results artifact added: `results/prediction_market_benchmark/e0_e8_best_model_base/ev_edge_quality_gating_results.csv` (now includes 95% bootstrap CIs for net P&L and ROI).
 
+3. **Contract/time-safe audit artifact (partial Phase A)**
+   - Added contract and time-safety checks to `scripts/run_e0_e8_best_model_benchmark.py`.
+   - New artifact: `results/prediction_market_benchmark/e0_e8_best_model_base/contract_and_timesafe_audit.json`.
+   - Checks now include direction/threshold integrity and snapshot lag vs fixed 05:00 UTC cutoff.
+
+4. **Liquidity/depth/staleness-aware gating + risk controls (Phase C first implementation)**
+   - Extended gating quality with depth proxy (`volume`, `open_interest`) and staleness penalty (snapshot lag).
+   - Extended dynamic threshold with depth and staleness terms.
+   - Added cluster exposure cap: max 2 trades per (date, 2°F strike neighborhood).
+   - Added capped fractional Kelly sizing in simulation (25% Kelly, max 0.30 stake, 0.25 minimum stake in this prototype).
+
 ### Results from implementation run
 
 Run command:
@@ -291,11 +302,30 @@ Interpretation:
 - CI bands remain strictly negative in this run, increasing confidence that this prototype is not yet tradable.
 - We still need stronger calibration confidence signals + tighter microstructure filters (staleness/depth/queue-position proxies) and likely better model edge quality on tradable tails.
 
+#### Trading/EV impact (depth/staleness-aware gating + risk controls)
+- After adding depth/staleness-aware thresholds, cluster caps, and capped Kelly sizing, net losses reduced in absolute dollars but remained negative.
+- Best all-period result in this pass:
+  - quality_cut=0.05, trades=1,321, avg_stake=0.25, net P&L = **-14.95**, ROI **-12.41%**.
+- Best OOS result in this pass:
+  - quality_cut=0.04, trades=1,053, avg_stake=0.25, net P&L = **-11.10**, ROI **-11.51%**.
+- 95% bootstrap CIs remained mostly negative:
+  - all-period q=0.04 P&L 95% CI **[-22.60, -9.01]**,
+  - OOS q=0.04 P&L 95% CI **[-16.74, -5.95]**.
+
+Interpretation:
+- Phase C risk controls improved loss containment, but current edge quality still does not clear profitability after costs.
+- Next step remains richer microstructure features and stronger calibration-confidence gating.
+
+#### Contract/time-safe audit findings
+- Direction/threshold checks passed: no invalid between-bucket ordering, no missing required threshold bounds by direction.
+- Snapshot timing check passed in this dataset: 0 rows after 05:00 UTC cutoff.
+- Open issue: summing `settled_market_prob` by date shows large non-unit mass counts, so this field should not be treated as normalized daily bucket mass without explicit market-set partitioning.
+
 ### Not yet implemented (from this memo)
 
 #### Phase A
-- [ ] Re-validate contract site/day-boundary/inclusivity rounding with automated checks.
-- [ ] Add explicit time-safe feature-audit artifact per run.
+- [~] Re-validate contract site/day-boundary/inclusivity rounding with automated checks. *(partial: threshold/direction/cutoff checks now automated; site + rounding inclusivity checks still pending explicit parser-level rules)*
+- [x] Add explicit time-safe feature-audit artifact per run.
 
 #### Phase B
 - [ ] WGA-MDN model training/evaluation integration in benchmark harness.
@@ -308,8 +338,8 @@ Interpretation:
 
 #### Phase C
 - [x] EV-aware edge-quality + dynamic-threshold prototype (first pass, still negative P&L).
-- [ ] Liquidity/depth/staleness-aware dynamic thresholds using richer market microstructure.
-- [ ] Cluster exposure limits + explicit capped fractional Kelly in this benchmark script family.
+- [x] Liquidity/depth/staleness-aware dynamic thresholds using richer market microstructure.
+- [x] Cluster exposure limits + explicit capped fractional Kelly in this benchmark script family.
 - [x] Bootstrap confidence intervals for gated strategy variants (date-block bootstrap, n=1000).
 
 #### Phase D

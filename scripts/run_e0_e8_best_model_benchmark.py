@@ -69,7 +69,47 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
         "offset_by_season": offset_by_season,
         "resid_scale": resid_scale,
         "conditional_cal": _fit_conditional_calibration(calib),
+        "contract_audit": _build_contract_and_timesafe_audit(base_df),
     }
+
+
+def _build_contract_and_timesafe_audit(df: pd.DataFrame) -> dict[str, object]:
+    """Build audit metadata for contract alignment + time-safe live data checks."""
+    out: dict[str, object] = {}
+    d = df.copy()
+    d["snapshot_dt_utc"] = pd.to_datetime(d["snapshot_time_utc"], utc=True, errors="coerce")
+    d["contract_date_utc"] = pd.to_datetime(d["date"], utc=True, errors="coerce")
+    cutoff_hour_utc = 5
+    d["decision_cutoff_utc"] = d["contract_date_utc"] + pd.Timedelta(hours=cutoff_hour_utc)
+    d["snapshot_lag_hours"] = (d["decision_cutoff_utc"] - d["snapshot_dt_utc"]).dt.total_seconds() / 3600.0
+
+    out["contract_alignment"] = {
+        "directions_seen": sorted(d["direction"].dropna().unique().tolist()),
+        "rows_with_invalid_threshold_order": int(
+            ((d["direction"] == "between") & (d["threshold_low"] >= d["threshold_high"])).sum()
+        ),
+        "rows_with_missing_between_bounds": int(
+            ((d["direction"] == "between") & (d[["threshold_low", "threshold_high"]].isna().any(axis=1))).sum()
+        ),
+        "rows_with_missing_above_low": int(((d["direction"] == "above") & (d["threshold_low"].isna())).sum()),
+        "rows_with_missing_below_high": int(((d["direction"] == "below") & (d["threshold_high"].isna())).sum()),
+        "days_with_non_unit_probability_mass": int(
+            (d.groupby("date")["settled_market_prob"].sum().sub(1.0).abs() > 1e-4).sum()
+        ),
+    }
+
+    lag = d["snapshot_lag_hours"].replace([np.inf, -np.inf], np.nan)
+    late_mask = lag < 0
+    out["time_safety"] = {
+        "decision_cutoff_utc_hour": cutoff_hour_utc,
+        "snapshot_rows_total": int(lag.notna().sum()),
+        "snapshot_rows_after_cutoff": int(late_mask.sum()),
+        "snapshot_rows_after_cutoff_pct": float(100.0 * late_mask.mean()),
+        "snapshot_lag_hours_p10": float(np.nanpercentile(lag, 10)),
+        "snapshot_lag_hours_p50": float(np.nanpercentile(lag, 50)),
+        "snapshot_lag_hours_p90": float(np.nanpercentile(lag, 90)),
+    }
+    return out
 
 
 def _fit_conditional_calibration(calib: pd.DataFrame) -> dict[str, object]:
@@ -226,8 +266,17 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
     sigma_low = np.percentile(df["model_sigma"].values, 5)
     sigma_high = np.percentile(df["model_sigma"].values, 95)
     sigma_norm = np.clip((df["model_sigma"].values - sigma_low) / (sigma_high - sigma_low + 1e-6), 0, 1)
+    volume = np.log1p(df["volume"].fillna(0.0).values)
+    oi = np.log1p(df["open_interest"].fillna(0.0).values)
+    depth = np.clip(0.6 * (volume / (np.nanpercentile(volume, 95) + 1e-6)) + 0.4 * (oi / (np.nanpercentile(oi, 95) + 1e-6)), 0.0, 1.0)
+
+    snapshot_dt = pd.to_datetime(df["snapshot_time_utc"], utc=True, errors="coerce")
+    cutoff_dt = pd.to_datetime(df["date"], utc=True, errors="coerce") + pd.Timedelta(hours=5)
+    staleness_hours = ((cutoff_dt - snapshot_dt).dt.total_seconds() / 3600.0).clip(lower=0.0)
+    stale_norm = np.clip(staleness_hours.values / 8.0, 0.0, 1.0)
+
     liquidity = np.clip(1.0 - spread / 0.20, 0.0, 1.0)
-    quality = np.abs(edge) * liquidity * (1.0 - 0.5 * sigma_norm)
+    quality = np.abs(edge) * liquidity * (1.0 - 0.5 * sigma_norm) * (0.3 + 0.7 * depth) * (1.0 - 0.35 * stale_norm)
 
     ask_all = df["ask_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
     bid_all = df["bid_cents"].fillna(df["presettlement_prob"] * 100).values / 100.0
@@ -247,18 +296,51 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
         sub_bid = bid_all[m]
         sub_outcome = outcome_all[m]
 
+        sub_depth = depth[m]
+        sub_stale = stale_norm[m]
+        sub_model = sub["model_prob"].values
+        sub_market = sub["presettlement_prob"].values
+
         for q_cut in [0.02, 0.03, 0.04, 0.05]:
-            dyn_threshold = 0.01 + 0.5 * sub_spread + 0.04 * sub_sigma_norm
+            dyn_threshold = 0.01 + 0.5 * sub_spread + 0.04 * sub_sigma_norm + 0.02 * (1.0 - sub_depth) + 0.01 * sub_stale
             buy_yes = (sub_edge > dyn_threshold) & (sub_quality > q_cut)
             buy_no = (sub_edge < -dyn_threshold) & (sub_quality > q_cut)
 
+            # Contract cluster exposure control: max 2 positions per (date, neighboring strike neighborhood).
+            strike = np.where(np.isnan(sub["threshold_low"].values), sub["threshold_high"].values, sub["threshold_low"].values)
+            cluster_key = np.floor(strike / 2.0)
+            risk_order = np.argsort(-sub_quality)
+            keep = np.zeros(len(sub), dtype=bool)
+            cluster_counts: dict[tuple[str, float], int] = {}
+            for idx in risk_order:
+                if not (buy_yes[idx] or buy_no[idx]):
+                    continue
+                k = (str(sub["date"].values[idx]), float(cluster_key[idx]))
+                count = cluster_counts.get(k, 0)
+                if count >= 2:
+                    continue
+                keep[idx] = True
+                cluster_counts[k] = count + 1
+            buy_yes = buy_yes & keep
+            buy_no = buy_no & keep
+
+            # Capped fractional Kelly sizing using model vs market probabilities.
+            side_prob = np.where(buy_yes, sub_model, np.where(buy_no, 1.0 - sub_model, 0.0))
+            side_price = np.where(buy_yes, sub_ask, np.where(buy_no, 1.0 - sub_bid, 0.0))
+            edge_side = np.where(buy_yes | buy_no, side_prob - side_price, 0.0)
+            kelly = np.where((buy_yes | buy_no) & (side_price > 1e-6) & (side_price < 1 - 1e-6), edge_side / (1.0 - side_price), 0.0)
+            frac_kelly = np.clip(0.25 * kelly, 0.0, 0.30)
+            stake = np.where(buy_yes | buy_no, np.maximum(0.25, frac_kelly), 0.0)
+
             yes_payout = np.where(sub_outcome[buy_yes] == 1, 1.0, 0.0)
-            yes_net = yes_payout - yes_payout * bench.FEE_RATE - sub_ask[buy_yes]
+            yes_stake = stake[buy_yes]
+            no_stake = stake[buy_no]
+            yes_net = yes_stake * (yes_payout - yes_payout * bench.FEE_RATE - sub_ask[buy_yes])
             no_payout = np.where(sub_outcome[buy_no] == 0, 1.0, 0.0)
-            no_net = no_payout - no_payout * bench.FEE_RATE - (1.0 - sub_bid[buy_no])
+            no_net = no_stake * (no_payout - no_payout * bench.FEE_RATE - (1.0 - sub_bid[buy_no]))
 
             all_net = np.concatenate([yes_net, no_net])
-            all_cost = np.concatenate([sub_ask[buy_yes], 1.0 - sub_bid[buy_no]])
+            all_cost = np.concatenate([yes_stake * sub_ask[buy_yes], no_stake * (1.0 - sub_bid[buy_no])])
             all_wins = np.concatenate([sub_outcome[buy_yes] == 1, sub_outcome[buy_no] == 0])
 
             net_pnl = float(all_net.sum()) if len(all_net) else 0.0
@@ -291,6 +373,7 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
                 "period": period,
                 "quality_cut": q_cut,
                 "n_trades": trades,
+                "avg_stake": round(float(np.mean(stake[buy_yes | buy_no])) if trades else 0.0, 4),
                 "net_pnl": round(net_pnl, 2),
                 "roi_pct": round((100.0 * net_pnl / total_cost), 2) if total_cost > 0 else 0.0,
                 "win_rate": round(win_rate, 4),
@@ -380,10 +463,14 @@ def main() -> None:
                 "calibration_period": "2023",
                 "benchmark_period": "2023-2025",
                 "ev_gating_results": "ev_edge_quality_gating_results.csv",
+                "contract_timesafe_audit": "contract_and_timesafe_audit.json",
             },
             f,
             indent=2,
         )
+
+    with open(OUT_ROOT / "contract_and_timesafe_audit.json", "w", encoding="utf-8") as f:
+        json.dump(cfg["contract_audit"], f, indent=2)
 
     with open(OUT_ROOT / "README.md", "w", encoding="utf-8") as f:
         f.write("# E0-E8 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
@@ -392,6 +479,8 @@ def main() -> None:
         f.write(top2.to_string(index=False))
         f.write("\n\n## EV-aware dynamic edge gating (best-Brier model)\n\n")
         f.write(gating_df.to_string(index=False))
+        f.write("\n\n## Contract/time-safe audit\n\n")
+        f.write(json.dumps(cfg["contract_audit"], indent=2))
         f.write("\n")
 
     print("Saved:")
