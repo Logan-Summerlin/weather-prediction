@@ -8,6 +8,7 @@ prediction artifacts (data/best_model_predictions_*).
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -98,6 +99,45 @@ def _build_contract_and_timesafe_audit(df: pd.DataFrame) -> dict[str, object]:
         ),
     }
 
+    ticker_re = re.compile(r"^(?:KX)?HIGHNY-(\d{2}[A-Z]{3}\d{2})-([BT])(\d+(?:\.\d+)?)$")
+    parsed = d["ticker"].astype(str).str.extract(ticker_re)
+    parsed.columns = ["ticker_day", "ticker_kind", "ticker_strike"]
+    d = pd.concat([d, parsed], axis=1)
+    d["ticker_strike"] = pd.to_numeric(d["ticker_strike"], errors="coerce")
+
+    d["date_fmt"] = pd.to_datetime(d["date"]).dt.strftime("%y%b%d").str.upper()
+    strike_target = np.where(
+        d["direction"] == "above",
+        d["threshold_low"],
+        np.where(d["direction"] == "below", d["threshold_high"], d["threshold_low"] + 0.5),
+    )
+
+    out["contract_alignment"].update(
+        {
+            "rows_with_unparseable_ticker": int(d["ticker_day"].isna().sum()),
+            "rows_with_ticker_date_mismatch": int((d["ticker_day"] != d["date_fmt"]).sum()),
+            "rows_with_ticker_strike_mismatch": int(
+                np.nansum(np.abs(d["ticker_strike"].values - strike_target) > 1e-6)
+            ),
+            "rows_with_unexpected_ticker_kind": int(
+                (~d["ticker_kind"].isin(["B", "T"]))
+                .fillna(True)
+                .sum()
+            ),
+        }
+    )
+
+    actual_rounded = np.rint(d["actual_tmax"].values)
+    above_ok = np.where(d["direction"] == "above", actual_rounded >= d["threshold_low"], True)
+    below_ok = np.where(d["direction"] == "below", actual_rounded < d["threshold_high"], True)
+    between_ok = np.where(
+        d["direction"] == "between",
+        (actual_rounded >= d["threshold_low"]) & (actual_rounded < d["threshold_high"]),
+        True,
+    )
+    implied = (above_ok & below_ok & between_ok).astype(int)
+    out["contract_alignment"]["rows_with_outcome_rule_mismatch"] = int((implied != d["actual_outcome"]).sum())
+
     lag = d["snapshot_lag_hours"].replace([np.inf, -np.inf], np.nan)
     late_mask = lag < 0
     out["time_safety"] = {
@@ -110,6 +150,69 @@ def _build_contract_and_timesafe_audit(df: pd.DataFrame) -> dict[str, object]:
         "snapshot_lag_hours_p90": float(np.nanpercentile(lag, 90)),
     }
     return out
+
+
+def _build_paper_trading_gate_report(
+    top_model: str,
+    summary: pd.DataFrame,
+    top_scores: pd.DataFrame,
+    top_calibration: pd.DataFrame,
+    gating_df: pd.DataFrame,
+) -> dict[str, object]:
+    """Automate Phase-D paper-trade promotion checks from benchmark artifacts."""
+    top_row = summary.loc[summary["model"] == top_model].iloc[0]
+    pre_brier = float(top_row["overall_presettlement_brier"])
+    oos_brier = float(top_row["oos_model_brier"])
+
+    model_cal = top_calibration[top_calibration["source"] == "Model"]
+    ece = float(model_cal["ece"].iloc[0]) if len(model_cal) else float("nan")
+    tail_calib_error = float(
+        np.nanmax(np.abs(model_cal["mean_predicted"] - model_cal["mean_observed"]))
+    ) if len(model_cal) else float("nan")
+
+    oos_gated = gating_df[gating_df["period"] == "OOS"]
+    if len(oos_gated):
+        best_oos = oos_gated.sort_values("net_pnl", ascending=False).iloc[0]
+        oos_positive = bool(best_oos["net_pnl"] > 0 and best_oos["pnl_ci95_low"] > 0)
+        oos_best = {
+            "quality_cut": float(best_oos["quality_cut"]),
+            "trades": int(best_oos["n_trades"]),
+            "net_pnl": float(best_oos["net_pnl"]),
+            "roi_pct": float(best_oos["roi_pct"]),
+            "pnl_ci95_low": float(best_oos["pnl_ci95_low"]),
+            "pnl_ci95_high": float(best_oos["pnl_ci95_high"]),
+        }
+    else:
+        oos_positive = False
+        oos_best = {}
+
+    checks = {
+        "oos_brier_beats_presettlement": {
+            "pass": bool(oos_brier <= pre_brier),
+            "oos_model_brier": oos_brier,
+            "presettlement_brier": pre_brier,
+        },
+        "oos_gated_pnl_positive_with_positive_ci": {
+            "pass": oos_positive,
+            "best_oos_gated": oos_best,
+        },
+        "calibration_ece_gate": {
+            "pass": bool(np.isfinite(ece) and ece <= 0.03),
+            "ece": ece,
+            "threshold": 0.03,
+        },
+        "tail_reliability_gate": {
+            "pass": bool(np.isfinite(tail_calib_error) and tail_calib_error <= 0.20),
+            "max_abs_bin_gap": tail_calib_error,
+            "threshold": 0.20,
+        },
+    }
+
+    return {
+        "top_model": top_model,
+        "promotion_ready": bool(all(v["pass"] for v in checks.values())),
+        "checks": checks,
+    }
 
 
 def _fit_conditional_calibration(calib: pd.DataFrame) -> dict[str, object]:
@@ -416,6 +519,9 @@ def _run_variant(base_df: pd.DataFrame, variant: str, cfg: dict, save_artifacts:
         "oos_nws_brier": float(scores_df[(scores_df["slice"] == "Period: OOS") & (scores_df["source"] == "NWS")]["brier_score"].iloc[0]),
         "best_model_all_trading_pnl": float(trading_df[trading_df["signal"] == "Model_All"]["net_pnl"].max()),
         "best_model_oos_trading_pnl": float(trading_df[trading_df["signal"] == "Model_OOS"]["net_pnl"].max()),
+        "scores_df": scores_df,
+        "cal_df": cal_df,
+        "trading_df": trading_df,
     }
 
 
@@ -439,7 +545,13 @@ def main() -> None:
         "E9_conditional_calibration_grid",
     ]
 
-    rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
+    full_rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
+    rows = [
+        {k: v for k, v in row.items() if k not in {"scores_df", "cal_df", "trading_df"}}
+        for row in full_rows
+    ]
+    by_model = {row["model"]: row for row in full_rows}
+
     summary = pd.DataFrame(rows).sort_values("overall_model_brier").reset_index(drop=True)
     summary.to_csv(OUT_ROOT / "e0_e8_benchmark_summary.csv", index=False)
 
@@ -447,6 +559,16 @@ def main() -> None:
     top_df = _apply_variant(base_df, top_model_name, cfg)
     gating_df = _run_edge_quality_gating(top_df, top_model_name)
     gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results.csv", index=False)
+    paper_gate = _build_paper_trading_gate_report(
+        top_model_name,
+        summary,
+        by_model[top_model_name]["scores_df"],
+        by_model[top_model_name]["cal_df"],
+        gating_df,
+    )
+
+    with open(OUT_ROOT / "paper_trading_gate_report.json", "w", encoding="utf-8") as f:
+        json.dump(paper_gate, f, indent=2)
 
     top2 = summary.head(2).copy()
     top2.to_csv(OUT_ROOT / "top2_benchmark_summary.csv", index=False)
@@ -464,6 +586,7 @@ def main() -> None:
                 "benchmark_period": "2023-2025",
                 "ev_gating_results": "ev_edge_quality_gating_results.csv",
                 "contract_timesafe_audit": "contract_and_timesafe_audit.json",
+                "paper_trading_gate": "paper_trading_gate_report.json",
             },
             f,
             indent=2,
@@ -481,6 +604,8 @@ def main() -> None:
         f.write(gating_df.to_string(index=False))
         f.write("\n\n## Contract/time-safe audit\n\n")
         f.write(json.dumps(cfg["contract_audit"], indent=2))
+        f.write("\n\n## Paper-trading gate report\n\n")
+        f.write(json.dumps(paper_gate, indent=2))
         f.write("\n")
 
     print("Saved:")

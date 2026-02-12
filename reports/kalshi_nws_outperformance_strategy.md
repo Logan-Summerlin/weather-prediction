@@ -270,6 +270,16 @@ It should come from **regime-aware distribution modeling + conditional calibrati
    - Added cluster exposure cap: max 2 trades per (date, 2°F strike neighborhood).
    - Added capped fractional Kelly sizing in simulation (25% Kelly, max 0.30 stake, 0.25 minimum stake in this prototype).
 
+5. **Paper-trading promotion gate automation (Phase D partial implementation)**
+   - Added automated go/no-go gate evaluation to `scripts/run_e0_e8_best_model_benchmark.py`.
+   - New artifact: `results/prediction_market_benchmark/e0_e8_best_model_base/paper_trading_gate_report.json`.
+   - Current checks include: (a) OOS Brier vs PreSettlement, (b) OOS gated P&L with positive lower CI bound, (c) ECE threshold, (d) tail reliability threshold.
+
+6. **Expanded contract parser/audit checks (Phase A advancement)**
+   - Extended contract audit with ticker parser + date/strike consistency checks (supports `HIGHNY-...` and `KXHIGHNY-...`).
+   - Added rounded-temperature settlement-rule consistency check against realized `actual_outcome` under direction-specific bucket logic.
+   - In current run, parser/date/strike checks pass with zero mismatches; settlement-rule mismatch remains non-zero and now quantified for follow-up.
+
 ### Results from implementation run
 
 Run command:
@@ -320,11 +330,25 @@ Interpretation:
 - Direction/threshold checks passed: no invalid between-bucket ordering, no missing required threshold bounds by direction.
 - Snapshot timing check passed in this dataset: 0 rows after 05:00 UTC cutoff.
 - Open issue: summing `settled_market_prob` by date shows large non-unit mass counts, so this field should not be treated as normalized daily bucket mass without explicit market-set partitioning.
+- New parser checks (current implementation):
+  - `rows_with_unparseable_ticker`: **0**
+  - `rows_with_ticker_date_mismatch`: **0**
+  - `rows_with_ticker_strike_mismatch`: **0**
+  - `rows_with_outcome_rule_mismatch`: **95** (requires explicit contract rounding/inclusivity rules resolution)
+
+#### Paper-trading gate findings (new)
+- Automated promotion gate is currently **NOT READY** (`promotion_ready=false`).
+- Failing checks in this run:
+  - OOS Brier still above PreSettlement (0.1300 vs 0.1271).
+  - Best OOS gated strategy remains negative with strictly negative 95% CI lower bound.
+  - Tail reliability gate fails (max abs reliability-bin gap ~0.513 > 0.20 threshold).
+- Passing check:
+  - ECE gate passes (0.02285 <= 0.03 threshold).
 
 ### Not yet implemented (from this memo)
 
 #### Phase A
-- [~] Re-validate contract site/day-boundary/inclusivity rounding with automated checks. *(partial: threshold/direction/cutoff checks now automated; site + rounding inclusivity checks still pending explicit parser-level rules)*
+- [~] Re-validate contract site/day-boundary/inclusivity rounding with automated checks. *(advanced: threshold/direction/cutoff + ticker/date/strike parser checks now automated; remaining gap is explicit settlement rounding/inclusivity rule reconciliation, reflected by 95 outcome-rule mismatches)*
 - [x] Add explicit time-safe feature-audit artifact per run.
 
 #### Phase B
@@ -343,4 +367,4 @@ Interpretation:
 - [x] Bootstrap confidence intervals for gated strategy variants (date-block bootstrap, n=1000).
 
 #### Phase D
-- [ ] Paper-trading gate criteria automation and monitoring integration.
+- [~] Paper-trading gate criteria automation and monitoring integration. *(implemented in benchmark harness with `paper_trading_gate_report.json`; still pending live-monitor wiring and rolling-window alerting)*
