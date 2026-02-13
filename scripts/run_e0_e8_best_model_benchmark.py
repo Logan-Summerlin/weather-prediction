@@ -16,6 +16,7 @@ import pandas as pd
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
+from sklearn.neural_network import MLPRegressor
 
 import importlib.util
 
@@ -67,6 +68,7 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
     # Lightweight synthesis-stacker fit using calibration-year only data.
     stacker = _fit_synthesis_stacker(base_df[base_df["date_dt"].dt.year == 2023].copy())
     neural_stacker = _fit_neural_synthesis_stacker(base_df[base_df["date_dt"].dt.year == 2023].copy())
+    distributional_neural = _fit_distributional_neural_synthesis(base_df[base_df["date_dt"].dt.year == 2023].copy())
 
     # Capacity sweep multipliers (small regularized search on calibration year).
     capacity = _fit_capacity_sweep(calib)
@@ -82,6 +84,7 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
         "conditional_cal": _fit_conditional_calibration(calib),
         "synthesis_stacker": stacker,
         "neural_synthesis_stacker": neural_stacker,
+        "distributional_neural": distributional_neural,
         "capacity_sweep": capacity,
         "contract_audit": _build_contract_and_timesafe_audit(base_df),
     }
@@ -359,6 +362,141 @@ def _fit_neural_synthesis_stacker(calib: pd.DataFrame) -> dict[str, object]:
         "calibration_window_brier": float(np.mean((cal_calibrated - y_cal) ** 2)),
     }
 
+
+def _build_distributional_date_features(frame: pd.DataFrame) -> pd.DataFrame:
+    """Construct date-level, time-safe features for distributional synthesis."""
+    d = frame.copy()
+    d["bucket_mid"] = np.where(
+        d["direction"] == "above",
+        d["threshold_low"] + 2.0,
+        np.where(d["direction"] == "below", d["threshold_high"] - 2.0, (d["threshold_low"] + d["threshold_high"]) / 2.0),
+    )
+    state = _build_market_state_features(d)
+    d["spread"] = state["spread"].values
+    d["depth"] = state["depth"].values
+    d["stale_norm"] = state["stale_norm"].values
+
+    by_date = d.groupby("date", as_index=False).agg(
+        date_dt=("date_dt", "first"),
+        actual_tmax=("actual_tmax", "first"),
+        model_mu=("model_mu", "first"),
+        model_sigma=("model_sigma", "first"),
+        nws_mu=("nws_mu", "first"),
+        nws_sigma=("nws_sigma", "first"),
+        market_prob_sum=("presettlement_prob", "sum"),
+        market_implied_mu=("bucket_mid", lambda x: float(np.mean(x))),
+        spread=("spread", "mean"),
+        depth=("depth", "mean"),
+        stale_norm=("stale_norm", "mean"),
+    )
+
+    weighted = d.groupby("date").apply(
+        lambda x: pd.Series(
+            {
+                "market_implied_mu": float(np.sum(x["bucket_mid"] * x["presettlement_prob"]) / (np.sum(x["presettlement_prob"]) + 1e-6)),
+                "market_implied_sigma": float(
+                    np.sqrt(
+                        np.sum(((x["bucket_mid"] - (np.sum(x["bucket_mid"] * x["presettlement_prob"]) / (np.sum(x["presettlement_prob"]) + 1e-6))) ** 2) * x["presettlement_prob"])
+                        / (np.sum(x["presettlement_prob"]) + 1e-6)
+                    )
+                ),
+            }
+        )
+    ).reset_index()
+    by_date = by_date.drop(columns=["market_implied_mu"]).merge(weighted, on="date", how="left")
+
+    by_date["mu_spread_model_nws"] = by_date["model_mu"] - by_date["nws_mu"]
+    by_date["mu_spread_model_market"] = by_date["model_mu"] - by_date["market_implied_mu"]
+    by_date["sigma_ratio_model_nws"] = by_date["model_sigma"] / (by_date["nws_sigma"] + 1e-6)
+    by_date["sigma_ratio_model_market"] = by_date["model_sigma"] / (by_date["market_implied_sigma"] + 1e-6)
+    by_date["season_sin"] = np.sin(2.0 * np.pi * by_date["date_dt"].dt.dayofyear.values / 365.25)
+    by_date["season_cos"] = np.cos(2.0 * np.pi * by_date["date_dt"].dt.dayofyear.values / 365.25)
+    return by_date.sort_values("date_dt").reset_index(drop=True)
+
+
+def _fit_distributional_neural_synthesis(calib: pd.DataFrame) -> dict[str, object]:
+    """Fit date-level neural residual/sigma synthesis with NLL selection and isotonic CDF calibration."""
+    by_date = _build_distributional_date_features(calib)
+    feature_cols = [
+        "model_mu", "model_sigma", "nws_mu", "nws_sigma", "market_implied_mu", "market_implied_sigma",
+        "mu_spread_model_nws", "mu_spread_model_market", "sigma_ratio_model_nws", "sigma_ratio_model_market",
+        "spread", "depth", "stale_norm", "season_sin", "season_cos",
+    ]
+    X = by_date[feature_cols].values
+    y = by_date["actual_tmax"].values
+    base_mu = by_date["model_mu"].values
+    resid_target = y - base_mu
+    sigma_target = np.log(np.clip(np.abs(resid_target), 0.35, None))
+
+    n = len(by_date)
+    n_train = int(0.6 * n)
+    n_val = int(0.2 * n)
+    train_idx = slice(0, n_train)
+    val_idx = slice(n_train, n_train + n_val)
+    cal_idx = slice(n_train + n_val, n)
+
+    X_train, X_val, X_cal = X[train_idx], X[val_idx], X[cal_idx]
+    y_train, y_val, y_cal = y[train_idx], y[val_idx], y[cal_idx]
+    mu_train_base, mu_val_base, mu_cal_base = base_mu[train_idx], base_mu[val_idx], base_mu[cal_idx]
+
+    x_mu = X_train.mean(axis=0)
+    x_sd = np.where(X_train.std(axis=0) < 1e-6, 1.0, X_train.std(axis=0))
+    X_train_z = (X_train - x_mu) / x_sd
+    X_val_z = (X_val - x_mu) / x_sd
+    X_cal_z = (X_cal - x_mu) / x_sd
+
+    best = None
+    best_nll = float("inf")
+    configs = [((16,), 1e-3), ((32,), 2e-3), ((32, 16), 3e-3), ((64, 32), 5e-3)]
+    for hidden, alpha in configs:
+        resid_model = MLPRegressor(hidden_layer_sizes=hidden, activation="relu", alpha=alpha, random_state=42, max_iter=1200)
+        sig_model = MLPRegressor(hidden_layer_sizes=hidden, activation="relu", alpha=alpha, random_state=24, max_iter=1200)
+        resid_model.fit(X_train_z, resid_target[train_idx])
+        sig_model.fit(X_train_z, sigma_target[train_idx])
+
+        mu_hat = mu_val_base + resid_model.predict(X_val_z)
+        sigma_hat = np.clip(np.exp(sig_model.predict(X_val_z)), 0.5, 12.0)
+        z = (y_val - mu_hat) / sigma_hat
+        nll = float(np.mean(0.5 * np.log(2.0 * np.pi * sigma_hat**2) + 0.5 * z**2))
+        if nll < best_nll:
+            best_nll = nll
+            best = (resid_model, sig_model, hidden, alpha)
+
+    assert best is not None
+    resid_model, sig_model, hidden, alpha = best
+    mu_cal = mu_cal_base + resid_model.predict(X_cal_z)
+    sigma_cal = np.clip(np.exp(sig_model.predict(X_cal_z)), 0.5, 12.0)
+    f_cal = np.clip(e012._cdf(y_cal, mu_cal, sigma_cal), 1e-6, 1 - 1e-6)
+    iso = IsotonicRegression(y_min=1e-6, y_max=1 - 1e-6, out_of_bounds="clip")
+    iso.fit(f_cal, np.linspace(0.0, 1.0, len(f_cal), endpoint=False) + 0.5 / max(len(f_cal), 1))
+
+    return {
+        "feature_cols": feature_cols,
+        "feature_mean": x_mu.tolist(),
+        "feature_std": x_sd.tolist(),
+        "resid_coefs": [w.tolist() for w in resid_model.coefs_],
+        "resid_intercepts": [b.tolist() for b in resid_model.intercepts_],
+        "sigma_coefs": [w.tolist() for w in sig_model.coefs_],
+        "sigma_intercepts": [b.tolist() for b in sig_model.intercepts_],
+        "hidden_layers": list(hidden),
+        "alpha": float(alpha),
+        "isotonic_x": iso.X_thresholds_.tolist(),
+        "isotonic_y": iso.y_thresholds_.tolist(),
+        "validation_nll": best_nll,
+    }
+
+
+def _mlp_forward(X: np.ndarray, coefs: list[list[list[float]]], intercepts: list[list[float]]) -> np.ndarray:
+    out = X
+    n_layers = len(coefs)
+    for i, (w, b) in enumerate(zip(coefs, intercepts)):
+        w_arr = np.array(w)
+        b_arr = np.array(b)
+        out = out @ w_arr + b_arr
+        if i < n_layers - 1:
+            out = np.maximum(out, 0.0)
+    return out.squeeze()
+
 def _build_contract_and_timesafe_audit(df: pd.DataFrame) -> dict[str, object]:
     """Build audit metadata for contract alignment + time-safe live data checks."""
     out: dict[str, object] = {}
@@ -618,6 +756,8 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         sigma = np.clip(sigma * cap["sigma_gain"] * cap["global_scale"], 0.5, 15.0)
     elif variant == "E13_neural_synthesis_mlp":
         pass
+    elif variant == "E14_distributional_neural_nll":
+        pass
     else:
         raise ValueError(variant)
 
@@ -765,6 +905,29 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         iso_y = np.array(stack["isotonic_y"])
         out["model_prob"] = np.interp(np.clip(raw, iso_x.min(), iso_x.max()), iso_x, iso_y)
         out["model_prob"] = np.clip(out["model_prob"], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    elif variant == "E14_distributional_neural_nll":
+        dist = cfg["distributional_neural"]
+        by_date = _build_distributional_date_features(out)
+        x = by_date[dist["feature_cols"]].values
+        x = (x - np.array(dist["feature_mean"])) / np.array(dist["feature_std"])
+
+        resid = _mlp_forward(x, dist["resid_coefs"], dist["resid_intercepts"])
+        sigma_raw = np.exp(_mlp_forward(x, dist["sigma_coefs"], dist["sigma_intercepts"]))
+        mu_adj = by_date["model_mu"].values + resid
+        sigma_adj = np.clip(sigma_raw, 0.5, 12.0)
+
+        map_mu = dict(zip(by_date["date"], mu_adj))
+        map_sigma = dict(zip(by_date["date"], sigma_adj))
+        out["model_mu"] = out["date"].map(map_mu).astype(float)
+        out["model_sigma"] = out["date"].map(map_sigma).astype(float)
+
+        f_lo = np.where(np.isnan(out["threshold_low"].values), 0.0, e012._cdf(out["threshold_low"].values, out["model_mu"].values, out["model_sigma"].values))
+        f_hi = np.where(np.isnan(out["threshold_high"].values), 1.0, e012._cdf(out["threshold_high"].values, out["model_mu"].values, out["model_sigma"].values))
+        iso_x = np.array(dist["isotonic_x"])
+        iso_y = np.array(dist["isotonic_y"])
+        lo_cal = np.where(np.isnan(out["threshold_low"].values), 0.0, np.interp(np.clip(f_lo, iso_x.min(), iso_x.max()), iso_x, iso_y))
+        hi_cal = np.where(np.isnan(out["threshold_high"].values), 1.0, np.interp(np.clip(f_hi, iso_x.min(), iso_x.max()), iso_x, iso_y))
+        out["model_prob"] = np.clip(hi_cal - lo_cal, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
     else:
         out["model_prob"] = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
 
@@ -1083,6 +1246,7 @@ def main() -> None:
         "E11_synthesis_stacker_market_aware",
         "E12_capacity_sweep_residual_synthesis",
         "E13_neural_synthesis_mlp",
+        "E14_distributional_neural_nll",
     ]
 
     full_rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
@@ -1093,17 +1257,17 @@ def main() -> None:
     by_model = {row["model"]: row for row in full_rows}
 
     summary = pd.DataFrame(rows).sort_values("overall_model_brier").reset_index(drop=True)
-    summary.to_csv(OUT_ROOT / "e0_e13_benchmark_summary.csv", index=False)
+    summary.to_csv(OUT_ROOT / "e0_e14_benchmark_summary.csv", index=False)
 
     top_model_name = summary.iloc[0]["model"]
     top_df = _apply_variant(base_df, top_model_name, cfg)
     gating_df = _run_edge_quality_gating(top_df, top_model_name)
     gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results.csv", index=False)
 
-    challenger_name = "E13_neural_synthesis_mlp"
+    challenger_name = "E14_distributional_neural_nll"
     challenger_df = _apply_variant(base_df, challenger_name, cfg)
     challenger_gating_df = _run_edge_quality_gating(challenger_df, challenger_name)
-    challenger_gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results_e13.csv", index=False)
+    challenger_gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results_e14.csv", index=False)
     paper_gate = _build_paper_trading_gate_report(
         top_model_name,
         summary,
@@ -1130,7 +1294,7 @@ def main() -> None:
                 "calibration_period": "2023",
                 "benchmark_period": "2023-2025",
                 "ev_gating_results": "ev_edge_quality_gating_results.csv",
-                "ev_gating_results_e13": "ev_edge_quality_gating_results_e13.csv",
+                "ev_gating_results_e14": "ev_edge_quality_gating_results_e14.csv",
                 "contract_timesafe_audit": "contract_and_timesafe_audit.json",
                 "paper_trading_gate": "paper_trading_gate_report.json",
             },
@@ -1142,13 +1306,13 @@ def main() -> None:
         json.dump(cfg["contract_audit"], f, indent=2)
 
     with open(OUT_ROOT / "README.md", "w", encoding="utf-8") as f:
-        f.write("# E0-E13 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
+        f.write("# E0-E14 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
         f.write(summary.to_string(index=False))
         f.write("\n\n## Top 2\n\n")
         f.write(top2.to_string(index=False))
         f.write("\n\n## EV-aware dynamic edge gating (best-Brier model)\n\n")
         f.write(gating_df.to_string(index=False))
-        f.write("\n\n## EV-aware dynamic edge gating (E13 neural synthesis challenger)\n\n")
+        f.write("\n\n## EV-aware dynamic edge gating (E14 distributional neural challenger)\n\n")
         f.write(challenger_gating_df.to_string(index=False))
         f.write("\n\n## Contract/time-safe audit\n\n")
         f.write(json.dumps(cfg["contract_audit"], indent=2))
@@ -1157,7 +1321,7 @@ def main() -> None:
         f.write("\n")
 
     print("Saved:")
-    print(f"  - {OUT_ROOT / 'e0_e13_benchmark_summary.csv'}")
+    print(f"  - {OUT_ROOT / 'e0_e14_benchmark_summary.csv'}")
     print(f"  - {OUT_ROOT / 'top2_benchmark_summary.csv'}")
 
 
