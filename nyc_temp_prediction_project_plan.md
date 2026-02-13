@@ -1,82 +1,81 @@
 # NYC Temperature Prediction Project Plan (Operational + Trading)
 
 **Last updated:** 2026-02-13  
-**Scope:** End-to-end probabilistic forecast, calibration, contract bucketization, and EV-gated Kalshi execution simulation.
+**Scope:** Contract-aligned probabilistic forecasting, calibration, bucketization, EV-aware trading simulation for KXHIGHNY.
 
 ## 1) Mission
 
-Build a calibrated daily distribution for NYC (Central Park) max temperature, map that distribution to KXHIGHNY contract buckets, compare against market-implied probabilities, and only trade when expected value is positive after fees/spread/slippage assumptions.
+Produce a calibrated daily probability distribution for NYC max temperature at contract resolution, convert to exact KXHIGHNY bucket probabilities, compare against market-implied probabilities, and only trade when edge remains positive after costs.
 
-## 2) Current state (implemented)
+## 2) Current implemented state
 
-### Contract + benchmark alignment
-- Contract benchmarking now centers on KXHIGHNY bucket definitions and pre-settlement prices.
-- Main benchmark track includes E0–E22 model variants and unified U-series synthesis variants.
-- Summary artifacts are produced with overall + OOS Brier and trading P&L diagnostics.
+### Contract and benchmark alignment
+- Benchmarking is aligned to KXHIGHNY contract buckets and pre-settlement/settled market references.
+- Model lineage currently analyzed through:
+  - **E0–E22** (`run_e0_e8_best_model_benchmark.py`)
+  - **E38–E42** (`run_wga_v2_benchmark.py`)
+  - **U0–U9** (`run_unified_outperformance_benchmark.py`)
 
-### Forecasting + calibration stack
-- Canonical best-model temperature forecasts are used as the base distribution stream.
-- Post-processing variants include isotonic, seasonal calibration, conditional calibration, neural/stacker synthesis, and Platt+isotonic hybrids.
-- WGA/WGA-v2 and unified synthesis experiments are integrated into benchmark comparisons.
+### Forecasting stack
+- Base forecast streams: flat model + WGA model probability pipelines.
+- Advanced variants include contract-level Brier-optimized MLP synthesis, Platt+isotonic recalibration, and regime-conditional features.
+- Unified variants (U-family) combine flat, WGA, NWS, and market-state features with gating diagnostics.
+
+### Calibration + diagnostics
+- Calibration layers include isotonic and Platt+isotonic at multiple stages.
+- Reliability/ECE and Brier decomposition outputs are generated in benchmark artifacts.
+- Seasonal stress slices and OOS-focused diagnostics are included in unified reports.
 
 ### Trading evaluation
-- EV-gated strategy simulations are in place with fees and spread-aware assumptions.
-- Paper-trading gate reports are generated for key model families.
-- Seasonal and OOS slices are available for risk-aware diagnostics.
+- EV-gated simulation is active with threshold sweeps and paper-trading promotion checks.
+- Fees/spread-aware assumptions are integrated in benchmark simulation outputs.
 
-## 3) Immediate gaps (next priorities)
+## 3) High-priority gaps to close
 
-1. Harden strict cutoff-time feature provenance tracking for all live features.
-2. Add explicit automated kill-switch checks in daily orchestration (missing data, schema drift, calibration drift).
-3. Expand execution realism (depth/queue/fill uncertainty) in trading simulation.
-4. Standardize a single production candidate from E/U model families with explicit promotion criteria.
+1. Formalize a hard-cutoff data availability manifest for every live feature.
+2. Add explicit automated kill-switch checks into the daily orchestration path.
+3. Increase execution realism for queue position/fill uncertainty in backtests.
+4. Finalize production promotion rubric across E/WGA/U families.
 
-## 4) Layered plan (current architecture)
+## 4) Layered operating plan
 
 ### Layer A — Ingestion
-- Operational ingestion: station observations, MOS/NWS proxies, Kalshi market snapshots.
-- Training-only archives remain separate and must never leak into live-time features.
-- Keep source/cutoff metadata attached to each feature group.
+- Preserve strict separation of operational vs training-only sources.
+- Attach provenance metadata and cutoff eligibility per source.
 
 ### Layer B — Feature engineering
-- Continue lag-safe persistence, seasonal harmonics, and regime proxies.
-- Preserve missingness handling and deterministic transformations.
-- Maintain compatibility between training and live-time feature definitions.
+- Keep deterministic, time-safe transforms and missingness-aware logic.
+- Maintain feature parity between historical training and live inference.
 
 ### Layer C — Modeling
-- Base model stream: best-model artifacts and learned variants (E-series).
-- Supplemental stream: WGA/WGA-v2 and unified synthesis (U-series).
-- Selection objective remains proper probabilistic scoring (Brier/CRPS/NLL) with OOS emphasis.
+- Maintain three active families: E-core, WGA extensions (E38–E42), Unified U-series.
+- Optimize for calibrated probabilities and OOS Brier/reliability.
 
 ### Layer D — Calibration + bucketization
-- Calibrate with held-out chronology-safe windows.
-- Convert calibrated CDF/distribution outputs to exact contract bucket probabilities.
-- Enforce probability mass checks and reliability diagnostics each run.
+- Enforce exact contract bucket conversion and probability mass checks.
+- Maintain chronological calibration windows and monitor drift.
 
 ### Layer E — Trading + risk
-- Use EV thresholding that includes fees + conservative execution costs.
-- Apply capped/fractional Kelly and per-day exposure limits.
-- Halt on data-quality failures, unavailable critical inputs, or calibration drift.
+- Use cost-adjusted EV gating and capped risk exposures.
+- Halt on missing critical inputs, schema breaks, or calibration anomalies.
 
-## 5) Success gates (must pass before live trading)
+## 5) Promotion gates before live scaling
 
 ### Forecast gate
-- OOS Brier beats NWS and remains stable by season/regime.
+- OOS Brier must consistently beat NWS baseline and remain stable across seasonal slices.
 
 ### Calibration gate
-- Reliability/ECE and bucket mass checks remain within configured tolerances.
+- Reliability/ECE and interval checks within configured tolerance bands.
 
 ### Trading gate
-- Conservative-simulation returns and drawdown profile pass pre-defined risk constraints.
+- Positive conservative paper-trading profile with acceptable drawdown behavior.
 
 ### Operations gate
-- Daily run completes by cutoff with auditable logs, artifacts, and no critical data validation failures.
+- Complete daily run by cutoff with full audit artifacts and no critical validation failures.
 
-## 6) Active documentation and governance updates
+## 6) Repository hygiene updates completed
 
-- Legacy runner moved to `ARCHIVE/legacy_runners/run_kalshi_real_backtest.py`.
-- New docs added under `docs/`:
-  1. `current_state_and_directory.md`
-  2. `top15_models_brier_function_reference.md`
-  3. `model_principles_and_us_city_portability.md`
-- `.claude/rules/MEMORY.md` is now synchronized to current benchmark/model state.
+- Moved clearly legacy exploratory scripts to `ARCHIVE/legacy_experiments/`.
+- Preserved legacy backtest runner in `ARCHIVE/legacy_runners/`.
+- Updated documentation set under `docs/` for current E42/U9-era state.
+- Updated `.claude/rules/MEMORY.md` to synchronize active model/benchmark status.
