@@ -1,0 +1,164 @@
+{
+  "sigma_by_month": {
+    "1": 2.59036900545611,
+    "2": 3.36021152506644,
+    "3": 3.5112735621528617,
+    "4": 3.0227018590713386,
+    "5": 2.8546830675647756,
+    "6": 2.2289554726167875,
+    "7": 2.373340348520544,
+    "8": 2.0674178561764873,
+    "9": 2.1740180423614843,
+    "10": 2.353256360571679,
+    "11": 2.6879424798368188,
+    "12": 3.1673534100948406
+  },
+  "monthly_calibration": {
+    "1": {
+      "actual_residual_std": 2.5904,
+      "predicted_sigma_mean": 2.5904,
+      "scale_factor": 1.0
+    },
+    "2": {
+      "actual_residual_std": 3.3602,
+      "predicted_sigma_mean": 3.3602,
+      "scale_factor": 1.0
+    },
+    "3": {
+      "actual_residual_std": 3.5113,
+      "predicted_sigma_mean": 3.5113,
+      "scale_factor": 1.0
+    },
+    "4": {
+      "actual_residual_std": 3.0227,
+      "predicted_sigma_mean": 3.0227,
+      "scale_factor": 1.0
+    },
+    "5": {
+      "actual_residual_std": 2.8547,
+      "predicted_sigma_mean": 2.8547,
+      "scale_factor": 1.0
+    },
+    "6": {
+      "actual_residual_std": 2.229,
+      "predicted_sigma_mean": 2.229,
+      "scale_factor": 1.0
+    },
+    "7": {
+      "actual_residual_std": 2.3733,
+      "predicted_sigma_mean": 2.3733,
+      "scale_factor": 1.0
+    },
+    "8": {
+      "actual_residual_std": 2.0674,
+      "predicted_sigma_mean": 2.0674,
+      "scale_factor": 1.0
+    },
+    "9": {
+      "actual_residual_std": 2.174,
+      "predicted_sigma_mean": 2.174,
+      "scale_factor": 1.0
+    },
+    "10": {
+      "actual_residual_std": 2.3533,
+      "predicted_sigma_mean": 2.3533,
+      "scale_factor": 1.0
+    },
+    "11": {
+      "actual_residual_std": 2.6879,
+      "predicted_sigma_mean": 2.6879,
+      "scale_factor": 1.0
+    },
+    "12": {
+      "actual_residual_std": 3.1674,
+      "predicted_sigma_mean": 3.1674,
+      "scale_factor": 1.0
+    }
+  },
+  "regime_calibration": {
+    "stable": {
+      "count": 362,
+      "actual_residual_std": 2.5064,
+      "predicted_sigma_mean": 2.6053,
+      "scale_factor": 0.962
+    },
+    "transition": {
+      "count": 361,
+      "actual_residual_std": 2.7876,
+      "predicted_sigma_mean": 2.6279,
+      "scale_factor": 1.0608
+    },
+    "volatile": {
+      "count": 373,
+      "actual_residual_std": 2.9245,
+      "predicted_sigma_mean": 2.851,
+      "scale_factor": 1.0258
+    }
+  },
+  "regime_thresholds": {
+    "p33": 2.4567,
+    "p66": 6.007
+  },
+  "combined_calibration": {
+    "1": {
+      "stable": 0.7519,
+      "transition": 0.9836,
+      "volatile": 1.196
+    },
+    "2": {
+      "stable": 1.0672,
+      "transition": 0.6937,
+      "volatile": 1.1736
+    },
+    "3": {
+      "stable": 1.1628,
+      "transition": 1.2486,
+      "volatile": 0.7988
+    },
+    "4": {
+      "stable": 0.9658,
+      "transition": 1.206,
+      "volatile": 0.8786
+    },
+    "5": {
+      "stable": 0.8658,
+      "transition": 1.022,
+      "volatile": 1.0901
+    },
+    "6": {
+      "stable": 1.0081,
+      "transition": 0.9014,
+      "volatile": 1.0566
+    },
+    "7": {
+      "stable": 0.8817,
+      "transition": 1.0806,
+      "volatile": 1.1062
+    },
+    "8": {
+      "stable": 1.0345,
+      "transition": 1.0794,
+      "volatile": 0.6943
+    },
+    "9": {
+      "stable": 0.8899,
+      "transition": 1.1247,
+      "volatile": 0.8792
+    },
+    "10": {
+      "stable": 1.156,
+      "transition": 0.8673,
+      "volatile": 0.983
+    },
+    "11": {
+      "stable": 0.8149,
+      "transition": 0.9562,
+      "volatile": 1.1889
+    },
+    "12": {
+      "stable": 0.7891,
+      "transition": 1.3527,
+      "volatile": 0.8847
+    }
+  }
+}

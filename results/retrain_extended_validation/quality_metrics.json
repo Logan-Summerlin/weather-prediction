@@ -1,0 +1,652 @@
+{
+  "base": {
+    "mae": 1.9905,
+    "rmse": 2.6349,
+    "r2": 0.9737,
+    "mean_sigma": 2.6966,
+    "median_sigma": 2.5904,
+    "crps_mean": 1.4499,
+    "crps_median": 1.0319,
+    "log_score_mean": 2.3755,
+    "pit_ks_statistic": 0.0602,
+    "pit_ks_pvalue": 0.0097,
+    "pit_histogram": [
+      55,
+      54,
+      70,
+      90,
+      88,
+      90,
+      70,
+      69,
+      74,
+      71
+    ],
+    "coverage": {
+      "50%": {
+        "target_coverage": 0.5,
+        "actual_coverage": 0.5513,
+        "coverage_error": 0.0513,
+        "avg_width_F": 3.64,
+        "median_width_F": 3.49
+      },
+      "80%": {
+        "target_coverage": 0.8,
+        "actual_coverage": 0.8276,
+        "coverage_error": 0.0276,
+        "avg_width_F": 6.91,
+        "median_width_F": 6.64
+      },
+      "90%": {
+        "target_coverage": 0.9,
+        "actual_coverage": 0.9111,
+        "coverage_error": 0.0111,
+        "avg_width_F": 8.87,
+        "median_width_F": 8.52
+      },
+      "95%": {
+        "target_coverage": 0.95,
+        "actual_coverage": 0.9439,
+        "coverage_error": -0.0061,
+        "avg_width_F": 10.57,
+        "median_width_F": 10.15
+      }
+    },
+    "sharpness_95pct_width": 10.57,
+    "sharpness_90pct_width": 8.87,
+    "ece": 0.2188,
+    "reliability_diagram": {
+      "bin_centers": [
+        0.0538,
+        0.148,
+        0.2505,
+        0.354,
+        0.4536,
+        0.544,
+        0.6463,
+        0.7531,
+        0.8505,
+        0.9591
+      ],
+      "observed_frequency": [
+        0.0752,
+        0.0739,
+        0.0958,
+        0.1231,
+        0.1204,
+        0.1231,
+        0.0958,
+        0.0944,
+        0.1012,
+        0.0971
+      ],
+      "bin_counts": [
+        55,
+        54,
+        70,
+        90,
+        88,
+        90,
+        70,
+        69,
+        74,
+        71
+      ]
+    },
+    "brier_decomposition": {
+      "threshold_52F": {
+        "threshold_F": 52.0,
+        "brier_score": 0.034482,
+        "reliability": 0.001645,
+        "resolution": 0.157212,
+        "uncertainty": 0.191039,
+        "brier_skill_score": 0.8195,
+        "climatological_frequency": 0.7428
+      },
+      "threshold_65F": {
+        "threshold_F": 64.9,
+        "brier_score": 0.026739,
+        "reliability": 0.004384,
+        "resolution": 0.226681,
+        "uncertainty": 0.249962,
+        "brier_skill_score": 0.893,
+        "climatological_frequency": 0.4938
+      },
+      "threshold_79F": {
+        "threshold_F": 79.0,
+        "brier_score": 0.035098,
+        "reliability": 0.00197,
+        "resolution": 0.148925,
+        "uncertainty": 0.182798,
+        "brier_skill_score": 0.808,
+        "climatological_frequency": 0.2408
+      }
+    },
+    "seasonal_crps": {
+      "DJF": 1.5786,
+      "MAM": 1.7175,
+      "JJA": 1.3081,
+      "SON": 1.1946
+    }
+  },
+  "monthly_cal": {
+    "mae": 1.9905,
+    "rmse": 2.6349,
+    "r2": 0.9737,
+    "mean_sigma": 2.6966,
+    "median_sigma": 2.5904,
+    "crps_mean": 1.4499,
+    "crps_median": 1.0319,
+    "log_score_mean": 2.3755,
+    "pit_ks_statistic": 0.0602,
+    "pit_ks_pvalue": 0.0097,
+    "pit_histogram": [
+      55,
+      54,
+      70,
+      90,
+      88,
+      90,
+      70,
+      69,
+      74,
+      71
+    ],
+    "coverage": {
+      "50%": {
+        "target_coverage": 0.5,
+        "actual_coverage": 0.5513,
+        "coverage_error": 0.0513,
+        "avg_width_F": 3.64,
+        "median_width_F": 3.49
+      },
+      "80%": {
+        "target_coverage": 0.8,
+        "actual_coverage": 0.8276,
+        "coverage_error": 0.0276,
+        "avg_width_F": 6.91,
+        "median_width_F": 6.64
+      },
+      "90%": {
+        "target_coverage": 0.9,
+        "actual_coverage": 0.9111,
+        "coverage_error": 0.0111,
+        "avg_width_F": 8.87,
+        "median_width_F": 8.52
+      },
+      "95%": {
+        "target_coverage": 0.95,
+        "actual_coverage": 0.9439,
+        "coverage_error": -0.0061,
+        "avg_width_F": 10.57,
+        "median_width_F": 10.15
+      }
+    },
+    "sharpness_95pct_width": 10.57,
+    "sharpness_90pct_width": 8.87,
+    "ece": 0.2188,
+    "reliability_diagram": {
+      "bin_centers": [
+        0.0538,
+        0.148,
+        0.2505,
+        0.354,
+        0.4536,
+        0.544,
+        0.6463,
+        0.7531,
+        0.8505,
+        0.9591
+      ],
+      "observed_frequency": [
+        0.0752,
+        0.0739,
+        0.0958,
+        0.1231,
+        0.1204,
+        0.1231,
+        0.0958,
+        0.0944,
+        0.1012,
+        0.0971
+      ],
+      "bin_counts": [
+        55,
+        54,
+        70,
+        90,
+        88,
+        90,
+        70,
+        69,
+        74,
+        71
+      ]
+    },
+    "brier_decomposition": {
+      "threshold_52F": {
+        "threshold_F": 52.0,
+        "brier_score": 0.034482,
+        "reliability": 0.001645,
+        "resolution": 0.157212,
+        "uncertainty": 0.191039,
+        "brier_skill_score": 0.8195,
+        "climatological_frequency": 0.7428
+      },
+      "threshold_65F": {
+        "threshold_F": 64.9,
+        "brier_score": 0.026739,
+        "reliability": 0.004384,
+        "resolution": 0.226681,
+        "uncertainty": 0.249962,
+        "brier_skill_score": 0.893,
+        "climatological_frequency": 0.4938
+      },
+      "threshold_79F": {
+        "threshold_F": 79.0,
+        "brier_score": 0.035098,
+        "reliability": 0.00197,
+        "resolution": 0.148925,
+        "uncertainty": 0.182798,
+        "brier_skill_score": 0.808,
+        "climatological_frequency": 0.2408
+      }
+    },
+    "seasonal_crps": {
+      "DJF": 1.5786,
+      "MAM": 1.7175,
+      "JJA": 1.3081,
+      "SON": 1.1946
+    }
+  },
+  "regime_cal": {
+    "mae": 1.9905,
+    "rmse": 2.6349,
+    "r2": 0.9737,
+    "mean_sigma": 2.7447,
+    "median_sigma": 2.7462,
+    "crps_mean": 1.452,
+    "crps_median": 1.0331,
+    "log_score_mean": 2.3788,
+    "pit_ks_statistic": 0.0611,
+    "pit_ks_pvalue": 0.0081,
+    "pit_histogram": [
+      55,
+      51,
+      73,
+      88,
+      90,
+      90,
+      72,
+      72,
+      66,
+      74
+    ],
+    "coverage": {
+      "50%": {
+        "target_coverage": 0.5,
+        "actual_coverage": 0.5622,
+        "coverage_error": 0.0622,
+        "avg_width_F": 3.7,
+        "median_width_F": 3.7
+      },
+      "80%": {
+        "target_coverage": 0.8,
+        "actual_coverage": 0.8235,
+        "coverage_error": 0.0235,
+        "avg_width_F": 7.04,
+        "median_width_F": 7.04
+      },
+      "90%": {
+        "target_coverage": 0.9,
+        "actual_coverage": 0.9138,
+        "coverage_error": 0.0138,
+        "avg_width_F": 9.03,
+        "median_width_F": 9.03
+      },
+      "95%": {
+        "target_coverage": 0.95,
+        "actual_coverage": 0.9466,
+        "coverage_error": -0.0034,
+        "avg_width_F": 10.76,
+        "median_width_F": 10.76
+      }
+    },
+    "sharpness_95pct_width": 10.76,
+    "sharpness_90pct_width": 9.03,
+    "ece": 0.2192,
+    "reliability_diagram": {
+      "bin_centers": [
+        0.0574,
+        0.1502,
+        0.252,
+        0.3547,
+        0.4537,
+        0.5434,
+        0.6456,
+        0.7547,
+        0.8483,
+        0.9562
+      ],
+      "observed_frequency": [
+        0.0752,
+        0.0698,
+        0.0999,
+        0.1204,
+        0.1231,
+        0.1231,
+        0.0985,
+        0.0985,
+        0.0903,
+        0.1012
+      ],
+      "bin_counts": [
+        55,
+        51,
+        73,
+        88,
+        90,
+        90,
+        72,
+        72,
+        66,
+        74
+      ]
+    },
+    "brier_decomposition": {
+      "threshold_52F": {
+        "threshold_F": 52.0,
+        "brier_score": 0.034403,
+        "reliability": 0.001774,
+        "resolution": 0.157611,
+        "uncertainty": 0.191039,
+        "brier_skill_score": 0.8199,
+        "climatological_frequency": 0.7428
+      },
+      "threshold_65F": {
+        "threshold_F": 64.9,
+        "brier_score": 0.026724,
+        "reliability": 0.004914,
+        "resolution": 0.227872,
+        "uncertainty": 0.249962,
+        "brier_skill_score": 0.8931,
+        "climatological_frequency": 0.4938
+      },
+      "threshold_79F": {
+        "threshold_F": 79.0,
+        "brier_score": 0.035079,
+        "reliability": 0.002053,
+        "resolution": 0.149336,
+        "uncertainty": 0.182798,
+        "brier_skill_score": 0.8081,
+        "climatological_frequency": 0.2408
+      }
+    },
+    "seasonal_crps": {
+      "DJF": 1.5806,
+      "MAM": 1.7196,
+      "JJA": 1.3112,
+      "SON": 1.196
+    }
+  },
+  "combined_cal": {
+    "mae": 1.9905,
+    "rmse": 2.6349,
+    "r2": 0.9737,
+    "mean_sigma": 2.6626,
+    "median_sigma": 2.5479,
+    "crps_mean": 1.4534,
+    "crps_median": 1.0272,
+    "log_score_mean": 2.39,
+    "pit_ks_statistic": 0.0575,
+    "pit_ks_pvalue": 0.0152,
+    "pit_histogram": [
+      59,
+      58,
+      71,
+      82,
+      87,
+      92,
+      71,
+      59,
+      73,
+      79
+    ],
+    "coverage": {
+      "50%": {
+        "target_coverage": 0.5,
+        "actual_coverage": 0.554,
+        "coverage_error": 0.054,
+        "avg_width_F": 3.59,
+        "median_width_F": 3.44
+      },
+      "80%": {
+        "target_coverage": 0.8,
+        "actual_coverage": 0.8112,
+        "coverage_error": 0.0112,
+        "avg_width_F": 6.82,
+        "median_width_F": 6.53
+      },
+      "90%": {
+        "target_coverage": 0.9,
+        "actual_coverage": 0.9029,
+        "coverage_error": 0.0029,
+        "avg_width_F": 8.76,
+        "median_width_F": 8.38
+      },
+      "95%": {
+        "target_coverage": 0.95,
+        "actual_coverage": 0.9425,
+        "coverage_error": -0.0075,
+        "avg_width_F": 10.44,
+        "median_width_F": 9.99
+      }
+    },
+    "sharpness_95pct_width": 10.44,
+    "sharpness_90pct_width": 8.76,
+    "ece": 0.224,
+    "reliability_diagram": {
+      "bin_centers": [
+        0.0566,
+        0.1489,
+        0.2563,
+        0.356,
+        0.4527,
+        0.5463,
+        0.6502,
+        0.7545,
+        0.8473,
+        0.958
+      ],
+      "observed_frequency": [
+        0.0807,
+        0.0793,
+        0.0971,
+        0.1122,
+        0.119,
+        0.1259,
+        0.0971,
+        0.0807,
+        0.0999,
+        0.1081
+      ],
+      "bin_counts": [
+        59,
+        58,
+        71,
+        82,
+        87,
+        92,
+        71,
+        59,
+        73,
+        79
+      ]
+    },
+    "brier_decomposition": {
+      "threshold_52F": {
+        "threshold_F": 52.0,
+        "brier_score": 0.034406,
+        "reliability": 0.001962,
+        "resolution": 0.158175,
+        "uncertainty": 0.191039,
+        "brier_skill_score": 0.8199,
+        "climatological_frequency": 0.7428
+      },
+      "threshold_65F": {
+        "threshold_F": 64.9,
+        "brier_score": 0.027111,
+        "reliability": 0.002981,
+        "resolution": 0.225315,
+        "uncertainty": 0.249962,
+        "brier_skill_score": 0.8915,
+        "climatological_frequency": 0.4938
+      },
+      "threshold_79F": {
+        "threshold_F": 79.0,
+        "brier_score": 0.034766,
+        "reliability": 0.001555,
+        "resolution": 0.148733,
+        "uncertainty": 0.182798,
+        "brier_skill_score": 0.8098,
+        "climatological_frequency": 0.2408
+      }
+    },
+    "seasonal_crps": {
+      "DJF": 1.5851,
+      "MAM": 1.7253,
+      "JJA": 1.3117,
+      "SON": 1.1909
+    }
+  },
+  "regime_conditional": {
+    "mae": 1.9905,
+    "rmse": 2.6349,
+    "r2": 0.9737,
+    "mean_sigma": 2.7353,
+    "median_sigma": 2.7904,
+    "crps_mean": 1.453,
+    "crps_median": 1.0058,
+    "log_score_mean": 2.3739,
+    "pit_ks_statistic": 0.0641,
+    "pit_ks_pvalue": 0.0047,
+    "pit_histogram": [
+      54,
+      53,
+      75,
+      79,
+      96,
+      94,
+      61,
+      77,
+      70,
+      72
+    ],
+    "coverage": {
+      "50%": {
+        "target_coverage": 0.5,
+        "actual_coverage": 0.554,
+        "coverage_error": 0.054,
+        "avg_width_F": 3.69,
+        "median_width_F": 3.76
+      },
+      "80%": {
+        "target_coverage": 0.8,
+        "actual_coverage": 0.8276,
+        "coverage_error": 0.0276,
+        "avg_width_F": 7.01,
+        "median_width_F": 7.15
+      },
+      "90%": {
+        "target_coverage": 0.9,
+        "actual_coverage": 0.9152,
+        "coverage_error": 0.0152,
+        "avg_width_F": 9.0,
+        "median_width_F": 9.18
+      },
+      "95%": {
+        "target_coverage": 0.95,
+        "actual_coverage": 0.948,
+        "coverage_error": -0.002,
+        "avg_width_F": 10.72,
+        "median_width_F": 10.94
+      }
+    },
+    "sharpness_95pct_width": 10.72,
+    "sharpness_90pct_width": 9.0,
+    "ece": 0.2188,
+    "reliability_diagram": {
+      "bin_centers": [
+        0.0596,
+        0.1487,
+        0.2512,
+        0.3566,
+        0.4517,
+        0.5441,
+        0.6424,
+        0.7553,
+        0.8438,
+        0.96
+      ],
+      "observed_frequency": [
+        0.0739,
+        0.0725,
+        0.1026,
+        0.1081,
+        0.1313,
+        0.1286,
+        0.0834,
+        0.1053,
+        0.0958,
+        0.0985
+      ],
+      "bin_counts": [
+        54,
+        53,
+        75,
+        79,
+        96,
+        94,
+        61,
+        77,
+        70,
+        72
+      ]
+    },
+    "brier_decomposition": {
+      "threshold_52F": {
+        "threshold_F": 52.0,
+        "brier_score": 0.03444,
+        "reliability": 0.001972,
+        "resolution": 0.158159,
+        "uncertainty": 0.191039,
+        "brier_skill_score": 0.8197,
+        "climatological_frequency": 0.7428
+      },
+      "threshold_65F": {
+        "threshold_F": 64.9,
+        "brier_score": 0.026013,
+        "reliability": 0.003065,
+        "resolution": 0.226598,
+        "uncertainty": 0.249962,
+        "brier_skill_score": 0.8959,
+        "climatological_frequency": 0.4938
+      },
+      "threshold_79F": {
+        "threshold_F": 79.0,
+        "brier_score": 0.035621,
+        "reliability": 0.002527,
+        "resolution": 0.148692,
+        "uncertainty": 0.182798,
+        "brier_skill_score": 0.8051,
+        "climatological_frequency": 0.2408
+      }
+    },
+    "seasonal_crps": {
+      "DJF": 1.5512,
+      "MAM": 1.7258,
+      "JJA": 1.3207,
+      "SON": 1.2134
+    }
+  }
+}
