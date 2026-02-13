@@ -17,16 +17,16 @@ Calibration windows: cal2023 (2023 only), cal2023_2024 (2023-2024)
 | 3 | E11_synthesis_stacker_market_aware_cal2023 | 0.115488 | 0.103320 | 0.033033 | 0.060294 |
 | 4 | E22_expanded_platt_e13_cal2023 | 0.116314 | 0.104366 | 0.022637 | 0.026945 |
 | 5 | E17_contract_brier_synthesis_cal2023 | 0.113616 | 0.105331 | 0.010308 | 0.021897 |
-| 6 | E21_platt_recalibrated_e17_cal2023 | 0.114088 | 0.106509 | 0.017734 | 0.028351 |
-| 7 | E18_regime_adaptive_ensemble_cal2023 | 0.123168 | 0.111785 | 0.048619 | 0.040763 |
-| 8 | E25_regime_sigma_platt_cal2023_2024 | 0.131309 | 0.125433 | 0.011798 | 0.018936 |
-| 9 | E25_regime_sigma_platt_cal2023 | 0.132043 | 0.125841 | 0.021936 | 0.030521 |
-| 10 | E5_mdn2_cal2023 | 0.134012 | 0.129865 | 0.021095 | 0.034609 |
-| 11 | E3_weighted_ensemble_E4_uncertainty_cal2023 | 0.133636 | 0.129956 | 0.022141 | 0.034987 |
-| 12 | E4_uncertainty_decomposition_cal2023 | 0.133698 | 0.129964 | 0.021816 | 0.034000 |
-| 13 | E23_regime_sigma_cal2023 | 0.134284 | 0.130190 | 0.022333 | 0.034267 |
-| 14 | E0_baseline_ensemble_cal2023 | 0.134140 | 0.130190 | 0.021677 | 0.034267 |
-| 15 | E23_regime_sigma_cal2023_2024 | 0.134284 | 0.130190 | 0.022333 | 0.034267 |
+| 6 | E31_quantile_crossing_synthesis_cal2023 | 0.115320 | 0.105630 | 0.022737 | 0.033368 |
+| 7 | E27_conformal_prediction_cal2023 | 0.115578 | 0.106028 | 0.015295 | 0.021487 |
+| 8 | E33_regime_resolution_boost_cal2023 | 0.115763 | 0.106320 | 0.015596 | 0.016888 |
+| 9 | E21_platt_recalibrated_e17_cal2023 | 0.114088 | 0.106509 | 0.017734 | 0.028351 |
+| 10 | E32_platt_conformal_e17_cal2023 | 0.114351 | 0.106784 | 0.028584 | 0.040919 |
+| 11 | E26_tail_weighted_brier_synthesis_cal2023 | 0.118459 | 0.108090 | 0.032895 | 0.033256 |
+| 12 | E28_ensemble_disagreement_cal2023 | 0.117858 | 0.109410 | 0.017268 | 0.018530 |
+| 13 | E18_regime_adaptive_ensemble_cal2023 | 0.123168 | 0.111785 | 0.048619 | 0.040763 |
+| 14 | E30_conformal_neural_sharpener_cal2023 | 0.121915 | 0.112168 | 0.025316 | 0.032588 |
+| 15 | E25_regime_sigma_platt_cal2023_2024 | 0.131309 | 0.125433 | 0.011798 | 0.018936 |
 
 ## Brier Decomposition (Top 5)
 | Variant | Brier | Reliability | Resolution | Uncertainty |
@@ -44,15 +44,23 @@ Calibration windows: cal2023 (2023 only), cal2023_2024 (2023-2024)
 | E13_neural_synthesis_mlp_cal2023 | 0.107919 | 0.120354 | 0.119527 | 0.112788 |
 | E11_synthesis_stacker_market_aware_cal2023 | 0.106525 | 0.119761 | 0.120346 | 0.114745 |
 
-## New Sigma Calibration Variants (E23-E25)
+## New Variants (E23-E33)
 | Variant | Overall Brier | OOS Brier | ECE |
 |---------|--------------|-----------|-----|
+| E31_quantile_crossing_synthesis_cal2023 | 0.115320 | 0.105630 | 0.022737 |
+| E27_conformal_prediction_cal2023 | 0.115578 | 0.106028 | 0.015295 |
+| E33_regime_resolution_boost_cal2023 | 0.115763 | 0.106320 | 0.015596 |
+| E32_platt_conformal_e17_cal2023 | 0.114351 | 0.106784 | 0.028584 |
+| E26_tail_weighted_brier_synthesis_cal2023 | 0.118459 | 0.108090 | 0.032895 |
+| E28_ensemble_disagreement_cal2023 | 0.117858 | 0.109410 | 0.017268 |
+| E30_conformal_neural_sharpener_cal2023 | 0.121915 | 0.112168 | 0.025316 |
 | E25_regime_sigma_platt_cal2023_2024 | 0.131309 | 0.125433 | 0.011798 |
 | E25_regime_sigma_platt_cal2023 | 0.132043 | 0.125841 | 0.021936 |
+| E29_learned_sigma_cal2023 | 0.132900 | 0.129307 | 0.027240 |
 | E23_regime_sigma_cal2023 | 0.134284 | 0.130190 | 0.022333 |
+| E24_combined_sigma_cal2023 | 0.133903 | 0.130190 | 0.021458 |
 | E23_regime_sigma_cal2023_2024 | 0.134284 | 0.130190 | 0.022333 |
 | E24_combined_sigma_cal2023_2024 | 0.133903 | 0.130190 | 0.021458 |
-| E24_combined_sigma_cal2023 | 0.133903 | 0.130190 | 0.021458 |
 
 ## Model vs Benchmarks Summary
 - **Best variant**: E19_platt_beta_calibration_cal2023

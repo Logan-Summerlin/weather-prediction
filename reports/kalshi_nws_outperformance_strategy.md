@@ -1352,3 +1352,136 @@ Key finding: **E11 now shows positive OOS P&L (+$1.39)** — the first variant t
    - (b) Attention-based station weighting for directional temperature advection,
    - (c) Ensemble disagreement features for uncertainty-aware sharpening.
 5. **True live microstructure integration** — requires live order event data.
+
+### Implemented in this sprint (E26-E33 Model Quality Push — 2026-02-13)
+
+35. **E26: Tail-Weighted Brier Synthesis (Phase B — tail overconfidence fix)**
+   - Added `E26_tail_weighted_brier_synthesis` to `scripts/run_extended_val_benchmark.py`.
+   - Contract-level MLP (same as E17) with 3x sample weighting for model_prob > 0.4 bins.
+   - Added tail-specific features: `max(0, model_prob - 0.4)` and `model_prob^2`.
+   - Architecture sweep [(32,), (64,32), (128,64)] with calibration-aware selection.
+
+36. **E27: Conformal Prediction Overlay (Phase B — distribution-free calibration)**
+   - Added `E27_conformal_prediction` to `scripts/run_extended_val_benchmark.py`.
+   - Bin-conditional conformal adjustment on E13 probabilities.
+   - 50/50 chronological split: nonconformity score computation / evaluation.
+   - 10 probability bins with bin-specific shrinkage toward bin centers.
+
+37. **E28: Ensemble Disagreement Sharpening (Phase B — resolution improvement)**
+   - Added `E28_ensemble_disagreement` to `scripts/run_extended_val_benchmark.py`.
+   - Meta-features from top 5 variants (E0, E3, E11, E13, E17): mean, std, spread, consensus×agreement, sigma_norm, season sin/cos.
+   - LogisticRegression meta-model with C sweep + isotonic post-calibration.
+
+38. **E29: Learned Heteroscedastic Sigma (Phase B — PIT improvement)**
+   - Added `E29_learned_sigma` to `scripts/run_extended_val_benchmark.py`.
+   - MLP predicts log(sigma) from date-level features (model_mu, sigma_base, ensemble_std, mu_change, season, sigma_ratio).
+   - Softplus activation for positive sigma; NLL objective.
+   - Isotonic post-calibration on last 20% of calibration data.
+
+39. **E30: Conformal + Focal-Loss Neural Sharpener (Phase B — resolution + calibration)**
+   - Added `E30_conformal_neural_sharpener` to `scripts/run_extended_val_benchmark.py`.
+   - E27 conformal output as base → focal-loss-weighted MLP sharpener (gamma=2) → isotonic.
+
+40. **E31: Quantile-Crossing-Penalized Synthesis (Phase B — CDF coherence)**
+   - Added `E31_quantile_crossing_synthesis` to `scripts/run_extended_val_benchmark.py`.
+   - CDF-ordered logistic meta-model on E13 with monotonic CDF enforcement via isotonic on cumulative probabilities.
+
+41. **E32: Platt-Conformal-E17 Triple Stack (Phase B — compounding calibration)**
+   - Added `E32_platt_conformal_e17` to `scripts/run_extended_val_benchmark.py`.
+   - E17 → Platt scaling (50% cal) → conformal bin-shrinkage (25% cal) → isotonic (25% cal).
+
+42. **E33: Regime-Conditional Resolution Boost (Phase B — sharpening by regime)**
+   - Added `E33_regime_resolution_boost` to `scripts/run_extended_val_benchmark.py`.
+   - Regime classification: mu_level tercile × volatility tercile × season (36 cells, hierarchical fallback).
+   - Per-regime stretch factor estimated by validation Brier optimization.
+
+### Results from E26-E33 Model Quality Push
+
+Run command:
+`python scripts/run_extended_val_benchmark.py`
+
+#### Forecast-quality impact (39 variant evaluations, extended val model)
+
+| Rank | Variant | Overall Brier | OOS Brier | ECE | OOS ECE | Reliability | Resolution |
+|:----:|---------|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | E19_platt_beta_calibration | 0.1152 | **0.1027** | 0.0161 | 0.0225 | 0.0005 | 0.0263 |
+| 2 | E13_neural_synthesis_mlp | 0.1153 | 0.1030 | 0.0178 | 0.0201 | 0.0005 | 0.0258 |
+| 3 | E11_synthesis_stacker | 0.1155 | 0.1033 | 0.0330 | 0.0603 | 0.0014 | 0.0266 |
+| 4 | E22_expanded_platt_e13 | 0.1163 | 0.1044 | 0.0226 | 0.0269 | 0.0008 | 0.0258 |
+| 5 | **E17_contract_brier** | **0.1136** | 0.1053 | **0.0103** | 0.0219 | 0.0005 | **0.0276** |
+| 6 | **E31_quantile_crossing** (new) | 0.1153 | 0.1056 | 0.0227 | 0.0334 | 0.0012 | 0.0271 |
+| 7 | **E27_conformal** (new) | 0.1156 | 0.1060 | 0.0153 | 0.0215 | 0.0012 | 0.0262 |
+| 8 | **E33_regime_resolution** (new) | 0.1158 | 0.1063 | 0.0156 | **0.0169** | 0.0011 | 0.0259 |
+| 9 | E21_platt_recalibrated_e17 | 0.1141 | 0.1065 | 0.0177 | 0.0284 | 0.0009 | 0.0277 |
+| 10 | **E32_platt_conformal_e17** (new) | 0.1144 | 0.1068 | 0.0286 | 0.0409 | 0.0013 | 0.0276 |
+| 11 | **E26_tail_weighted** (new) | 0.1185 | 0.1081 | 0.0329 | 0.0333 | 0.0018 | 0.0245 |
+| 12 | **E28_ensemble_disagree** (new) | 0.1179 | 0.1094 | 0.0173 | 0.0185 | **0.0007** | 0.0240 |
+| 13 | **E30_conformal_neural** (new) | 0.1219 | 0.1122 | 0.0253 | 0.0326 | 0.0009 | 0.0197 |
+| — | **E29_learned_sigma** (new) | 0.1329 | 0.1293 | 0.0272 | 0.0375 | 0.0027 | 0.0116 |
+| — | Kalshi PreSettlement | 0.1271 | **0.0988** | 0.0557 | — | — | — |
+| — | NWS | 0.1418 | 0.1393 | 0.0324 | — | — | — |
+
+#### Key findings
+
+1. **No new variant beats the top-5 incumbents on OOS Brier.** E19 (0.1027) remains closest to PreSettlement (0.0988).
+
+2. **E31 (Quantile-Crossing) is the best new variant** at OOS 0.1056 (#6). CDF monotonicity via isotonic on cumulative probs improved coherence and resolution (0.0271).
+
+3. **E33 achieves best OOS ECE of any variant** in the entire benchmark at 0.0169.
+
+4. **E28 has best reliability** (0.0007) — but hedges too much, resolution only 0.0240.
+
+5. **E30 (Conformal + Neural Sharpener) and E29 (Learned Sigma) failed.** Post-calibration sharpening and date-level sigma are dead ends.
+
+6. **Resolution is the binding constraint.** All variants: 0.020-0.028 resolution vs 0.035+ target. Reliability already near-optimal (0.0005-0.0018). Calibration-based approaches have been exhaustively explored and plateaued.
+
+#### Diagnostic conclusion
+
+Brier decomposition reveals core challenge:
+- **Reliability** ≈ 0.0005 → near-optimal, no room for improvement
+- **Resolution** ≈ 0.026-0.028 → binding constraint, needs 0.035+ for meaningful Brier gains
+- **Uncertainty** = 0.1415 → fixed dataset property
+
+The remaining OOS Brier gap to PreSettlement (0.0039) requires fundamentally new sources of resolution, not further post-hoc calibration. Top candidates: (a) wind-gated attention (WGA-MDN) for physically-meaningful station weighting, (b) expanded NWP features (cloud/radiation, frontal indicators), (c) real-time data integration.
+
+### Updated outstanding task list status (after E26-E33 push)
+
+#### Phase A
+- [~] Contract/time-safe audit. *(automated checks; 95 outcome-rule mismatches pending)*
+
+#### Phase B
+- [ ] **WGA-MDN model training/evaluation.** *(NOW TOP PRIORITY — heuristic proxy E10 exists; full trainable WGA-MDN with wind-gated station inputs is the primary remaining lever for resolution improvement)*
+- [x] Synthesis-Stacker with market-state inputs. *(E11/E13/E17/E19 — mature family)*
+- [x] Conditional calibration grid with shrinkage. *(E9/E15/E16)*
+- [x] Capacity sweep for synthesis backbones. *(E13 calibration-aware selection)*
+- [x] Contract-level synthesis objective. *(E17 — best overall Brier 0.1136, ECE 0.0103)*
+- [x] Platt + Beta tail calibration. *(E19 — best OOS Brier 0.1027)*
+- [x] Date-level distributional tests. *(E14/E20 — dead end)*
+- [x] Regime ensemble. *(E18)*
+- [ ] Station expansion ablation ladder. *(requires dedicated experimentation)*
+- [x] Data-history extension. *(extended to 2000 via airport MOS proxy)*
+- [x] AVN/ETA MOS backfill. *(airport proxy harmonization implemented)*
+- [x] Extended calibration + validation windows. *(tested)*
+- [x] Sigma recalibration. *(monthly/regime/combined — helps distributional quality, not bucket Brier)*
+- [x] Tail-focused loss weighting. *(E26 — 3x weighting insufficient)*
+- [x] Conformal prediction overlays. *(E27 — #7 OOS, good calibration)*
+- [x] Heteroscedastic sigma learning. *(E29 — date-level approach insufficient)*
+- [x] Ensemble disagreement sharpening. *(E28 — best reliability but insufficient resolution)*
+- [x] Neural sharpener post-calibration. *(E30 — resolution collapsed, dead end)*
+- [x] CDF monotonicity synthesis. *(E31 — #6 OOS 0.1056, good resolution)*
+- [x] Triple-stack calibration. *(E32 — ECE degraded from stacking noise)*
+- [x] Regime-conditional stretching. *(E33 — best OOS ECE 0.0169)*
+
+#### Phase C
+- [x] All execution optimization items completed in prior sprints.
+
+#### Phase D
+- [~] Paper-trading gate. *(OOS Brier still above PreSettlement)*
+
+#### Remaining highest-priority gaps (updated after E26-E33 push)
+
+1. **Build fully trainable WGA-MDN** — physics-conditioned station aggregation is the top remaining lever for resolution improvement. Tabular synthesis (E0-E33) has been exhaustively explored and plateaued at 0.026-0.028 resolution.
+2. **Station expansion ablation ladder** — evaluate whether adding more stations provides resolution gains.
+3. **Additional NWP feature integration** — cloud/radiation, frontal indicators, marine flow proxies for regime-transition signal.
+4. **Intraday/real-time data integration** — PreSettlement may use market-aggregated real-time information unavailable to our model.
+5. **True live microstructure integration** — requires live order event data.
