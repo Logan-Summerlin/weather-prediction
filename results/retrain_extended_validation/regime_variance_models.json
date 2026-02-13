@@ -1,0 +1,33 @@
+{
+  "regime_sigma_models": {
+    "low_var": {
+      "count": 242,
+      "sigma": 2.3405,
+      "mean_bias": 0.0502,
+      "mae": 1.7634
+    },
+    "medium_var": {
+      "count": 298,
+      "sigma": 2.5683,
+      "mean_bias": 0.1133,
+      "mae": 1.8859
+    },
+    "high_var": {
+      "count": 223,
+      "sigma": 3.2722,
+      "mean_bias": 0.4143,
+      "mae": 2.515
+    },
+    "seasonal_transition": {
+      "count": 333,
+      "sigma": 2.7904,
+      "mean_bias": 0.14,
+      "mae": 2.1669
+    }
+  },
+  "thresholds": {
+    "spread_high": 3.0,
+    "consensus_high": 0.3685,
+    "dod_high": 6.5537
+  }
+}

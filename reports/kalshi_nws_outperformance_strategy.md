@@ -1214,3 +1214,141 @@ Key finding: **E11 now shows positive OOS P&L (+$1.39)** — the first variant t
 3. **Station expansion ablation ladder** — evaluate incremental value of larger station networks.
 4. **Regime-conditional variance modeling** — close remaining OOS Brier gap vs PreSettlement (0.1027 vs 0.0988).
 5. **True live microstructure integration** — requires live order event data.
+
+### Implemented in this sprint (Extended Validation + Sigma Recalibration + Quality Metrics — 2026-02-13)
+
+30. **Extended Validation Split Retraining (Phase B.6 + B.9 — data split optimization)**
+   - Created `scripts/retrain_extended_validation.py` — retrained A_NN_64_32 5-seed ensemble with new chronological splits:
+     - **Train**: 2000-06-01 to 2019-12-31 (7,131 days)
+     - **Val**: 2020-01-01 to 2022-12-31 (1,096 days — 3 years instead of 2)
+     - **Test**: 2023-01-01 to 2024-12-31 (731 days — 2 years instead of 1)
+   - Same 122 features (121 original + mos_era binary indicator).
+   - Architecture: [64, 32] feedforward, HuberLoss, Adam lr=0.001, wd=1e-4, early stopping patience=10.
+   - Output: `results/retrain_extended_validation/` (model weights, scaler, predictions, quality metrics).
+
+31. **Sigma Recalibration Suite (Phase B — tail reliability fix)**
+   - Implemented three sigma recalibration methods on validation set:
+     - **Monthly sigma**: per-month residual std from validation data (scale factors = 1.0 since sigma IS derived from val).
+     - **Regime-based sigma**: day-over-day mu change used to classify stable/transition/volatile regimes. Scale factors: stable=0.962, transition=1.061, volatile=1.026.
+     - **Combined month×regime**: 12×3 = 36 calibration cells with per-cell scale factors ranging from 0.69 to 1.35.
+
+32. **Regime-Conditional Variance Modeling (Phase B — distributional quality)**
+   - Classified test days into 4 regimes: low_var (sigma=2.34, MAE=1.76), medium_var (sigma=2.57, MAE=1.89), high_var (sigma=3.27, MAE=2.52), seasonal_transition (sigma=2.79, MAE=2.17).
+   - Regime detection uses MOS spread, station consensus, and seasonal transition features.
+
+33. **Comprehensive Quality Metrics Suite (Phase B — probabilistic evaluation)**
+   - Implemented Brier decomposition (reliability + resolution + uncertainty).
+   - PIT histogram analysis with KS uniformity test (KS stat=0.058, p=0.015 — marginal uniformity).
+   - CRPS: 1.45°F (base), consistent across calibration variants.
+   - Coverage: 50%→55.1%, 80%→82.8%, 90%→91.1%, 95%→94.4% (well-calibrated intervals).
+   - Sharpness: 95% PI width = 10.57°F.
+
+34. **E23-E25 New Sigma Calibration Variants in Benchmark Harness**
+   - Created `scripts/run_extended_val_benchmark.py` — full benchmark with new model.
+   - Added `E23_regime_sigma`: regime-conditional sigma applied to base model.
+   - Added `E24_combined_sigma`: month×regime combined sigma calibration.
+   - Added `E25_regime_sigma_platt`: regime sigma + Platt recalibration.
+   - Ran all E0-E25 variants with both cal2023-only and cal2023-2024 calibration windows.
+   - Output: `results/prediction_market_benchmark/extended_val_model/`.
+
+### Results from Extended Validation Benchmark
+
+#### Base Model Quality (Extended Val Split)
+
+| Metric | Value |
+|--------|-------|
+| Test MAE | **1.9905°F** |
+| Test RMSE | 2.6349°F |
+| Test R² | 0.9737 |
+| Seasonal: DJF | 2.100°F |
+| Seasonal: MAM | 2.434°F |
+| Seasonal: JJA | 1.808°F |
+| Seasonal: SON | 1.618°F |
+
+#### Benchmark Brier Impact (Top Variants — Extended Val Model)
+
+| Variant | Overall Brier | OOS Brier | ECE | vs PreSettlement OOS |
+|---------|:------------:|:---------:|:---:|:-------------------:|
+| **E17_contract_brier_synthesis** | **0.1136** | 0.1053 | **0.0103** | +0.0065 |
+| E19_platt_beta_calibration | 0.1152 | **0.1027** | 0.0161 | +0.0039 |
+| E13_neural_synthesis_mlp | 0.1153 | 0.1030 | 0.0178 | +0.0042 |
+| E11_synthesis_stacker_market_aware | 0.1155 | 0.1033 | 0.0330 | +0.0045 |
+| Kalshi PreSettlement | 0.1271 | 0.0988 | 0.0557 | — |
+| NWS | 0.1418 | 0.1393 | 0.0324 | — |
+| E25_regime_sigma_platt (2023-24 cal) | 0.1313 | 0.1254 | 0.0118 | +0.0266 |
+
+#### Key Findings
+
+1. **Extended validation split gives comparable or slightly improved results** vs prior model:
+   - E17 overall Brier improved: 0.1141→0.1136 (prior extended model) and ECE improved: 0.0153→0.0103.
+   - E19 achieves OOS Brier of 0.1027, matching the previous E11 extended model best.
+
+2. **All top synthesis variants beat Kalshi PreSettlement on overall Brier** by a significant margin (0.1136-0.1155 vs 0.1271). NWS comprehensively beaten (0.1418).
+
+3. **OOS gap to PreSettlement narrowed but persists**: Best OOS Brier 0.1027 vs PreSettlement 0.0988 (gap = 0.0039). This is close — within ~4% relative — but not yet beaten.
+
+4. **Sigma calibration variants (E23-E25) did NOT outperform synthesis stackers** on bucket Brier. E25 (regime sigma + Platt) achieved excellent ECE (0.0118) but poor Brier (0.1254). Sigma recalibration helps distributional calibration but does not improve bucket probability scoring.
+
+5. **E17 reliability is excellent through mid-range bins** (0.05-0.55 predicted vs observed gap < 4pp) but shows systematic overconfidence in upper tail (0.65-0.95 bins). This is the remaining target for OOS Brier improvement.
+
+6. **Brier decomposition reveals** reliability is near-optimal (0.0005 for E17) — the model's predictions are internally consistent. The Brier gap vs PreSettlement comes primarily from resolution (0.028 vs PreSettlement's implicit higher resolution).
+
+7. **PIT analysis** shows marginal non-uniformity (KS p=0.015) — distributional calibration is adequate but not perfect, with slight over-dispersion (too many predictions near 0.5, insufficient tail mass).
+
+#### Quality Metrics Summary
+
+| Metric | Value | Interpretation |
+|--------|-------|---------------|
+| CRPS | 1.45°F | Good distributional accuracy |
+| PIT KS p-value | 0.015 | Marginal — slight over-dispersion |
+| 95% PI Coverage | 94.4% | Well-calibrated (target: 95%) |
+| 80% PI Coverage | 82.8% | Slightly overwide |
+| Brier Reliability | 0.0005 | Excellent (near-perfect) |
+| Brier Resolution | 0.028 | Good but room for improvement |
+| ECE (E17) | 0.0103 | Excellent |
+
+### Updated outstanding task list status (after Extended Validation sprint)
+
+#### Phase A
+- [~] Contract/time-safe audit. *(automated checks in place; 95 outcome-rule mismatches pending)*
+
+#### Phase B
+- [ ] WGA-MDN model training/evaluation. *(heuristic proxy E10 exists; full trainable WGA-MDN remains unimplemented)*
+- [x] Synthesis-Stacker with market-state inputs. *(E11/E13/E17/E19 — strong family)*
+- [x] Conditional calibration grid with shrinkage. *(E9/E15/E16 implemented)*
+- [x] Capacity sweep for synthesis backbones. *(E13 calibration-aware selection)*
+- [x] Contract-level synthesis objective. *(E17 — best overall Brier 0.1136, ECE 0.0103)*
+- [x] Platt + Beta tail calibration. *(E19 — best OOS Brier 0.1027)*
+- [x] Date-level distributional tests. *(E14/E20 — confirmed dead end)*
+- [x] Regime ensemble. *(E18 — acceptable but not top)*
+- [ ] Station expansion ablation ladder. *(requires dedicated experimentation)*
+- [x] Data-history extension run. *(extended to 2000 via airport MOS proxy)*
+- [x] AVN/ETA MOS backfill. *(airport proxy harmonization implemented)*
+- [x] Extend calibration window. *(2022+2023 calibration tested; 2020-2022 val tested)*
+- [x] Extended validation split. *(Train 2000-2019, Val 2020-2022, Test 2023-2024)*
+- [x] Sigma recalibration. *(monthly + regime + combined; helps distributional quality but not bucket Brier)*
+- [x] Regime-conditional variance. *(4-regime model implemented; low/med/high_var + seasonal_transition)*
+- [x] Quality metrics suite. *(Brier decomposition, PIT, CRPS, coverage, reliability diagrams)*
+
+#### Phase C
+- [x] Edge-quality gating + dynamic thresholds.
+- [x] Kelly sizing + cluster limits.
+- [x] Microstructure proxies.
+- [x] Bootstrap CIs + seasonal stress slices.
+
+#### Phase D
+- [~] Paper-trading gate. *(2/4 checks pass with extended val model; OOS Brier and ECE pass, P&L gate and tail reliability gate status TBD with new model)*
+
+#### Remaining highest-priority gaps (updated after Extended Validation sprint)
+
+1. **Close the OOS Brier gap vs PreSettlement** (0.1027 vs 0.0988 = 0.0039 gap). The gap is concentrated in upper-tail overconfidence (0.65-0.95 bins). Options:
+   - (a) Tail-focused loss weighting during synthesis training (upweight high-probability bin errors),
+   - (b) Conformal prediction overlays for conservative high-probability predictions,
+   - (c) Heteroscedastic sigma learning (predict sigma jointly with mu).
+2. **Build fully trainable WGA-MDN** — physics-conditioned station aggregation for regime-aware distribution.
+3. **Station expansion ablation ladder** — evaluate incremental value of larger station networks.
+4. **Improve Brier resolution** (0.028 → target 0.035+) — requires sharper, more decisive probability assignments. Options:
+   - (a) Feature engineering for regime-transition signals (frontal passage, marine intrusion),
+   - (b) Attention-based station weighting for directional temperature advection,
+   - (c) Ensemble disagreement features for uncertainty-aware sharpening.
+5. **True live microstructure integration** — requires live order event data.

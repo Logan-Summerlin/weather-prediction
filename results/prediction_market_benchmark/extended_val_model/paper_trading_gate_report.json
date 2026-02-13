@@ -1,0 +1,12 @@
+{
+  "top_model": "E19_platt_beta_calibration_cal2023",
+  "oos_model_brier": 0.102683,
+  "oos_presettlement_brier": 0.098839,
+  "overall_presettlement_brier": 0.127061,
+  "oos_ece": 0.022512,
+  "checks": {
+    "oos_brier_beats_presettlement": false,
+    "overall_brier_beats_presettlement": true,
+    "ece_below_threshold": true
+  }
+}
