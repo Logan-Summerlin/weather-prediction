@@ -73,7 +73,11 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
     # Capacity sweep multipliers (small regularized search on calibration year).
     capacity = _fit_capacity_sweep(calib)
 
-    return {
+    # E17-E20 fitting functions
+    e17_contract = _fit_e17_contract_brier_synthesis(base_df[base_df["date_dt"].dt.year == 2023].copy())
+    e20_crps = _fit_e20_crps_synthesis(base_df[base_df["date_dt"].dt.year == 2023].copy())
+
+    base_cfg_partial = {
         "global_cal": global_cal,
         "seasonal_cal": seasonal_cal,
         "sigma_mult_global": sigma_mult_global,
@@ -89,7 +93,18 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
         "distributional_neural": distributional_neural,
         "capacity_sweep": capacity,
         "contract_audit": _build_contract_and_timesafe_audit(base_df),
+        "e17_contract_brier": e17_contract,
+        "e20_crps_synthesis": e20_crps,
     }
+
+    # E18 and E19 need cfg with earlier fits already in place, so build them after
+    e19_platt = _fit_e19_platt_beta_cal(base_df[base_df["date_dt"].dt.year == 2023].copy(), base_cfg_partial)
+    e18_regime = _fit_e18_regime_ensemble(base_df[base_df["date_dt"].dt.year == 2023].copy(), base_df, base_cfg_partial)
+
+    base_cfg_partial["e18_regime_ensemble"] = e18_regime
+    base_cfg_partial["e19_platt_beta_cal"] = e19_platt
+
+    return base_cfg_partial
 
 
 def _build_market_state_features(frame: pd.DataFrame, sigma_p05: float | None = None, sigma_p95: float | None = None) -> pd.DataFrame:
@@ -509,6 +524,350 @@ def _fit_distributional_neural_synthesis(calib: pd.DataFrame) -> dict[str, objec
     }
 
 
+def _fit_e17_contract_brier_synthesis(calib: pd.DataFrame) -> dict[str, object]:
+    """E17: Contract-level Brier-optimal MLP trained directly on bucket/contract rows."""
+    frame = calib.copy()
+    frame["model_prob"] = bench.compute_bucket_probs(frame, "model_mu", "model_sigma")
+    frame["nws_prob"] = bench.compute_bucket_probs(frame, "nws_mu", "nws_sigma")
+    frame[["model_prob", "nws_prob", "presettlement_prob"]] = frame[[
+        "model_prob", "nws_prob", "presettlement_prob",
+    ]].clip(bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    y = frame["actual_outcome"].values.astype(float)
+
+    state = _build_market_state_features(frame)
+    m = frame["model_prob"].values
+    n = frame["nws_prob"].values
+    k = frame["presettlement_prob"].values
+    s = state["sigma_norm"].values
+    spread = state["spread"].values
+    depth = state["depth"].values
+    stale = state["stale_norm"].values
+
+    # Bucket-specific features
+    bucket_mid = np.where(
+        frame["direction"] == "above",
+        frame["threshold_low"].values + 2.0,
+        np.where(
+            frame["direction"] == "below",
+            frame["threshold_high"].values - 2.0,
+            (frame["threshold_low"].values + frame["threshold_high"].values) / 2.0,
+        ),
+    )
+    mu_vals = frame["model_mu"].values
+    sig_vals = frame["model_sigma"].values
+    bucket_quantile = e012._cdf(bucket_mid, mu_vals, sig_vals)
+    bucket_width = np.where(
+        frame["direction"] == "between",
+        (frame["threshold_high"].values - frame["threshold_low"].values) / (sig_vals + 1e-6),
+        4.0 / (sig_vals + 1e-6),
+    )
+    bucket_distance_sigma = np.abs(bucket_mid - mu_vals) / (sig_vals + 1e-6)
+    direction_above = (frame["direction"].values == "above").astype(float)
+    direction_below = (frame["direction"].values == "below").astype(float)
+
+    # Neighboring bucket sum: sum of model probs for same date (excluding self)
+    frame["_model_prob_tmp"] = m
+    date_sum = frame.groupby("date")["_model_prob_tmp"].transform("sum")
+    neighboring_bucket_sum = np.clip(date_sum.values - m, 0.0, None)
+
+    X = np.column_stack([
+        m, n, k,
+        m - k, m - n, n - k,
+        spread, s, depth, stale,
+        bucket_quantile, bucket_width, bucket_distance_sigma,
+        direction_above, direction_below,
+        neighboring_bucket_sum,
+    ])
+
+    n_total = len(frame)
+    n_train = int(n_total * 0.60)
+    n_val = int(n_total * 0.20)
+    train_idx = slice(0, n_train)
+    val_idx = slice(n_train, n_train + n_val)
+    cal_idx = slice(n_train + n_val, n_total)
+
+    X_train, y_train = X[train_idx], y[train_idx]
+    X_val, y_val = X[val_idx], y[val_idx]
+    X_cal, y_cal = X[cal_idx], y[cal_idx]
+
+    mu_x = X_train.mean(axis=0)
+    sd_x = X_train.std(axis=0)
+    sd_x = np.where(sd_x < 1e-6, 1.0, sd_x)
+    X_train_z = (X_train - mu_x) / sd_x
+    X_val_z = (X_val - mu_x) / sd_x
+    X_cal_z = (X_cal - mu_x) / sd_x
+
+    best = None
+    best_score = float("inf")
+    best_brier = float("inf")
+    best_ece = float("inf")
+    ece_lambda = 0.15
+    configs = [
+        ((32,), 3e-3, 1e-3),
+        ((64, 32), 5e-3, 8e-4),
+        ((128, 64), 8e-3, 6e-4),
+        ((128, 64, 32), 1e-2, 5e-4),
+    ]
+    for hidden, alpha, lr in configs:
+        clf = MLPClassifier(
+            hidden_layer_sizes=hidden, activation="relu", alpha=alpha,
+            learning_rate_init=lr, max_iter=1200, random_state=42,
+            early_stopping=True, validation_fraction=0.15, n_iter_no_change=30,
+        )
+        clf.fit(X_train_z, y_train)
+        val_pred = np.clip(clf.predict_proba(X_val_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+        val_brier = float(np.mean((val_pred - y_val) ** 2))
+        val_ece = float(bench.expected_calibration_error(val_pred, y_val, n_bins=10))
+        score = val_brier + ece_lambda * val_ece
+        if score < best_score:
+            best_score = score
+            best_brier = val_brier
+            best_ece = val_ece
+            best = (clf, hidden, alpha, lr)
+
+    assert best is not None
+    clf, hidden, alpha, lr = best
+    cal_raw = np.clip(clf.predict_proba(X_cal_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    iso = IsotonicRegression(y_min=bench.PROB_CLIP_MIN, y_max=bench.PROB_CLIP_MAX, out_of_bounds="clip")
+    iso.fit(cal_raw, y_cal)
+
+    return {
+        "feature_mean": mu_x.tolist(),
+        "feature_std": sd_x.tolist(),
+        "coefs": [w.tolist() for w in clf.coefs_],
+        "intercepts": [b.tolist() for b in clf.intercepts_],
+        "hidden_layers": list(hidden),
+        "isotonic_x": iso.X_thresholds_.tolist(),
+        "isotonic_y": iso.y_thresholds_.tolist(),
+        "sigma_p05": float(state["sigma_p05"].iloc[0]),
+        "sigma_p95": float(state["sigma_p95"].iloc[0]),
+        "validation_brier": best_brier,
+        "validation_ece": best_ece,
+        "validation_selection_score": best_score,
+    }
+
+
+def _fit_e18_regime_ensemble(calib: pd.DataFrame, base_df: pd.DataFrame, cfg: dict) -> dict[str, object]:
+    """E18: Regime-adaptive multi-model ensemble blending top variant outputs."""
+    # Get model_prob outputs for top variants on the calibration year
+    cal_full = calib.copy()
+    variant_names = ["E0_baseline_ensemble", "E3_weighted_ensemble_E4_uncertainty",
+                     "E11_synthesis_stacker_market_aware", "E13_neural_synthesis_mlp",
+                     "E16_conditional_calibration_shrunk"]
+    variant_probs = {}
+    for vname in variant_names:
+        vdf = _apply_variant(cal_full, vname, cfg)
+        variant_probs[vname] = vdf["model_prob"].values.copy()
+
+    y = cal_full["actual_outcome"].values.astype(float)
+    sigma = cal_full["model_sigma"].values
+    sigma_p05 = float(np.percentile(sigma, 5))
+    sigma_p95 = float(np.percentile(sigma, 95))
+    sigma_norm = np.clip((sigma - sigma_p05) / (sigma_p95 - sigma_p05 + 1e-6), 0.0, 1.0)
+
+    # mu_change_norm at date level
+    by_date = cal_full[["date", "date_dt", "model_mu"]].drop_duplicates("date").sort_values("date_dt").copy()
+    by_date["mu_change"] = by_date["model_mu"].diff().abs().fillna(0.0)
+    mu_change_p95 = float(np.percentile(by_date["mu_change"].values, 95))
+    by_date["mu_change_norm"] = np.clip(by_date["mu_change"].values / (mu_change_p95 + 1e-6), 0.0, 1.0)
+    mc_map = dict(zip(by_date["date"].values, by_date["mu_change_norm"].values))
+    mu_change_norm = np.array([mc_map.get(d, 0.0) for d in cal_full["date"].values])
+
+    season_sin = np.sin(2.0 * np.pi * cal_full["date_dt"].dt.dayofyear.values / 365.25)
+    season_cos = np.cos(2.0 * np.pi * cal_full["date_dt"].dt.dayofyear.values / 365.25)
+
+    X = np.column_stack([
+        variant_probs[vname] for vname in variant_names
+    ] + [season_sin, season_cos, sigma_norm, mu_change_norm])
+
+    n_total = len(cal_full)
+    n_train = int(n_total * 0.60)
+    n_val = int(n_total * 0.20)
+    train_idx = slice(0, n_train)
+    val_idx = slice(n_train, n_train + n_val)
+    cal_idx = slice(n_train + n_val, n_total)
+
+    X_train, y_train = X[train_idx], y[train_idx]
+    X_val, y_val = X[val_idx], y[val_idx]
+    X_cal, y_cal = X[cal_idx], y[cal_idx]
+
+    mu_x = X_train.mean(axis=0)
+    sd_x = X_train.std(axis=0)
+    sd_x = np.where(sd_x < 1e-6, 1.0, sd_x)
+    X_train_z = (X_train - mu_x) / sd_x
+    X_val_z = (X_val - mu_x) / sd_x
+    X_cal_z = (X_cal - mu_x) / sd_x
+
+    best = None
+    best_brier = float("inf")
+    configs = [
+        ((16,), 3e-3, 1e-3),
+        ((32,), 3e-3, 1e-3),
+        ((32, 16), 5e-3, 8e-4),
+        ((64, 32), 8e-3, 6e-4),
+    ]
+    for hidden, alpha, lr in configs:
+        clf = MLPClassifier(
+            hidden_layer_sizes=hidden, activation="relu", alpha=alpha,
+            learning_rate_init=lr, max_iter=1200, random_state=42,
+            early_stopping=True, validation_fraction=0.15, n_iter_no_change=30,
+        )
+        clf.fit(X_train_z, y_train)
+        val_pred = np.clip(clf.predict_proba(X_val_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+        val_brier = float(np.mean((val_pred - y_val) ** 2))
+        if val_brier < best_brier:
+            best_brier = val_brier
+            best = (clf, hidden, alpha, lr)
+
+    assert best is not None
+    clf, hidden, alpha, lr = best
+    cal_raw = np.clip(clf.predict_proba(X_cal_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    iso = IsotonicRegression(y_min=bench.PROB_CLIP_MIN, y_max=bench.PROB_CLIP_MAX, out_of_bounds="clip")
+    iso.fit(cal_raw, y_cal)
+
+    return {
+        "variant_names": variant_names,
+        "feature_mean": mu_x.tolist(),
+        "feature_std": sd_x.tolist(),
+        "coefs": [w.tolist() for w in clf.coefs_],
+        "intercepts": [b.tolist() for b in clf.intercepts_],
+        "hidden_layers": list(hidden),
+        "isotonic_x": iso.X_thresholds_.tolist(),
+        "isotonic_y": iso.y_thresholds_.tolist(),
+        "sigma_p05": sigma_p05,
+        "sigma_p95": sigma_p95,
+        "mu_change_p95": mu_change_p95,
+        "validation_brier": best_brier,
+    }
+
+
+def _fit_e19_platt_beta_cal(calib: pd.DataFrame, cfg: dict) -> dict[str, object]:
+    """E19: Platt scaling + isotonic calibration applied to E13 output."""
+    # Get E13 model_prob on calibration year
+    cal_full = calib.copy()
+    e13_df = _apply_variant(cal_full, "E13_neural_synthesis_mlp", cfg)
+    raw_probs = e13_df["model_prob"].values.copy()
+    y = e13_df["actual_outcome"].values.astype(float)
+
+    n_total = len(cal_full)
+    n_platt = int(n_total * 0.50)
+    n_iso = n_total - n_platt
+    platt_idx = slice(0, n_platt)
+    iso_idx = slice(n_platt, n_total)
+
+    # Stage 1: Platt scaling via logistic regression on logit of E13 probs
+    logit_probs = np.log(np.clip(raw_probs, 1e-6, 1 - 1e-6) / (1.0 - np.clip(raw_probs, 1e-6, 1 - 1e-6)))
+    X_platt = logit_probs[platt_idx].reshape(-1, 1)
+    y_platt = y[platt_idx]
+
+    best_lr = None
+    best_brier = float("inf")
+    for c in [0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]:
+        lr = LogisticRegression(C=c, max_iter=2000, solver="lbfgs")
+        lr.fit(X_platt, y_platt)
+        pred = np.clip(lr.predict_proba(X_platt)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+        brier = float(np.mean((pred - y_platt) ** 2))
+        if brier < best_brier:
+            best_brier = brier
+            best_lr = lr
+
+    assert best_lr is not None
+
+    # Stage 2: Isotonic on Platt-scaled output on second half
+    platt_scaled_iso = np.clip(
+        best_lr.predict_proba(logit_probs[iso_idx].reshape(-1, 1))[:, 1],
+        bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX,
+    )
+    y_iso = y[iso_idx]
+    iso = IsotonicRegression(y_min=bench.PROB_CLIP_MIN, y_max=bench.PROB_CLIP_MAX, out_of_bounds="clip")
+    iso.fit(platt_scaled_iso, y_iso)
+
+    return {
+        "platt_coef": float(best_lr.coef_[0][0]),
+        "platt_intercept": float(best_lr.intercept_[0]),
+        "isotonic_x": iso.X_thresholds_.tolist(),
+        "isotonic_y": iso.y_thresholds_.tolist(),
+        "platt_brier": best_brier,
+    }
+
+
+def _fit_e20_crps_synthesis(calib: pd.DataFrame) -> dict[str, object]:
+    """E20: CRPS-optimized distributional synthesis (date-level mu/sigma NN)."""
+    by_date = _build_distributional_date_features(calib)
+    feature_cols = [
+        "model_mu", "model_sigma", "nws_mu", "nws_sigma", "market_implied_mu", "market_implied_sigma",
+        "mu_spread_model_nws", "mu_spread_model_market", "sigma_ratio_model_nws", "sigma_ratio_model_market",
+        "spread", "depth", "stale_norm", "season_sin", "season_cos",
+    ]
+    X = by_date[feature_cols].values
+    y = by_date["actual_tmax"].values
+    base_mu = by_date["model_mu"].values
+    resid_target = y - base_mu
+    sigma_target = np.log(np.clip(np.abs(resid_target), 0.35, None))
+
+    n = len(by_date)
+    n_train = int(0.6 * n)
+    n_val = int(0.2 * n)
+    train_idx = slice(0, n_train)
+    val_idx = slice(n_train, n_train + n_val)
+    cal_idx = slice(n_train + n_val, n)
+
+    X_train, X_val, X_cal = X[train_idx], X[val_idx], X[cal_idx]
+    y_train, y_val, y_cal = y[train_idx], y[val_idx], y[cal_idx]
+    mu_train_base, mu_val_base, mu_cal_base = base_mu[train_idx], base_mu[val_idx], base_mu[cal_idx]
+
+    x_mu = X_train.mean(axis=0)
+    x_sd = np.where(X_train.std(axis=0) < 1e-6, 1.0, X_train.std(axis=0))
+    X_train_z = (X_train - x_mu) / x_sd
+    X_val_z = (X_val - x_mu) / x_sd
+    X_cal_z = (X_cal - x_mu) / x_sd
+
+    def _gaussian_crps(y_true, mu_hat, sigma_hat):
+        """CRPS for Gaussian: sigma * (z*(2*Phi(z)-1) + 2*phi(z) - 1/sqrt(pi))."""
+        from scipy.stats import norm
+        z = (y_true - mu_hat) / sigma_hat
+        return float(np.mean(sigma_hat * (z * (2.0 * norm.cdf(z) - 1.0) + 2.0 * norm.pdf(z) - 1.0 / np.sqrt(np.pi))))
+
+    best = None
+    best_crps = float("inf")
+    configs = [((16,), 1e-3), ((32,), 2e-3), ((32, 16), 3e-3), ((64, 32), 5e-3)]
+    for hidden, alpha in configs:
+        resid_model = MLPRegressor(hidden_layer_sizes=hidden, activation="relu", alpha=alpha, random_state=42, max_iter=1200)
+        sig_model = MLPRegressor(hidden_layer_sizes=hidden, activation="relu", alpha=alpha, random_state=24, max_iter=1200)
+        resid_model.fit(X_train_z, resid_target[train_idx])
+        sig_model.fit(X_train_z, sigma_target[train_idx])
+
+        mu_hat = mu_val_base + resid_model.predict(X_val_z)
+        sigma_hat = np.clip(np.exp(sig_model.predict(X_val_z)), 0.5, 12.0)
+        crps = _gaussian_crps(y_val, mu_hat, sigma_hat)
+        if crps < best_crps:
+            best_crps = crps
+            best = (resid_model, sig_model, hidden, alpha)
+
+    assert best is not None
+    resid_model, sig_model, hidden, alpha = best
+    mu_cal = mu_cal_base + resid_model.predict(X_cal_z)
+    sigma_cal = np.clip(np.exp(sig_model.predict(X_cal_z)), 0.5, 12.0)
+    f_cal = np.clip(e012._cdf(y_cal, mu_cal, sigma_cal), 1e-6, 1 - 1e-6)
+    iso = IsotonicRegression(y_min=1e-6, y_max=1 - 1e-6, out_of_bounds="clip")
+    iso.fit(f_cal, np.linspace(0.0, 1.0, len(f_cal), endpoint=False) + 0.5 / max(len(f_cal), 1))
+
+    return {
+        "feature_cols": feature_cols,
+        "feature_mean": x_mu.tolist(),
+        "feature_std": x_sd.tolist(),
+        "resid_coefs": [w.tolist() for w in resid_model.coefs_],
+        "resid_intercepts": [b.tolist() for b in resid_model.intercepts_],
+        "sigma_coefs": [w.tolist() for w in sig_model.coefs_],
+        "sigma_intercepts": [b.tolist() for b in sig_model.intercepts_],
+        "hidden_layers": list(hidden),
+        "alpha": float(alpha),
+        "isotonic_x": iso.X_thresholds_.tolist(),
+        "isotonic_y": iso.y_thresholds_.tolist(),
+        "validation_crps": best_crps,
+    }
+
+
 def _mlp_forward(X: np.ndarray, coefs: list[list[list[float]]], intercepts: list[list[float]]) -> np.ndarray:
     out = X
     n_layers = len(coefs)
@@ -851,6 +1210,9 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         pass
     elif variant == "E16_conditional_calibration_shrunk":
         pass
+    elif variant in ("E17_contract_brier_synthesis", "E18_regime_adaptive_ensemble",
+                     "E19_platt_beta_calibration", "E20_crps_distributional_synthesis"):
+        pass
     else:
         raise ValueError(variant)
 
@@ -1092,6 +1454,150 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
             out.at[idx, "model_prob"] = np.clip(hi - lo, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
 
         out.drop(columns=[c for c in ["regime_bin", "spread_bin"] if c in out.columns], inplace=True)
+    elif variant == "E17_contract_brier_synthesis":
+        e17 = cfg["e17_contract_brier"]
+        model_prob = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
+        nws_prob = bench.compute_bucket_probs(out, "nws_mu", "nws_sigma")
+        market_prob = out["presettlement_prob"].values
+        state = _build_market_state_features(out, sigma_p05=e17["sigma_p05"], sigma_p95=e17["sigma_p95"])
+        spread_v = state["spread"].values
+        s_v = state["sigma_norm"].values
+        depth_v = state["depth"].values
+        stale_v = state["stale_norm"].values
+
+        # Bucket-specific features
+        bucket_mid = np.where(
+            out["direction"] == "above",
+            out["threshold_low"].values + 2.0,
+            np.where(
+                out["direction"] == "below",
+                out["threshold_high"].values - 2.0,
+                (out["threshold_low"].values + out["threshold_high"].values) / 2.0,
+            ),
+        )
+        mu_vals = out["model_mu"].values
+        sig_vals = out["model_sigma"].values
+        bucket_quantile = e012._cdf(bucket_mid, mu_vals, sig_vals)
+        bucket_width = np.where(
+            out["direction"] == "between",
+            (out["threshold_high"].values - out["threshold_low"].values) / (sig_vals + 1e-6),
+            4.0 / (sig_vals + 1e-6),
+        )
+        bucket_distance_sigma = np.abs(bucket_mid - mu_vals) / (sig_vals + 1e-6)
+        direction_above = (out["direction"].values == "above").astype(float)
+        direction_below = (out["direction"].values == "below").astype(float)
+
+        # Neighboring bucket sum
+        date_sum = pd.Series(model_prob).groupby(out["date"].values).transform("sum")
+        neighboring_bucket_sum = np.clip(date_sum.values - model_prob, 0.0, None)
+
+        x = np.column_stack([
+            model_prob, nws_prob, market_prob,
+            model_prob - market_prob, model_prob - nws_prob, nws_prob - market_prob,
+            spread_v, s_v, depth_v, stale_v,
+            bucket_quantile, bucket_width, bucket_distance_sigma,
+            direction_above, direction_below,
+            neighboring_bucket_sum,
+        ])
+        x = (x - np.array(e17["feature_mean"])) / np.array(e17["feature_std"])
+
+        acts = x
+        for i, (w, b) in enumerate(zip(e17["coefs"], e17["intercepts"])):
+            acts = acts @ np.array(w) + np.array(b)
+            if i < len(e17["coefs"]) - 1:
+                acts = np.maximum(acts, 0.0)
+        raw = 1.0 / (1.0 + np.exp(-np.clip(acts.reshape(-1), -30.0, 30.0)))
+
+        iso_x = np.array(e17["isotonic_x"])
+        iso_y = np.array(e17["isotonic_y"])
+        calibrated = np.interp(np.clip(raw, iso_x.min(), iso_x.max()), iso_x, iso_y)
+
+        # Per-day renormalization for probability coherence
+        date_vals = out["date"].values
+        cal_series = pd.Series(calibrated, index=out.index)
+        for d in np.unique(date_vals):
+            mask = date_vals == d
+            day_sum = calibrated[mask].sum()
+            if day_sum > 0:
+                calibrated[mask] = calibrated[mask] / day_sum
+
+        out["model_prob"] = np.clip(calibrated, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    elif variant == "E18_regime_adaptive_ensemble":
+        e18 = cfg["e18_regime_ensemble"]
+        # Get model_prob outputs for the component variants
+        variant_probs_list = []
+        for vname in e18["variant_names"]:
+            vdf = _apply_variant(df, vname, cfg)
+            variant_probs_list.append(vdf["model_prob"].values.copy())
+
+        sigma_arr = out["model_sigma"].values
+        sigma_norm_v = np.clip(
+            (sigma_arr - e18["sigma_p05"]) / (e18["sigma_p95"] - e18["sigma_p05"] + 1e-6), 0.0, 1.0
+        )
+
+        # mu_change_norm
+        by_date = out[["date", "date_dt", "model_mu"]].drop_duplicates("date").sort_values("date_dt").copy()
+        by_date["mu_change"] = by_date["model_mu"].diff().abs().fillna(0.0)
+        by_date["mu_change_norm"] = np.clip(by_date["mu_change"].values / (e18["mu_change_p95"] + 1e-6), 0.0, 1.0)
+        mc_map = dict(zip(by_date["date"].values, by_date["mu_change_norm"].values))
+        mu_change_norm = np.array([mc_map.get(d, 0.0) for d in out["date"].values])
+
+        season_sin = np.sin(2.0 * np.pi * out["date_dt"].dt.dayofyear.values / 365.25)
+        season_cos = np.cos(2.0 * np.pi * out["date_dt"].dt.dayofyear.values / 365.25)
+
+        x = np.column_stack(variant_probs_list + [season_sin, season_cos, sigma_norm_v, mu_change_norm])
+        x = (x - np.array(e18["feature_mean"])) / np.array(e18["feature_std"])
+
+        acts = x
+        for i, (w, b) in enumerate(zip(e18["coefs"], e18["intercepts"])):
+            acts = acts @ np.array(w) + np.array(b)
+            if i < len(e18["coefs"]) - 1:
+                acts = np.maximum(acts, 0.0)
+        raw = 1.0 / (1.0 + np.exp(-np.clip(acts.reshape(-1), -30.0, 30.0)))
+
+        iso_x = np.array(e18["isotonic_x"])
+        iso_y = np.array(e18["isotonic_y"])
+        out["model_prob"] = np.interp(np.clip(raw, iso_x.min(), iso_x.max()), iso_x, iso_y)
+        out["model_prob"] = np.clip(out["model_prob"], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    elif variant == "E19_platt_beta_calibration":
+        # First get E13 output
+        e13_df = _apply_variant(df, "E13_neural_synthesis_mlp", cfg)
+        e13_probs = e13_df["model_prob"].values.copy()
+        e19 = cfg["e19_platt_beta_cal"]
+
+        # Stage 1: Platt scaling
+        logit_p = np.log(np.clip(e13_probs, 1e-6, 1 - 1e-6) / (1.0 - np.clip(e13_probs, 1e-6, 1 - 1e-6)))
+        platt_logit = logit_p * e19["platt_coef"] + e19["platt_intercept"]
+        platt_scaled = 1.0 / (1.0 + np.exp(-np.clip(platt_logit, -30.0, 30.0)))
+
+        # Stage 2: Isotonic
+        iso_x = np.array(e19["isotonic_x"])
+        iso_y = np.array(e19["isotonic_y"])
+        out["model_prob"] = np.interp(np.clip(platt_scaled, iso_x.min(), iso_x.max()), iso_x, iso_y)
+        out["model_prob"] = np.clip(out["model_prob"], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    elif variant == "E20_crps_distributional_synthesis":
+        dist = cfg["e20_crps_synthesis"]
+        by_date = _build_distributional_date_features(out)
+        x = by_date[dist["feature_cols"]].values
+        x = (x - np.array(dist["feature_mean"])) / np.array(dist["feature_std"])
+
+        resid = _mlp_forward(x, dist["resid_coefs"], dist["resid_intercepts"])
+        sigma_raw = np.exp(_mlp_forward(x, dist["sigma_coefs"], dist["sigma_intercepts"]))
+        mu_adj = by_date["model_mu"].values + resid
+        sigma_adj = np.clip(sigma_raw, 0.5, 12.0)
+
+        map_mu = dict(zip(by_date["date"], mu_adj))
+        map_sigma = dict(zip(by_date["date"], sigma_adj))
+        out["model_mu"] = out["date"].map(map_mu).astype(float)
+        out["model_sigma"] = out["date"].map(map_sigma).astype(float)
+
+        f_lo = np.where(np.isnan(out["threshold_low"].values), 0.0, e012._cdf(out["threshold_low"].values, out["model_mu"].values, out["model_sigma"].values))
+        f_hi = np.where(np.isnan(out["threshold_high"].values), 1.0, e012._cdf(out["threshold_high"].values, out["model_mu"].values, out["model_sigma"].values))
+        iso_x = np.array(dist["isotonic_x"])
+        iso_y = np.array(dist["isotonic_y"])
+        lo_cal = np.where(np.isnan(out["threshold_low"].values), 0.0, np.interp(np.clip(f_lo, iso_x.min(), iso_x.max()), iso_x, iso_y))
+        hi_cal = np.where(np.isnan(out["threshold_high"].values), 1.0, np.interp(np.clip(f_hi, iso_x.min(), iso_x.max()), iso_x, iso_y))
+        out["model_prob"] = np.clip(hi_cal - lo_cal, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
     else:
         out["model_prob"] = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
 
@@ -1416,6 +1922,10 @@ def main() -> None:
         "E14_distributional_neural_nll",
         "E15_conditional_calibration_spread_regime",
         "E16_conditional_calibration_shrunk",
+        "E17_contract_brier_synthesis",
+        "E18_regime_adaptive_ensemble",
+        "E19_platt_beta_calibration",
+        "E20_crps_distributional_synthesis",
     ]
 
     full_rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
@@ -1426,7 +1936,7 @@ def main() -> None:
     by_model = {row["model"]: row for row in full_rows}
 
     summary = pd.DataFrame(rows).sort_values("overall_model_brier").reset_index(drop=True)
-    summary.to_csv(OUT_ROOT / "e0_e16_benchmark_summary.csv", index=False)
+    summary.to_csv(OUT_ROOT / "e0_e20_benchmark_summary.csv", index=False)
 
     top_model_name = summary.iloc[0]["model"]
     top_df = _apply_variant(base_df, top_model_name, cfg)
@@ -1475,7 +1985,7 @@ def main() -> None:
         json.dump(cfg["contract_audit"], f, indent=2)
 
     with open(OUT_ROOT / "README.md", "w", encoding="utf-8") as f:
-        f.write("# E0-E16 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
+        f.write("# E0-E20 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
         f.write(summary.to_string(index=False))
         f.write("\n\n## Top 2\n\n")
         f.write(top2.to_string(index=False))
@@ -1490,7 +2000,7 @@ def main() -> None:
         f.write("\n")
 
     print("Saved:")
-    print(f"  - {OUT_ROOT / 'e0_e16_benchmark_summary.csv'}")
+    print(f"  - {OUT_ROOT / 'e0_e20_benchmark_summary.csv'}")
     print(f"  - {OUT_ROOT / 'top2_benchmark_summary.csv'}")
 
 
