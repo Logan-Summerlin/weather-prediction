@@ -1033,11 +1033,19 @@ Run command:
 
 2. **Calibration set is too small for middle probability bins.** With 2023 only (~2,008 contract rows), bins 30-60% have only 34-64 samples each — below the 200-500+ threshold for stable isotonic calibration. This partially explains why isotonic refinements (E9, E15, E16) have not delivered gains.
 
-3. **AVN/ETA backfill is NOT feasible.** IEM returned zero data rows for AVN and ETA MOS at KNYC across all tested year ranges (2000-2006). These legacy models are not available in the IEM archive for this station.
+3. **AVN/ETA backfill at KNYC is NOT feasible** — KNYC was only added as a MOS site in late 2003 (GFS: 2003-12-16, NAM: 2004-02-24). No earlier data exists at KNYC.
 
-4. **Recommendation: Extend calibration to 2022+2023.** This doubles calibration data, narrows bootstrap Brier CI by ~29%, with only 5.3% training data reduction (19→18 years). KS tests confirm 2022 and 2023 MOS error distributions are statistically similar (p=0.46 for GFS, p=0.41 for NAM).
+4. **AVN/ETA backfill via airport proxy IS feasible (corrected 2026-02-13).** Follow-up investigation with correct IEM URL format (`year1=/month1=` instead of `sts=`) revealed:
+   - All 6 nearby airport stations (KJFK, KLGA, KEWR, KISP, KHPN, KTEB) have full MOS data.
+   - IEM treats AVN=GFS and ETA=NAM internally; requesting `model=GFS` returns AVN-labeled data for pre-2004 periods.
+   - **GFS/AVN available back to 2000** at airport stations. **NAM/ETA available back to 2002**.
+   - Each station has distinct forecasts (not interpolated duplicates); differences of 1-3°F on same day.
+   - KLGA (LaGuardia, ~8 mi from Central Park) is the closest major airport and the natural proxy.
+   - **Next step:** Analyze airport-to-KNYC MOS similarity in the 2004+ overlap period to select best proxy and build a harmonization layer (bias offset + variance correction). Then extend training MOS history to 2000-2003 and expand the calibration/validation window.
 
-5. **GFS MOS has a structural bias break around 2014** (pre-2014: +0.10°F bias, post-2014: -0.66°F bias, p<0.0001). Any long-history training should include a model-era indicator.
+5. **Recommendation: Extend calibration to 2022+2023.** This doubles calibration data, narrows bootstrap Brier CI by ~29%, with only 5.3% training data reduction (19→18 years). KS tests confirm 2022 and 2023 MOS error distributions are statistically similar (p=0.46 for GFS, p=0.41 for NAM).
+
+6. **GFS MOS has a structural bias break around 2014** (pre-2014: +0.10°F bias, post-2014: -0.66°F bias, p<0.0001). Any long-history training should include a model-era indicator.
 
 #### Paper-trading gate status (after E21/E22)
 
@@ -1066,8 +1074,9 @@ Run command:
 - [x] Regime ensemble. *(E18 — acceptable but not top tier)*
 - [ ] Station expansion ablation ladder. *(requires base model retraining)*
 - [ ] Data-history extension run. *(requires base model retraining)*
-- [x] AVN/ETA MOS backfill feasibility. *(COMPLETED — NOT FEASIBLE, IEM has no AVN/ETA data for KNYC)*
+- [~] AVN/ETA MOS backfill feasibility. *(KNYC has no pre-2004 data; airport stations KJFK/KLGA/KEWR have GFS/AVN back to 2000 and NAM/ETA back to 2002 — airport proxy harmonization in progress)*
 - [ ] **Extend calibration to 2022+2023.** *(recommended by MOS analysis; requires retraining on 2004-2021 and generating 2022 predictions)*
+- [ ] **Airport MOS proxy harmonization + dataset extension.** *(download airport MOS, analyze bias vs KNYC, build harmonization layer, extend training to 2000+)*
 
 #### Phase C
 - [x] Edge-quality gating + dynamic thresholds. *(multiple iterations; not yet profitable)*
@@ -1080,8 +1089,9 @@ Run command:
 
 #### Remaining highest-priority gaps
 
-1. **Extend calibration to 2022+2023** — retrain best model on 2004-2021, generate 2022-2024 predictions, calibrate on 2022-2023. Most likely path to improving mid-probability bin calibration.
-2. **Build fully trainable WGA-MDN** — physics-conditioned station aggregation for regime-aware distribution modeling.
-3. **Station expansion ablation ladder** — evaluate incremental value of larger station networks.
-4. **Regime-conditional variance modeling** — close the remaining OOS Brier gap vs PreSettlement (0.1036 vs 0.0988) through better tail/transition-day distributions.
-5. **True live microstructure integration** — requires live order event data not available in current historical snapshots.
+1. **Airport MOS proxy harmonization + dataset extension** — download KLGA/KJFK/KEWR MOS, analyze similarity to KNYC in 2004+ overlap, build harmonization layer, extend training MOS to 2000. Enables both longer training history and expanded calibration window.
+2. **Extend calibration to 2022+2023** — retrain best model on 2000-2021 (with harmonized airport MOS for 2000-2003), generate 2022-2024 predictions, calibrate on 2022-2023. Most likely path to improving mid-probability bin calibration.
+3. **Build fully trainable WGA-MDN** — physics-conditioned station aggregation for regime-aware distribution modeling.
+4. **Station expansion ablation ladder** — evaluate incremental value of larger station networks.
+5. **Regime-conditional variance modeling** — close the remaining OOS Brier gap vs PreSettlement (0.1036 vs 0.0988) through better tail/transition-day distributions.
+6. **True live microstructure integration** — requires live order event data not available in current historical snapshots.
