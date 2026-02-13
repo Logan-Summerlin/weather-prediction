@@ -2105,6 +2105,654 @@
       "between": 0.160445
     }
   },
+  "E26_tail_weighted_brier_synthesis_cal2023": {
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.004679,
+        "mean_observed": 0.029434,
+        "count": 2684
+      },
+      {
+        "bin_center": 0.15,
+        "mean_predicted": 0.144391,
+        "mean_observed": 0.118386,
+        "count": 1115
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.245744,
+        "mean_observed": 0.273611,
+        "count": 720
+      },
+      {
+        "bin_center": 0.35,
+        "mean_predicted": 0.354849,
+        "mean_observed": 0.330612,
+        "count": 735
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.447935,
+        "mean_observed": 0.386997,
+        "count": 646
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.537948,
+        "mean_observed": 0.485549,
+        "count": 173
+      },
+      {
+        "bin_center": 0.65,
+        "mean_predicted": 0.639353,
+        "mean_observed": 0.460526,
+        "count": 76
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.758169,
+        "mean_observed": 0.708333,
+        "count": 24
+      },
+      {
+        "bin_center": 0.85,
+        "mean_predicted": 0.857691,
+        "mean_observed": 0.733333,
+        "count": 15
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.980254,
+        "mean_observed": 0.625,
+        "count": 16
+      }
+    ],
+    "brier_decomposition": {
+      "brier": 0.118459,
+      "reliability": 0.001774,
+      "resolution": 0.024465,
+      "uncertainty": 0.141453
+    },
+    "season_brier": {
+      "DJF": 0.114972,
+      "MAM": 0.124252,
+      "JJA": 0.119406,
+      "SON": 0.114725
+    },
+    "direction_brier": {
+      "above": 0.064329,
+      "below": 0.034067,
+      "between": 0.150016
+    }
+  },
+  "E27_conformal_prediction_cal2023": {
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.025564,
+        "mean_observed": 0.033218,
+        "count": 3191
+      },
+      {
+        "bin_center": 0.15,
+        "mean_predicted": 0.157404,
+        "mean_observed": 0.138009,
+        "count": 442
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.24897,
+        "mean_observed": 0.256566,
+        "count": 990
+      },
+      {
+        "bin_center": 0.35,
+        "mean_predicted": 0.351031,
+        "mean_observed": 0.335375,
+        "count": 653
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.448785,
+        "mean_observed": 0.427143,
+        "count": 700
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.545418,
+        "mean_observed": 0.469565,
+        "count": 115
+      },
+      {
+        "bin_center": 0.65,
+        "mean_predicted": 0.627381,
+        "mean_observed": 0.555556,
+        "count": 45
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.751647,
+        "mean_observed": 0.565217,
+        "count": 23
+      },
+      {
+        "bin_center": 0.85,
+        "mean_predicted": 0.863572,
+        "mean_observed": 0.484848,
+        "count": 33
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.938128,
+        "mean_observed": 0.916667,
+        "count": 12
+      }
+    ],
+    "brier_decomposition": {
+      "brier": 0.115578,
+      "reliability": 0.001182,
+      "resolution": 0.026157,
+      "uncertainty": 0.141453
+    },
+    "season_brier": {
+      "DJF": 0.11226,
+      "MAM": 0.119894,
+      "JJA": 0.118311,
+      "SON": 0.11134
+    },
+    "direction_brier": {
+      "above": 0.059053,
+      "below": 0.033579,
+      "between": 0.147188
+    }
+  },
+  "E28_ensemble_disagreement_cal2023": {
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.019978,
+        "mean_observed": 0.033081,
+        "count": 2902
+      },
+      {
+        "bin_center": 0.15,
+        "mean_predicted": 0.158225,
+        "mean_observed": 0.155773,
+        "count": 918
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.233257,
+        "mean_observed": 0.227865,
+        "count": 768
+      },
+      {
+        "bin_center": 0.35,
+        "mean_predicted": 0.366012,
+        "mean_observed": 0.342271,
+        "count": 634
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.441453,
+        "mean_observed": 0.40274,
+        "count": 730
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.537013,
+        "mean_observed": 0.494048,
+        "count": 168
+      },
+      {
+        "bin_center": 0.65,
+        "mean_predicted": 0.639905,
+        "mean_observed": 0.55814,
+        "count": 43
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.726749,
+        "mean_observed": 0.461538,
+        "count": 13
+      },
+      {
+        "bin_center": 0.85,
+        "mean_predicted": 0.858467,
+        "mean_observed": 0.6875,
+        "count": 16
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.957182,
+        "mean_observed": 0.75,
+        "count": 12
+      }
+    ],
+    "brier_decomposition": {
+      "brier": 0.117858,
+      "reliability": 0.000721,
+      "resolution": 0.024027,
+      "uncertainty": 0.141453
+    },
+    "season_brier": {
+      "DJF": 0.113548,
+      "MAM": 0.122497,
+      "JJA": 0.119513,
+      "SON": 0.115441
+    },
+    "direction_brier": {
+      "above": 0.065451,
+      "below": 0.038571,
+      "between": 0.147879
+    }
+  },
+  "E29_learned_sigma_cal2023": {
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.037803,
+        "mean_observed": 0.056711,
+        "count": 2645
+      },
+      {
+        "bin_center": 0.15,
+        "mean_predicted": 0.115468,
+        "mean_observed": 0.153846,
+        "count": 494
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.258723,
+        "mean_observed": 0.2444,
+        "count": 2009
+      },
+      {
+        "bin_center": 0.35,
+        "mean_predicted": 0.345696,
+        "mean_observed": 0.320303,
+        "count": 793
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.446757,
+        "mean_observed": 0.304636,
+        "count": 151
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.532297,
+        "mean_observed": 0.368421,
+        "count": 76
+      },
+      {
+        "bin_center": 0.65,
+        "mean_predicted": 0.640038,
+        "mean_observed": 0.5,
+        "count": 2
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.753039,
+        "mean_observed": 0.111111,
+        "count": 9
+      },
+      {
+        "bin_center": 0.85,
+        "mean_predicted": 0.842953,
+        "mean_observed": 0.285714,
+        "count": 14
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.940111,
+        "mean_observed": 0.636364,
+        "count": 11
+      }
+    ],
+    "brier_decomposition": {
+      "brier": 0.1329,
+      "reliability": 0.002708,
+      "resolution": 0.011552,
+      "uncertainty": 0.141453
+    },
+    "season_brier": {
+      "DJF": 0.128111,
+      "MAM": 0.140344,
+      "JJA": 0.12902,
+      "SON": 0.133916
+    },
+    "direction_brier": {
+      "above": 0.077844,
+      "below": 0.056519,
+      "between": 0.162925
+    }
+  },
+  "E30_conformal_neural_sharpener_cal2023": {
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.039403,
+        "mean_observed": 0.026697,
+        "count": 2210
+      },
+      {
+        "bin_center": 0.15,
+        "mean_predicted": 0.146888,
+        "mean_observed": 0.111111,
+        "count": 1296
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.243441,
+        "mean_observed": 0.261757,
+        "count": 1616
+      },
+      {
+        "bin_center": 0.35,
+        "mean_predicted": 0.34648,
+        "mean_observed": 0.390476,
+        "count": 735
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.449936,
+        "mean_observed": 0.406143,
+        "count": 293
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.535973,
+        "mean_observed": 0.404762,
+        "count": 42
+      },
+      {
+        "bin_center": 0.65,
+        "mean_predicted": 0.612977,
+        "mean_observed": 0.5,
+        "count": 4
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.709767,
+        "mean_observed": 1.0,
+        "count": 2
+      },
+      {
+        "bin_center": 0.85,
+        "mean_predicted": 0.818616,
+        "mean_observed": 1.0,
+        "count": 2
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.984605,
+        "mean_observed": 0.75,
+        "count": 4
+      }
+    ],
+    "brier_decomposition": {
+      "brier": 0.121915,
+      "reliability": 0.00093,
+      "resolution": 0.019729,
+      "uncertainty": 0.141453
+    },
+    "season_brier": {
+      "DJF": 0.118167,
+      "MAM": 0.131527,
+      "JJA": 0.121982,
+      "SON": 0.115266
+    },
+    "direction_brier": {
+      "above": 0.079675,
+      "below": 0.037919,
+      "between": 0.150515
+    }
+  },
+  "E31_quantile_crossing_synthesis_cal2023": {
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.016069,
+        "mean_observed": 0.029596,
+        "count": 3041
+      },
+      {
+        "bin_center": 0.15,
+        "mean_predicted": 0.151222,
+        "mean_observed": 0.165468,
+        "count": 973
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.267783,
+        "mean_observed": 0.248555,
+        "count": 519
+      },
+      {
+        "bin_center": 0.35,
+        "mean_predicted": 0.337168,
+        "mean_observed": 0.326821,
+        "count": 563
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.445266,
+        "mean_observed": 0.397535,
+        "count": 649
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.555087,
+        "mean_observed": 0.506098,
+        "count": 328
+      },
+      {
+        "bin_center": 0.65,
+        "mean_predicted": 0.641353,
+        "mean_observed": 0.444444,
+        "count": 81
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.72976,
+        "mean_observed": 0.538462,
+        "count": 26
+      },
+      {
+        "bin_center": 0.85,
+        "mean_predicted": 0.858493,
+        "mean_observed": 0.8,
+        "count": 10
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.979113,
+        "mean_observed": 0.857143,
+        "count": 14
+      }
+    ],
+    "brier_decomposition": {
+      "brier": 0.11532,
+      "reliability": 0.001226,
+      "resolution": 0.027059,
+      "uncertainty": 0.141453
+    },
+    "season_brier": {
+      "DJF": 0.111028,
+      "MAM": 0.120603,
+      "JJA": 0.118615,
+      "SON": 0.110419
+    },
+    "direction_brier": {
+      "above": 0.05771,
+      "below": 0.033524,
+      "between": 0.147147
+    }
+  },
+  "E32_platt_conformal_e17_cal2023": {
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.022789,
+        "mean_observed": 0.043331,
+        "count": 3531
+      },
+      {
+        "bin_center": 0.15,
+        "mean_predicted": 0.177531,
+        "mean_observed": 0.132479,
+        "count": 234
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.25533,
+        "mean_observed": 0.248656,
+        "count": 744
+      },
+      {
+        "bin_center": 0.35,
+        "mean_predicted": 0.36067,
+        "mean_observed": 0.322204,
+        "count": 599
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.460941,
+        "mean_observed": 0.407461,
+        "count": 697
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.532514,
+        "mean_observed": 0.466912,
+        "count": 272
+      },
+      {
+        "bin_center": 0.65,
+        "mean_predicted": 0.631759,
+        "mean_observed": 0.621212,
+        "count": 66
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.72785,
+        "mean_observed": 0.764706,
+        "count": 17
+      },
+      {
+        "bin_center": 0.85,
+        "mean_predicted": 0.851206,
+        "mean_observed": 0.583333,
+        "count": 12
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.956128,
+        "mean_observed": 0.75,
+        "count": 32
+      }
+    ],
+    "brier_decomposition": {
+      "brier": 0.114351,
+      "reliability": 0.001338,
+      "resolution": 0.027564,
+      "uncertainty": 0.141453
+    },
+    "season_brier": {
+      "DJF": 0.107101,
+      "MAM": 0.117899,
+      "JJA": 0.119056,
+      "SON": 0.112815
+    },
+    "direction_brier": {
+      "above": 0.058821,
+      "below": 0.03316,
+      "between": 0.145544
+    }
+  },
+  "E33_regime_resolution_boost_cal2023": {
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.026452,
+        "mean_observed": 0.033115,
+        "count": 3201
+      },
+      {
+        "bin_center": 0.15,
+        "mean_predicted": 0.140891,
+        "mean_observed": 0.161677,
+        "count": 501
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.250803,
+        "mean_observed": 0.252163,
+        "count": 809
+      },
+      {
+        "bin_center": 0.35,
+        "mean_predicted": 0.34968,
+        "mean_observed": 0.323529,
+        "count": 748
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.447433,
+        "mean_observed": 0.42532,
+        "count": 703
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.541149,
+        "mean_observed": 0.459016,
+        "count": 122
+      },
+      {
+        "bin_center": 0.65,
+        "mean_predicted": 0.624184,
+        "mean_observed": 0.592593,
+        "count": 54
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.743184,
+        "mean_observed": 0.428571,
+        "count": 28
+      },
+      {
+        "bin_center": 0.85,
+        "mean_predicted": 0.842277,
+        "mean_observed": 0.642857,
+        "count": 14
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.936888,
+        "mean_observed": 0.708333,
+        "count": 24
+      }
+    ],
+    "brier_decomposition": {
+      "brier": 0.115763,
+      "reliability": 0.001076,
+      "resolution": 0.025907,
+      "uncertainty": 0.141453
+    },
+    "season_brier": {
+      "DJF": 0.112064,
+      "MAM": 0.120154,
+      "JJA": 0.1183,
+      "SON": 0.112045
+    },
+    "direction_brier": {
+      "above": 0.058342,
+      "below": 0.034497,
+      "between": 0.147429
+    }
+  },
   "E0_baseline_ensemble_cal2023_2024": {
     "reliability_diagram": [
       {
