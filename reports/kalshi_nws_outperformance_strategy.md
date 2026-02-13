@@ -637,3 +637,58 @@ Interpretation:
 - [ ] Add distributional neural synthesis objective (CRPS/NLL over full contract CDF), not just bucket-probability classification.
 - [ ] Reconcile improved Brier with persistently negative post-cost EV (execution redesign + fill realism still required).
 - [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).
+
+### Implemented in this sprint (Phase B distributional-objective advancement)
+
+16. **Distributional neural synthesis challenger (NLL-focused) in benchmark harness (Phase B objective expansion)**
+   - Added `E14_distributional_neural_nll` to `scripts/run_e0_e8_best_model_benchmark.py`.
+   - Implemented chronology-safe date-level distribution synthesis on the calibration year (2023):
+     - builds time-safe date features from base model, NWS, and market-state/liquidity summaries,
+     - trains neural residual and log-sigma heads (`MLPRegressor`) with chronological train/validation/calibration splits,
+     - selects architecture by Gaussian NLL on validation,
+     - applies isotonic CDF post-calibration before bucketization.
+   - Extended benchmark outputs to include E14 artifacts:
+     - `results/prediction_market_benchmark/e0_e8_best_model_base/e0_e14_benchmark_summary.csv`
+     - `results/prediction_market_benchmark/e0_e8_best_model_base/ev_edge_quality_gating_results_e14.csv`
+
+### Results from distributional-objective run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast/Brier impact
+- `E14_distributional_neural_nll` materially underperformed existing synthesis variants in this first pass:
+  - Overall model Brier: **0.194393**
+  - OOS model Brier: **0.191978**
+- Reference top variants remained:
+  - `E11_synthesis_stacker_market_aware`: overall **0.116579**, OOS **0.105364**
+  - `E13_neural_synthesis_mlp`: overall **0.116842**, OOS **0.104891**
+
+Interpretation:
+- Moving from bucket-classification synthesis to this first NLL-focused distributional neural formulation did **not** transfer well in the current data/feature setup.
+- The failure mode is consistent with a train/inference granularity mismatch risk (date-level distribution fit mapped back to contract buckets), which likely needs a contract-level distributional objective (CRPS/NLL over bucket-implied CDF directly) rather than this intermediate proxy.
+
+#### Trading/EV impact
+- E14 remained strongly negative under EV-aware gating:
+  - Best all-period cut (`quality_cut=0.06`): net P&L **-23.01**, ROI **-14.06%**, CI **[-28.49, -17.76]**.
+  - Best OOS cut (`quality_cut=0.06`): net P&L **-15.73**, ROI **-14.10%**, CI **[-19.90, -11.79]**.
+
+Interpretation:
+- This variant is currently not promotion-eligible and should be treated as a rejected architecture/objective permutation.
+
+### Updated outstanding task list status (post E14 distributional run)
+
+#### Phase B
+- [~] WGA-MDN model training/evaluation integration in benchmark harness. *(proxy mixture variant E10 implemented; full trainable WGA-MDN with wind-gated station inputs still pending)*
+- [~] Synthesis-Stacker with market-state inputs. *(trainable logistic E11 + neural MLP E13 implemented; full contract-level distributional synthesis objective still pending)*
+- [x] Conditional calibration grid prototype.
+- [~] Capacity sweep for residual + synthesis backbones under strict calibration gates. *(E12 residual/sigma sweep implemented; deeper backbone sweep still pending)*
+- [ ] Station expansion ablation ladder.
+- [ ] Data-history extension run.
+- [ ] AVN/ETA MOS backfill feasibility implementation.
+
+#### Remaining highest-priority gaps (updated)
+- [ ] Build fully trainable WGA-MDN path (not proxy) with strict chronological OOS validation and explicit station-input lineage.
+- [ ] Add **contract-level** distributional neural synthesis objective (CRPS/NLL over bucket-implied CDF directly), replacing the date-level proxy that failed in E14.
+- [ ] Reconcile improved Brier with persistently negative post-cost EV (execution redesign + fill realism still required).
+- [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).
