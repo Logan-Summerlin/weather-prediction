@@ -17,11 +17,15 @@
     "E13_neural_synthesis_mlp",
     "E14_distributional_neural_nll",
     "E15_conditional_calibration_spread_regime",
-    "E16_conditional_calibration_shrunk"
+    "E16_conditional_calibration_shrunk",
+    "E17_contract_brier_synthesis",
+    "E18_regime_adaptive_ensemble",
+    "E19_platt_beta_calibration",
+    "E20_crps_distributional_synthesis"
   ],
   "top2": [
-    "E13_neural_synthesis_mlp",
-    "E11_synthesis_stacker_market_aware"
+    "E17_contract_brier_synthesis",
+    "E13_neural_synthesis_mlp"
   ],
   "calibration_period": "2023",
   "benchmark_period": "2023-2025",

@@ -1,31 +1,31 @@
 {
-  "top_model": "E13_neural_synthesis_mlp",
+  "top_model": "E17_contract_brier_synthesis",
   "promotion_ready": false,
   "checks": {
     "oos_brier_beats_presettlement": {
       "pass": true,
-      "oos_model_brier": 0.10358207606243564,
+      "oos_model_brier": 0.1066402510782998,
       "presettlement_brier": 0.12706111379754997
     },
     "oos_gated_pnl_positive_with_positive_ci": {
       "pass": false,
       "best_oos_gated": {
         "quality_cut": 0.06,
-        "trades": 255,
-        "net_pnl": -0.69,
-        "roi_pct": -3.2,
-        "pnl_ci95_low": -3.91,
-        "pnl_ci95_high": 2.57
+        "trades": 190,
+        "net_pnl": -3.79,
+        "roi_pct": -18.26,
+        "pnl_ci95_low": -6.41,
+        "pnl_ci95_high": -0.99
       }
     },
     "calibration_ece_gate": {
       "pass": true,
-      "ece": 0.017574989695171104,
+      "ece": 0.012940019299335196,
       "threshold": 0.03
     },
     "tail_reliability_gate": {
       "pass": true,
-      "max_abs_bin_gap": 0.11875364797919996,
+      "max_abs_bin_gap": 0.1808606663737995,
       "threshold": 0.2
     }
   }
