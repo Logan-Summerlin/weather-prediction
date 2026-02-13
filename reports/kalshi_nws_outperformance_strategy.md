@@ -469,3 +469,66 @@ Interpretation:
 - [ ] Forecast-quality lift (Phase B) to close Brier gap vs pre-settlement; execution optimization alone is not enough.
 - [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).
 - [ ] WGA-MDN and synthesis stacker implementation/evaluation in benchmark harness.
+
+### Implemented in this sprint (Phase B model-family push)
+
+11. **WGA-MDN-style regime mixture variant in benchmark harness (Phase B.1 partial implementation)**
+   - Added `E10_wga_mdn_regime_mixture` to `scripts/run_e0_e8_best_model_benchmark.py`.
+   - This variant emulates a two-component regime-aware mixture head at inference time:
+     - regime signal from day-over-day `model_mu` change,
+     - component means split with season-conditioned residual offsets,
+     - component variances widened/narrowed by regime,
+     - bucket probabilities computed by explicit Gaussian-mixture CDF differencing.
+
+12. **Synthesis-Stacker with market-state inputs (Phase B.2 first implementation)**
+   - Added `E11_synthesis_stacker_market_aware` to `scripts/run_e0_e8_best_model_benchmark.py`.
+   - Implemented a chronology-safe stacker fit (2023 only) that learns base blend weights over:
+     - model bucket probability,
+     - NWS bucket probability,
+     - Kalshi pre-settlement probability.
+   - Runtime blend is state-aware (uncertainty + spread/liquidity confidence adjustments) and normalized per contract.
+
+13. **Capacity sweep integration for residual/sigma scaling (Phase B.4 partial implementation)**
+   - Added a calibration-year capacity sweep routine with regularized residual and sigma gains.
+   - Added `E12_capacity_sweep_residual_synthesis` variant using selected gains.
+   - Variants are now benchmarked in a single run and included in:
+     - `results/prediction_market_benchmark/e0_e8_best_model_base/e0_e12_benchmark_summary.csv`
+     - updated benchmark metadata and README artifacts.
+
+### Results from this Phase B run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast/Brier impact
+- New best variant: **E11_synthesis_stacker_market_aware**.
+- Overall model Brier: **0.1217623** (vs pre-settlement **0.1270611**).
+- OOS model Brier: **0.1105301** (vs pre-settlement **0.1270611**).
+- Baseline E3 remains at OOS Brier **0.1300457**.
+
+Interpretation:
+- The synthesis stacker produces a large Brier improvement over prior E0–E10 variants and now clears the pre-settlement Brier benchmark in this backtest setup.
+- This closes a major forecast-quality gap from Phase B, but does not yet solve tradable EV after costs.
+
+#### Trading/EV impact
+- Gated execution for E11 remains negative OOS despite improved Brier:
+  - best OOS cut (`quality_cut=0.06`): net P&L **-7.86**, ROI **-23.03%**, CI **[-11.31, -3.99]**.
+- Interpretation:
+  - Better probability scoring did not automatically translate into positive post-cost P&L under current execution assumptions.
+  - Phase C still requires more selective execution and/or better microstructure edge capture.
+
+### Updated outstanding task list status (post Phase B push)
+
+#### Phase B
+- [~] WGA-MDN model training/evaluation integration in benchmark harness. *(proxy mixture variant E10 implemented; full trainable WGA-MDN pipeline still pending)*
+- [~] Synthesis-Stacker with market-state inputs. *(E11 implemented and benchmarked; full neural synthesis training path still pending)*
+- [x] Conditional calibration grid prototype.
+- [~] Capacity sweep for residual + synthesis backbones under strict calibration gates. *(E12 residual/sigma sweep implemented; deeper backbone sweep still pending)*
+- [ ] Station expansion ablation ladder.
+- [ ] Data-history extension run.
+- [ ] AVN/ETA MOS backfill feasibility implementation.
+
+#### Remaining highest-priority gaps (updated)
+- [ ] Convert E10/E11 proxy variants into fully trainable model paths (WGA-MDN + neural synthesis) with strict chronological validation.
+- [ ] Reconcile improved Brier with persistently negative post-cost EV (execution redesign and fill realism still required).
+- [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).
