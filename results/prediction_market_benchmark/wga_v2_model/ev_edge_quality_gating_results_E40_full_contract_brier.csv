@@ -1,0 +1,6 @@
+variant,base_cut,n_trades,net_pnl,roi_pct,win_rate,sharpe,pnl_ci95_low,pnl_ci95_high
+E40_full_contract_brier,0.02,1458,-81.49,-16.8,0.2977,-0.1744,-102.99,-57.07
+E40_full_contract_brier,0.03,1329,-74.2,-17.54,0.2822,-0.1745,-95.21,-51.05
+E40_full_contract_brier,0.04,1175,-62.02,-16.48,0.2877,-0.164,-82.3,-41.11
+E40_full_contract_brier,0.05,1046,-52.5,-15.4,0.2964,-0.1533,-72.69,-30.9
+E40_full_contract_brier,0.06,908,-52.52,-17.35,0.2963,-0.1708,-70.6,-34.67

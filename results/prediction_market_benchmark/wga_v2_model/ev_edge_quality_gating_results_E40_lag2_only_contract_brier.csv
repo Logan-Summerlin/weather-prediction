@@ -1,0 +1,6 @@
+variant,base_cut,n_trades,net_pnl,roi_pct,win_rate,sharpe,pnl_ci95_low,pnl_ci95_high
+E40_lag2_only_contract_brier,0.02,1127,-58.95,-13.86,0.3496,-0.1541,-81.08,-35.6
+E40_lag2_only_contract_brier,0.03,938,-53.35,-15.41,0.3358,-0.1628,-73.98,-31.62
+E40_lag2_only_contract_brier,0.04,770,-35.25,-12.39,0.3481,-0.1285,-53.88,-15.38
+E40_lag2_only_contract_brier,0.05,625,-30.94,-13.14,0.352,-0.1343,-48.29,-11.76
+E40_lag2_only_contract_brier,0.06,510,-23.62,-12.31,0.3549,-0.1218,-41.52,-4.06
