@@ -20,8 +20,8 @@
     "E16_conditional_calibration_shrunk"
   ],
   "top2": [
-    "E11_synthesis_stacker_market_aware",
-    "E13_neural_synthesis_mlp"
+    "E13_neural_synthesis_mlp",
+    "E11_synthesis_stacker_market_aware"
   ],
   "calibration_period": "2023",
   "benchmark_period": "2023-2025",

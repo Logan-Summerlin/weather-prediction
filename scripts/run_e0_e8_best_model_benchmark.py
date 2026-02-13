@@ -248,7 +248,11 @@ def _fit_capacity_sweep(calib: pd.DataFrame) -> dict[str, float]:
 
 
 def _fit_neural_synthesis_stacker(calib: pd.DataFrame) -> dict[str, object]:
-    """Fit chronology-safe MLP synthesis stacker with isotonic post-calibration."""
+    """Fit chronology-safe MLP synthesis stacker with isotonic post-calibration.
+
+    Capacity/regularization sweep is selected by a calibration-aware score:
+    validation Brier + lambda * validation ECE.
+    """
     frame = calib.copy()
     frame["model_prob"] = bench.compute_bucket_probs(frame, "model_mu", "model_sigma")
     frame["nws_prob"] = bench.compute_bucket_probs(frame, "nws_mu", "nws_sigma")
@@ -303,32 +307,45 @@ def _fit_neural_synthesis_stacker(calib: pd.DataFrame) -> dict[str, object]:
     X_cal_z = (X_cal - mu) / sd
 
     best = None
+    best_score = float("inf")
     best_brier = float("inf")
+    best_ece = float("inf")
+    ece_lambda = 0.15
     configs = [
-        ((16,), 1e-3),
-        ((32,), 1e-3),
-        ((32, 16), 1e-3),
-        ((64, 32), 3e-3),
+        ((16,), 1e-3, 1e-3),
+        ((32,), 1e-3, 1e-3),
+        ((32, 16), 1e-3, 1e-3),
+        ((64, 32), 3e-3, 8e-4),
+        ((128, 64), 5e-3, 8e-4),
+        ((128, 64, 32), 1e-2, 6e-4),
+        ((256, 128, 64), 2e-2, 5e-4),
     ]
-    for hidden, alpha in configs:
+    for hidden, alpha, lr in configs:
         clf = MLPClassifier(
             hidden_layer_sizes=hidden,
             activation="relu",
             alpha=alpha,
-            learning_rate_init=1e-3,
-            max_iter=800,
+            learning_rate_init=lr,
+            max_iter=1200,
             random_state=42,
-            early_stopping=False,
+            early_stopping=True,
+            validation_fraction=0.15,
+            n_iter_no_change=30,
         )
         clf.fit(X_train_z, y_train)
         val_pred = np.clip(clf.predict_proba(X_val_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
         val_brier = float(np.mean((val_pred - y_val) ** 2))
-        if val_brier < best_brier:
+        val_ece = float(bench.expected_calibration_error(val_pred, y_val, n_bins=10))
+        score = val_brier + ece_lambda * val_ece
+        if score < best_score:
+            best_score = score
             best_brier = val_brier
-            best = clf
+            best_ece = val_ece
+            best = (clf, hidden, alpha, lr)
 
     assert best is not None
-    cal_raw = np.clip(best.predict_proba(X_cal_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    clf, hidden, alpha, lr = best
+    cal_raw = np.clip(clf.predict_proba(X_cal_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
     iso = IsotonicRegression(y_min=bench.PROB_CLIP_MIN, y_max=bench.PROB_CLIP_MAX, out_of_bounds="clip")
     iso.fit(cal_raw, y_cal)
 
@@ -337,10 +354,12 @@ def _fit_neural_synthesis_stacker(calib: pd.DataFrame) -> dict[str, object]:
     return {
         "feature_mean": mu.tolist(),
         "feature_std": sd.tolist(),
-        "coefs": [w.tolist() for w in best.coefs_],
-        "intercepts": [b.tolist() for b in best.intercepts_],
-        "hidden_layers": list(best.hidden_layer_sizes),
-        "activation": best.activation,
+        "coefs": [w.tolist() for w in clf.coefs_],
+        "intercepts": [b.tolist() for b in clf.intercepts_],
+        "hidden_layers": list(hidden),
+        "activation": clf.activation,
+        "alpha": float(alpha),
+        "learning_rate_init": float(lr),
         "isotonic_x": iso.X_thresholds_.tolist(),
         "isotonic_y": iso.y_thresholds_.tolist(),
         "features": [
@@ -360,7 +379,9 @@ def _fit_neural_synthesis_stacker(calib: pd.DataFrame) -> dict[str, object]:
         ],
         "sigma_p05": float(state["sigma_p05"].iloc[0]),
         "sigma_p95": float(state["sigma_p95"].iloc[0]),
+        "validation_selection_score": best_score,
         "validation_brier": best_brier,
+        "validation_ece": best_ece,
         "calibration_window_brier": float(np.mean((cal_calibrated - y_cal) ** 2)),
     }
 

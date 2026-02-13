@@ -1,31 +1,31 @@
 {
-  "top_model": "E11_synthesis_stacker_market_aware",
+  "top_model": "E13_neural_synthesis_mlp",
   "promotion_ready": false,
   "checks": {
     "oos_brier_beats_presettlement": {
       "pass": true,
-      "oos_model_brier": 0.10536368272790153,
+      "oos_model_brier": 0.10358207606243564,
       "presettlement_brier": 0.12706111379754997
     },
     "oos_gated_pnl_positive_with_positive_ci": {
       "pass": false,
       "best_oos_gated": {
         "quality_cut": 0.06,
-        "trades": 248,
-        "net_pnl": -2.78,
-        "roi_pct": -13.6,
-        "pnl_ci95_low": -5.19,
-        "pnl_ci95_high": -0.49
+        "trades": 255,
+        "net_pnl": -0.69,
+        "roi_pct": -3.2,
+        "pnl_ci95_low": -3.91,
+        "pnl_ci95_high": 2.57
       }
     },
     "calibration_ece_gate": {
-      "pass": false,
-      "ece": 0.03585406273617443,
+      "pass": true,
+      "ece": 0.017574989695171104,
       "threshold": 0.03
     },
     "tail_reliability_gate": {
       "pass": true,
-      "max_abs_bin_gap": 0.15451372532079088,
+      "max_abs_bin_gap": 0.11875364797919996,
       "threshold": 0.2
     }
   }

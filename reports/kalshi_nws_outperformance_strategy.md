@@ -793,3 +793,54 @@ Interpretation:
 - [ ] Station expansion ablation ladder.
 - [ ] Data-history extension run.
 - [ ] AVN/ETA MOS backfill feasibility implementation.
+
+### Implemented in this sprint (model-capacity sweep on synthesis, quality-metric focused)
+
+17. **Neural synthesis capacity sweep upgrade with calibration-aware selection (Phase B.4 advancement)**
+   - Updated `scripts/run_e0_e8_best_model_benchmark.py` to expand `E13_neural_synthesis_mlp` architecture/regularization search from a small 4-config sweep to a wider capacity ladder:
+     - `(16)`, `(32)`, `(32,16)`, `(64,32)`, `(128,64)`, `(128,64,32)`, `(256,128,64)`.
+   - Added stronger training controls for larger models:
+     - early stopping,
+     - larger `max_iter`,
+     - tuned learning-rate per architecture,
+     - regularization sweep via `alpha`.
+   - Changed model selection objective from pure validation Brier to a calibration-aware score:
+     - `selection_score = validation_brier + 0.15 * validation_ece`.
+   - Persisted selected hyperparameters and validation diagnostics (`validation_selection_score`, `validation_ece`) into the synthesis config artifact for auditability.
+
+### Results from capacity-sweep run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast-quality impact (primary)
+- `E13_neural_synthesis_mlp` became the top-ranked variant by overall Brier in the E0–E16 benchmark summary.
+- `E13` metrics after the capacity sweep:
+  - Overall Brier: **0.116196**
+  - OOS Brier: **0.103582**
+  - OOS log score: **0.326209**
+  - Model ECE: **0.017575**
+- Comparison vs prior strongest linear synthesis (`E11`):
+  - `E11` overall Brier: **0.116579**
+  - `E11` OOS Brier: **0.105364**
+  - `E11` ECE: **0.035854**
+
+Interpretation:
+- This pass made meaningful progress on the model-quality objective (distribution correctness + Brier/log/calibration), with E13 now improving all key forecast-quality diagnostics over E11 in this benchmark run.
+- This directly advances the “capacity sweep for synthesis backbones” task with chronology-safe validation.
+
+#### Trading impact (secondary, not sprint focus)
+- Even with better forecast quality, OOS trading remains near break-even but still negative after costs in this run:
+  - best OOS model P&L for E13 (standard sweep): **-1.01**.
+- This reinforces the current prioritization: continue improving probability quality/calibration first, then revisit execution once model edge is stronger and more robust.
+
+### Updated outstanding task list status (after capacity-sweep advancement)
+
+#### Phase B
+- [ ] WGA-MDN model training/evaluation integration in benchmark harness. *(heuristic proxy exists as `E10`; full trainable WGA-MDN remains unimplemented)*
+- [x] Synthesis-Stacker with market-state inputs. *(E11/E13 implemented and benchmarked)*
+- [x] Conditional calibration grid with shrinkage refinement. *(E9/E15/E16 implemented)*
+- [x] Capacity sweep for residual + synthesis backbones under strict calibration gates. *(expanded synthesis-capacity sweep now implemented for E13 with calibration-aware objective)*
+- [ ] Station expansion ablation ladder.
+- [ ] Data-history extension run.
+- [ ] AVN/ETA MOS backfill feasibility implementation.
