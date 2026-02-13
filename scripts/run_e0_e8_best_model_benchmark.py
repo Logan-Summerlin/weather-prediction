@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark E0-E8 best-model-derived variants vs NWS + Kalshi pre-settlement.
+"""Benchmark E0-E22 best-model-derived variants vs NWS + Kalshi pre-settlement.
 
 All variants are defined as transformations/calibrations of canonical best-model
 prediction artifacts (data/best_model_predictions_*).
@@ -103,6 +103,13 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
 
     base_cfg_partial["e18_regime_ensemble"] = e18_regime
     base_cfg_partial["e19_platt_beta_cal"] = e19_platt
+
+    # E21 and E22 need E17 and E13 already fitted (via cfg)
+    e21_platt_e17 = _fit_e21_platt_e17(base_df[base_df["date_dt"].dt.year == 2023].copy(), base_cfg_partial)
+    base_cfg_partial["e21_platt_e17"] = e21_platt_e17
+
+    e22_expanded_platt_e13 = _fit_e22_expanded_platt_e13(base_df[base_df["date_dt"].dt.year == 2023].copy(), base_cfg_partial)
+    base_cfg_partial["e22_expanded_platt_e13"] = e22_expanded_platt_e13
 
     return base_cfg_partial
 
@@ -868,6 +875,146 @@ def _fit_e20_crps_synthesis(calib: pd.DataFrame) -> dict[str, object]:
     }
 
 
+def _fit_e21_platt_e17(calib: pd.DataFrame, cfg: dict) -> dict[str, object]:
+    """E21: Platt scaling + isotonic applied to E17 contract-brier output."""
+    cal_full = calib.copy()
+    e17_df = _apply_variant(cal_full, "E17_contract_brier_synthesis", cfg)
+    raw_probs = e17_df["model_prob"].values.copy()
+    y = e17_df["actual_outcome"].values.astype(float)
+
+    n_total = len(cal_full)
+    n_platt = int(n_total * 0.50)
+    platt_idx = slice(0, n_platt)
+    iso_idx = slice(n_platt, n_total)
+
+    # Stage 1: Platt scaling via logistic regression on logit of E17 probs
+    logit_probs = np.log(np.clip(raw_probs, 1e-6, 1 - 1e-6) / (1.0 - np.clip(raw_probs, 1e-6, 1 - 1e-6)))
+    X_platt = logit_probs[platt_idx].reshape(-1, 1)
+    y_platt = y[platt_idx]
+
+    best_lr = None
+    best_brier = float("inf")
+    for c in [0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]:
+        lr = LogisticRegression(C=c, max_iter=2000, solver="lbfgs")
+        lr.fit(X_platt, y_platt)
+        pred = np.clip(lr.predict_proba(X_platt)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+        brier = float(np.mean((pred - y_platt) ** 2))
+        if brier < best_brier:
+            best_brier = brier
+            best_lr = lr
+
+    assert best_lr is not None
+
+    # Stage 2: Isotonic on Platt-scaled output on second half
+    platt_scaled_iso = np.clip(
+        best_lr.predict_proba(logit_probs[iso_idx].reshape(-1, 1))[:, 1],
+        bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX,
+    )
+    y_iso = y[iso_idx]
+    iso = IsotonicRegression(y_min=bench.PROB_CLIP_MIN, y_max=bench.PROB_CLIP_MAX, out_of_bounds="clip")
+    iso.fit(platt_scaled_iso, y_iso)
+
+    return {
+        "platt_coef": float(best_lr.coef_[0][0]),
+        "platt_intercept": float(best_lr.intercept_[0]),
+        "isotonic_x": iso.X_thresholds_.tolist(),
+        "isotonic_y": iso.y_thresholds_.tolist(),
+        "platt_brier": best_brier,
+    }
+
+
+def _fit_e22_expanded_platt_e13(calib: pd.DataFrame, cfg: dict) -> dict[str, object]:
+    """E22: Expanded Platt with sigma/season/bucket features on E13 output."""
+    cal_full = calib.copy()
+    e13_df = _apply_variant(cal_full, "E13_neural_synthesis_mlp", cfg)
+    raw_probs = e13_df["model_prob"].values.copy()
+    y = e13_df["actual_outcome"].values.astype(float)
+
+    # Build expanded features
+    logit_probs = np.log(np.clip(raw_probs, 1e-6, 1 - 1e-6) / (1.0 - np.clip(raw_probs, 1e-6, 1 - 1e-6)))
+    sigma = cal_full["model_sigma"].values
+    sigma_p05 = float(np.percentile(sigma, 5))
+    sigma_p95 = float(np.percentile(sigma, 95))
+    sigma_norm = np.clip((sigma - sigma_p05) / (sigma_p95 - sigma_p05 + 1e-6), 0.0, 1.0)
+    season_sin = np.sin(2.0 * np.pi * cal_full["date_dt"].dt.dayofyear.values / 365.25)
+    season_cos = np.cos(2.0 * np.pi * cal_full["date_dt"].dt.dayofyear.values / 365.25)
+
+    # Bucket-specific features
+    bucket_mid = np.where(
+        cal_full["direction"] == "above",
+        cal_full["threshold_low"].values + 2.0,
+        np.where(
+            cal_full["direction"] == "below",
+            cal_full["threshold_high"].values - 2.0,
+            (cal_full["threshold_low"].values + cal_full["threshold_high"].values) / 2.0,
+        ),
+    )
+    mu_vals = cal_full["model_mu"].values
+    sig_vals = cal_full["model_sigma"].values
+    bucket_distance_sigma = np.abs(bucket_mid - mu_vals) / (sig_vals + 1e-6)
+    direction_above = (cal_full["direction"].values == "above").astype(float)
+    direction_below = (cal_full["direction"].values == "below").astype(float)
+
+    X = np.column_stack([
+        logit_probs,
+        sigma_norm,
+        season_sin,
+        season_cos,
+        bucket_distance_sigma,
+        direction_above,
+        direction_below,
+        logit_probs * sigma_norm,  # interaction: overconfidence x uncertainty
+        logit_probs * bucket_distance_sigma,  # interaction: tail probs x tail distance
+    ])
+
+    n_total = len(cal_full)
+    n_platt = int(n_total * 0.50)
+    platt_idx = slice(0, n_platt)
+    iso_idx = slice(n_platt, n_total)
+
+    X_platt = X[platt_idx]
+    y_platt = y[platt_idx]
+
+    mu_x = X_platt.mean(axis=0)
+    sd_x = X_platt.std(axis=0)
+    sd_x = np.where(sd_x < 1e-6, 1.0, sd_x)
+    X_platt_z = (X_platt - mu_x) / sd_x
+
+    best_lr = None
+    best_brier = float("inf")
+    for c in [0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]:
+        lr = LogisticRegression(C=c, max_iter=2000, solver="lbfgs")
+        lr.fit(X_platt_z, y_platt)
+        pred = np.clip(lr.predict_proba(X_platt_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+        brier = float(np.mean((pred - y_platt) ** 2))
+        if brier < best_brier:
+            best_brier = brier
+            best_lr = lr
+
+    assert best_lr is not None
+
+    X_iso_z = (X[iso_idx] - mu_x) / sd_x
+    platt_scaled_iso = np.clip(
+        best_lr.predict_proba(X_iso_z)[:, 1],
+        bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX,
+    )
+    y_iso = y[iso_idx]
+    iso = IsotonicRegression(y_min=bench.PROB_CLIP_MIN, y_max=bench.PROB_CLIP_MAX, out_of_bounds="clip")
+    iso.fit(platt_scaled_iso, y_iso)
+
+    return {
+        "platt_coefs": best_lr.coef_[0].tolist(),
+        "platt_intercept": float(best_lr.intercept_[0]),
+        "feature_mean": mu_x.tolist(),
+        "feature_std": sd_x.tolist(),
+        "isotonic_x": iso.X_thresholds_.tolist(),
+        "isotonic_y": iso.y_thresholds_.tolist(),
+        "platt_brier": best_brier,
+        "sigma_p05": sigma_p05,
+        "sigma_p95": sigma_p95,
+    }
+
+
 def _mlp_forward(X: np.ndarray, coefs: list[list[list[float]]], intercepts: list[list[float]]) -> np.ndarray:
     out = X
     n_layers = len(coefs)
@@ -1211,7 +1358,8 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
     elif variant == "E16_conditional_calibration_shrunk":
         pass
     elif variant in ("E17_contract_brier_synthesis", "E18_regime_adaptive_ensemble",
-                     "E19_platt_beta_calibration", "E20_crps_distributional_synthesis"):
+                     "E19_platt_beta_calibration", "E20_crps_distributional_synthesis",
+                     "E21_platt_recalibrated_e17", "E22_expanded_platt_e13"):
         pass
     else:
         raise ValueError(variant)
@@ -1598,6 +1746,62 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         lo_cal = np.where(np.isnan(out["threshold_low"].values), 0.0, np.interp(np.clip(f_lo, iso_x.min(), iso_x.max()), iso_x, iso_y))
         hi_cal = np.where(np.isnan(out["threshold_high"].values), 1.0, np.interp(np.clip(f_hi, iso_x.min(), iso_x.max()), iso_x, iso_y))
         out["model_prob"] = np.clip(hi_cal - lo_cal, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    elif variant == "E21_platt_recalibrated_e17":
+        # First get E17 output
+        e17_df = _apply_variant(df, "E17_contract_brier_synthesis", cfg)
+        e17_probs = e17_df["model_prob"].values.copy()
+        e21 = cfg["e21_platt_e17"]
+
+        # Stage 1: Platt scaling
+        logit_p = np.log(np.clip(e17_probs, 1e-6, 1 - 1e-6) / (1.0 - np.clip(e17_probs, 1e-6, 1 - 1e-6)))
+        platt_logit = logit_p * e21["platt_coef"] + e21["platt_intercept"]
+        platt_scaled = 1.0 / (1.0 + np.exp(-np.clip(platt_logit, -30.0, 30.0)))
+
+        # Stage 2: Isotonic
+        iso_x = np.array(e21["isotonic_x"])
+        iso_y = np.array(e21["isotonic_y"])
+        out["model_prob"] = np.interp(np.clip(platt_scaled, iso_x.min(), iso_x.max()), iso_x, iso_y)
+        out["model_prob"] = np.clip(out["model_prob"], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    elif variant == "E22_expanded_platt_e13":
+        e13_df = _apply_variant(df, "E13_neural_synthesis_mlp", cfg)
+        e13_probs = e13_df["model_prob"].values.copy()
+        e22 = cfg["e22_expanded_platt_e13"]
+
+        logit_p = np.log(np.clip(e13_probs, 1e-6, 1 - 1e-6) / (1.0 - np.clip(e13_probs, 1e-6, 1 - 1e-6)))
+        sigma = out["model_sigma"].values
+        sigma_norm = np.clip((sigma - e22["sigma_p05"]) / (e22["sigma_p95"] - e22["sigma_p05"] + 1e-6), 0.0, 1.0)
+        season_sin = np.sin(2.0 * np.pi * out["date_dt"].dt.dayofyear.values / 365.25)
+        season_cos = np.cos(2.0 * np.pi * out["date_dt"].dt.dayofyear.values / 365.25)
+
+        bucket_mid = np.where(
+            out["direction"] == "above",
+            out["threshold_low"].values + 2.0,
+            np.where(
+                out["direction"] == "below",
+                out["threshold_high"].values - 2.0,
+                (out["threshold_low"].values + out["threshold_high"].values) / 2.0,
+            ),
+        )
+        mu_vals = out["model_mu"].values
+        sig_vals = out["model_sigma"].values
+        bucket_distance_sigma = np.abs(bucket_mid - mu_vals) / (sig_vals + 1e-6)
+        direction_above = (out["direction"].values == "above").astype(float)
+        direction_below = (out["direction"].values == "below").astype(float)
+
+        x = np.column_stack([
+            logit_p, sigma_norm, season_sin, season_cos,
+            bucket_distance_sigma, direction_above, direction_below,
+            logit_p * sigma_norm, logit_p * bucket_distance_sigma,
+        ])
+        x = (x - np.array(e22["feature_mean"])) / np.array(e22["feature_std"])
+
+        platt_logit = x @ np.array(e22["platt_coefs"]) + e22["platt_intercept"]
+        platt_scaled = 1.0 / (1.0 + np.exp(-np.clip(platt_logit, -30.0, 30.0)))
+
+        iso_x = np.array(e22["isotonic_x"])
+        iso_y = np.array(e22["isotonic_y"])
+        out["model_prob"] = np.interp(np.clip(platt_scaled, iso_x.min(), iso_x.max()), iso_x, iso_y)
+        out["model_prob"] = np.clip(out["model_prob"], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
     else:
         out["model_prob"] = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
 
@@ -1926,6 +2130,8 @@ def main() -> None:
         "E18_regime_adaptive_ensemble",
         "E19_platt_beta_calibration",
         "E20_crps_distributional_synthesis",
+        "E21_platt_recalibrated_e17",
+        "E22_expanded_platt_e13",
     ]
 
     full_rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
@@ -1936,7 +2142,7 @@ def main() -> None:
     by_model = {row["model"]: row for row in full_rows}
 
     summary = pd.DataFrame(rows).sort_values("overall_model_brier").reset_index(drop=True)
-    summary.to_csv(OUT_ROOT / "e0_e20_benchmark_summary.csv", index=False)
+    summary.to_csv(OUT_ROOT / "e0_e22_benchmark_summary.csv", index=False)
 
     top_model_name = summary.iloc[0]["model"]
     top_df = _apply_variant(base_df, top_model_name, cfg)
@@ -1947,6 +2153,17 @@ def main() -> None:
     challenger_df = _apply_variant(base_df, challenger_name, cfg)
     challenger_gating_df = _run_edge_quality_gating(challenger_df, challenger_name)
     challenger_gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results_e16.csv", index=False)
+
+    # Also run gating on E13 family challengers
+    for ename, efile in [
+        ("E13_neural_synthesis_mlp", "ev_edge_quality_gating_results_e13.csv"),
+        ("E21_platt_recalibrated_e17", "ev_edge_quality_gating_results_e21.csv"),
+        ("E22_expanded_platt_e13", "ev_edge_quality_gating_results_e22.csv"),
+    ]:
+        edf = _apply_variant(base_df, ename, cfg)
+        edf_gating = _run_edge_quality_gating(edf, ename)
+        edf_gating.to_csv(OUT_ROOT / efile, index=False)
+
     paper_gate = _build_paper_trading_gate_report(
         top_model_name,
         summary,
@@ -1974,6 +2191,9 @@ def main() -> None:
                 "benchmark_period": "2023-2025",
                 "ev_gating_results": "ev_edge_quality_gating_results.csv",
                 "ev_gating_results_e16": "ev_edge_quality_gating_results_e16.csv",
+                "ev_gating_results_e13": "ev_edge_quality_gating_results_e13.csv",
+                "ev_gating_results_e21": "ev_edge_quality_gating_results_e21.csv",
+                "ev_gating_results_e22": "ev_edge_quality_gating_results_e22.csv",
                 "contract_timesafe_audit": "contract_and_timesafe_audit.json",
                 "paper_trading_gate": "paper_trading_gate_report.json",
             },
@@ -1985,7 +2205,7 @@ def main() -> None:
         json.dump(cfg["contract_audit"], f, indent=2)
 
     with open(OUT_ROOT / "README.md", "w", encoding="utf-8") as f:
-        f.write("# E0-E20 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
+        f.write("# E0-E22 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
         f.write(summary.to_string(index=False))
         f.write("\n\n## Top 2\n\n")
         f.write(top2.to_string(index=False))
@@ -2000,7 +2220,7 @@ def main() -> None:
         f.write("\n")
 
     print("Saved:")
-    print(f"  - {OUT_ROOT / 'e0_e20_benchmark_summary.csv'}")
+    print(f"  - {OUT_ROOT / 'e0_e22_benchmark_summary.csv'}")
     print(f"  - {OUT_ROOT / 'top2_benchmark_summary.csv'}")
 
 

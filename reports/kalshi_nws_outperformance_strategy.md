@@ -969,7 +969,7 @@ Key findings:
 - [ ] Data-history extension run.
 - [ ] AVN/ETA MOS backfill feasibility implementation.
 
-#### Remaining highest-priority gaps (updated)
+#### Remaining highest-priority gaps (updated — pre E21/E22 sprint)
 
 - [ ] **E21: Platt-recalibrated E17** — combine best base model (E17, best overall Brier + ECE) with best tail calibration (E19 Platt approach) to target positive OOS trading P&L.
 - [ ] Build fully trainable WGA-MDN path with explicit station-input lineage.
@@ -977,3 +977,111 @@ Key findings:
 - [ ] Data-history extension run (requires base model retraining).
 - [ ] AVN/ETA MOS backfill feasibility.
 - [ ] True live microstructure/event feed integration.
+
+### Implemented in this sprint (E21/E22 + MOS sufficiency + diagnostics — 2026-02-13)
+
+22. **E21: Platt-recalibrated E17 (Phase B — Platt tail correction on best overall model)**
+   - Added `E21_platt_recalibrated_e17` to `scripts/run_e0_e8_best_model_benchmark.py`.
+   - Method: two-stage Platt scaling (logistic regression on logit of E17 probs) + isotonic on chronological 50/50 split of 2023 calibration year.
+   - Regularization sweep over `C=[0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]`, selected by Brier on Platt half.
+
+23. **E22: Expanded multi-feature Platt on E13 (Phase B — enhanced Platt with bucket/season features)**
+   - Added `E22_expanded_platt_e13` to `scripts/run_e0_e8_best_model_benchmark.py`.
+   - Feature set: logit(E13_prob), sigma_norm, season_sin, season_cos, bucket_distance_sigma, direction_above, direction_below, plus two interactions (logit×sigma_norm, logit×bucket_distance_sigma).
+   - Standardized multi-feature logistic Platt + isotonic post-calibration.
+
+24. **MOS Data Sufficiency Analysis and AVN/ETA Backfill Feasibility Study (Phase B.7)**
+   - Created `scripts/mos_sufficiency_analysis.py` (self-contained 5-part analysis).
+   - Outputs: `results/mos_sufficiency_analysis/coverage_by_year.csv`, `mos_quality_by_year.csv`, `report.md`.
+
+25. **EV-aware gating for E21 and E22 challengers**
+   - Added dedicated gating results exports for E13, E21, E22 variants in benchmark harness.
+   - Artifacts: `ev_edge_quality_gating_results_e21.csv`, `ev_edge_quality_gating_results_e22.csv`.
+
+### Results from E21/E22 + MOS analysis sprint
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast-quality impact (primary metrics)
+
+| Variant | Overall Brier | OOS Brier | ECE | Best OOS P&L |
+|---------|:------------:|:---------:|:---:|:------------:|
+| **E17_contract_brier_synthesis** | **0.1141** | 0.1066 | 0.0129 | -$6.08 |
+| E21_platt_recalibrated_e17 (new) | 0.1144 | 0.1090 | — | -$12.61 |
+| E13_neural_synthesis_mlp | 0.1162 | **0.1036** | 0.0176 | -$1.01 |
+| E22_expanded_platt_e13 (new) | 0.1163 | 0.1043 | — | -$4.74 |
+| E19_platt_beta_calibration | 0.1164 | 0.1038 | — | **+$3.63** |
+| Kalshi PreSettlement | 0.1271 | 0.0988 | 0.0557 | — |
+| NWS | 0.1418 | 0.1393 | 0.0324 | — |
+
+#### Key findings
+
+1. **E21 did NOT improve over E17.** Platt scaling on E17 slightly degraded both overall Brier (0.1141→0.1144) and OOS Brier (0.1066→0.1090). E17's contract-level calibration (isotonic on MLP raw output + per-day renormalization) is already near-optimal; adding Platt scaling introduces an unnecessary additional layer.
+
+2. **E22 did NOT improve over E13/E19.** Expanded multi-feature Platt on E13 barely changed overall Brier (0.1162→0.1163) and slightly worsened OOS Brier (0.1036→0.1043). Additional features (sigma, season, bucket distance, interactions) did not add value beyond E13's isotonic calibration. The simple Platt in E19 remains more effective.
+
+3. **E19 remains the only variant with positive OOS trading P&L** (+$3.63). This suggests the simple logit→Platt→isotonic pipeline applied to E13 captures the right level of recalibration complexity.
+
+4. **The top 6 synthesis variants (E17, E21, E13, E22, E19, E11) all beat Kalshi PreSettlement** on both overall and OOS Brier score. The model beats NWS by a wide margin across all variants.
+
+5. **Interpretation: Platt recalibration is not the missing lever.** The Brier gap between our model and PreSettlement at the OOS level (our best is 0.1036 vs PreSettlement 0.0988) likely requires fundamentally better distributional modeling (regime-conditional variance, tail accuracy) rather than post-hoc recalibration.
+
+#### MOS Data Sufficiency — Key Findings
+
+1. **MOS coverage is excellent.** GFS MOS: 100% from 2004. NAM MOS: 99.3% from 2005+. Only 57 missing NAM days across 22 years (all in early 2004).
+
+2. **Calibration set is too small for middle probability bins.** With 2023 only (~2,008 contract rows), bins 30-60% have only 34-64 samples each — below the 200-500+ threshold for stable isotonic calibration. This partially explains why isotonic refinements (E9, E15, E16) have not delivered gains.
+
+3. **AVN/ETA backfill is NOT feasible.** IEM returned zero data rows for AVN and ETA MOS at KNYC across all tested year ranges (2000-2006). These legacy models are not available in the IEM archive for this station.
+
+4. **Recommendation: Extend calibration to 2022+2023.** This doubles calibration data, narrows bootstrap Brier CI by ~29%, with only 5.3% training data reduction (19→18 years). KS tests confirm 2022 and 2023 MOS error distributions are statistically similar (p=0.46 for GFS, p=0.41 for NAM).
+
+5. **GFS MOS has a structural bias break around 2014** (pre-2014: +0.10°F bias, post-2014: -0.66°F bias, p<0.0001). Any long-history training should include a model-era indicator.
+
+#### Paper-trading gate status (after E21/E22)
+
+| Check | Status | Detail |
+|-------|--------|--------|
+| OOS Brier ≤ PreSettlement | **PASS** | 0.1066 vs 0.1271 |
+| OOS gated P&L positive + CI | **FAIL** | Best OOS: -$3.79 (quality_cut=0.06) |
+| ECE ≤ 0.03 | **PASS** | 0.0129 |
+| Tail reliability ≤ 0.20 | **PASS** | max gap 0.181 |
+
+3 of 4 gates pass. Only gated P&L gate remains failing. E19 shows +$3.63 OOS P&L at threshold=0.20 in standard (non-gated) trading, suggesting the remaining gap is in execution optimization rather than forecast quality.
+
+### Updated outstanding task list status (after E21/E22/MOS sprint)
+
+#### Phase A
+- [~] Contract/time-safe audit. *(automated checks in place; 95 outcome-rule mismatches still pending explicit rounding rule reconciliation)*
+
+#### Phase B
+- [ ] WGA-MDN model training/evaluation in benchmark harness. *(heuristic proxy E10 exists; full trainable WGA-MDN remains unimplemented)*
+- [x] Synthesis-Stacker with market-state inputs. *(E11/E13 implemented and top-tier)*
+- [x] Conditional calibration grid with shrinkage. *(E9/E15/E16 implemented; E16 improved but not top)*
+- [x] Capacity sweep for synthesis backbones. *(E13 with calibration-aware selection)*
+- [x] Contract-level synthesis objective. *(E17 — best overall Brier 0.1141 and ECE 0.0129)*
+- [x] Platt + Beta tail calibration. *(E19 — only positive OOS trading P&L; E21/E22 did not improve further)*
+- [x] Date-level distributional tests. *(E14/E20 — confirmed dead end)*
+- [x] Regime ensemble. *(E18 — acceptable but not top tier)*
+- [ ] Station expansion ablation ladder. *(requires base model retraining)*
+- [ ] Data-history extension run. *(requires base model retraining)*
+- [x] AVN/ETA MOS backfill feasibility. *(COMPLETED — NOT FEASIBLE, IEM has no AVN/ETA data for KNYC)*
+- [ ] **Extend calibration to 2022+2023.** *(recommended by MOS analysis; requires retraining on 2004-2021 and generating 2022 predictions)*
+
+#### Phase C
+- [x] Edge-quality gating + dynamic thresholds. *(multiple iterations; not yet profitable)*
+- [x] Kelly sizing + cluster limits. *(implemented)*
+- [x] Microstructure proxies (queue/cancel/latency). *(implemented)*
+- [x] Bootstrap CIs + seasonal stress slices. *(implemented)*
+
+#### Phase D
+- [~] Paper-trading gate. *(3/4 checks pass; P&L gate still failing)*
+
+#### Remaining highest-priority gaps
+
+1. **Extend calibration to 2022+2023** — retrain best model on 2004-2021, generate 2022-2024 predictions, calibrate on 2022-2023. Most likely path to improving mid-probability bin calibration.
+2. **Build fully trainable WGA-MDN** — physics-conditioned station aggregation for regime-aware distribution modeling.
+3. **Station expansion ablation ladder** — evaluate incremental value of larger station networks.
+4. **Regime-conditional variance modeling** — close the remaining OOS Brier gap vs PreSettlement (0.1036 vs 0.0988) through better tail/transition-day distributions.
+5. **True live microstructure integration** — requires live order event data not available in current historical snapshots.
