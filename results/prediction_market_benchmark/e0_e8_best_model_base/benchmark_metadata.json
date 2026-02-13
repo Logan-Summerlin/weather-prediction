@@ -16,7 +16,8 @@
     "E12_capacity_sweep_residual_synthesis",
     "E13_neural_synthesis_mlp",
     "E14_distributional_neural_nll",
-    "E15_conditional_calibration_spread_regime"
+    "E15_conditional_calibration_spread_regime",
+    "E16_conditional_calibration_shrunk"
   ],
   "top2": [
     "E11_synthesis_stacker_market_aware",
@@ -25,7 +26,7 @@
   "calibration_period": "2023",
   "benchmark_period": "2023-2025",
   "ev_gating_results": "ev_edge_quality_gating_results.csv",
-  "ev_gating_results_e14": "ev_edge_quality_gating_results_e14.csv",
+  "ev_gating_results_e16": "ev_edge_quality_gating_results_e16.csv",
   "contract_timesafe_audit": "contract_and_timesafe_audit.json",
   "paper_trading_gate": "paper_trading_gate_report.json"
 }

@@ -83,6 +83,7 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
         "resid_scale": resid_scale,
         "conditional_cal": _fit_conditional_calibration(calib),
         "conditional_cal_v2": _fit_conditional_calibration_v2(base_df[base_df["date_dt"].dt.year == 2023].copy()),
+        "conditional_cal_v3": _fit_conditional_calibration_v3_shrunk(base_df[base_df["date_dt"].dt.year == 2023].copy()),
         "synthesis_stacker": stacker,
         "neural_synthesis_stacker": neural_stacker,
         "distributional_neural": distributional_neural,
@@ -730,6 +731,21 @@ def _fit_conditional_calibration_v2(calib: pd.DataFrame) -> dict[str, object]:
     }
 
 
+def _fit_conditional_calibration_v3_shrunk(calib: pd.DataFrame) -> dict[str, object]:
+    """Third-pass conditional isotonic with empirical-Bayes shrinkage."""
+    base = _fit_conditional_calibration_v2(calib)
+    prior_weight = 120.0
+    cell_weights = {
+        key: float(n / (n + prior_weight))
+        for key, n in base["cell_sizes"].items()
+    }
+    return {
+        **base,
+        "prior_weight": prior_weight,
+        "cell_weights": cell_weights,
+    }
+
+
 def _bin_labels(values: np.ndarray, edges: np.ndarray, labels: list[str]) -> np.ndarray:
     if len(edges) < 2:
         return np.array([labels[0]] * len(values))
@@ -811,6 +827,8 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
     elif variant == "E14_distributional_neural_nll":
         pass
     elif variant == "E15_conditional_calibration_spread_regime":
+        pass
+    elif variant == "E16_conditional_calibration_shrunk":
         pass
     else:
         raise ValueError(variant)
@@ -1012,6 +1030,46 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
             lo = 0.0 if np.isnan(out.at[idx, "threshold_low"]) else float(np.clip(cal.predict([f_lo[idx]])[0], 1e-6, 1 - 1e-6))
             hi = 1.0 if np.isnan(out.at[idx, "threshold_high"]) else float(np.clip(cal.predict([f_hi[idx]])[0], 1e-6, 1 - 1e-6))
             out.at[idx, "model_prob"] = np.clip(hi - lo, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+        out.drop(columns=[c for c in ["regime_bin", "spread_bin"] if c in out.columns], inplace=True)
+    elif variant == "E16_conditional_calibration_shrunk":
+        f_lo = np.where(np.isnan(out["threshold_low"].values), 0.0, e012._cdf(out["threshold_low"].values, mu, sigma))
+        f_hi = np.where(np.isnan(out["threshold_high"].values), 1.0, e012._cdf(out["threshold_high"].values, mu, sigma))
+
+        cond = cfg["conditional_cal_v3"]
+        spread = ((out["ask_cents"].fillna(out["presettlement_prob"] * 100) - out["bid_cents"].fillna(out["presettlement_prob"] * 100)).clip(lower=0) / 100.0).values
+        spread_bin = _bin_labels(spread, cond["spread_edges"], ["tight", "mid", "wide"])
+
+        by_date = out[["date", "date_dt", "model_mu"]].drop_duplicates("date").sort_values("date_dt").copy()
+        by_date["mu_change"] = by_date["model_mu"].diff().abs().fillna(0.0)
+        reg_bin = _bin_labels(by_date["mu_change"].values, cond["regime_edges"], ["stable", "transition", "volatile"])
+        reg_map = dict(zip(by_date["date"].values, reg_bin))
+        out["regime_bin"] = out["date"].map(reg_map).fillna("transition")
+        out["spread_bin"] = spread_bin
+
+        season_labels = _season_from_month(out["date_dt"].dt.month.values)
+        out["model_prob"] = np.nan
+        for idx, s, sb, rb in zip(out.index, season_labels, out["spread_bin"].values, out["regime_bin"].values):
+            key = f"{s}|{sb}|{rb}"
+            cell_cal = cond["calibrators"].get(key)
+            prior_cal = cond["fallbacks"].get(f"season|{s}", cond["fallbacks"]["global"])
+            w = cond["cell_weights"].get(key, 0.0)
+
+            if np.isnan(out.at[idx, "threshold_low"]):
+                lo = 0.0
+            else:
+                lo_cell = float(np.clip(cell_cal.predict([f_lo[idx]])[0], 1e-6, 1 - 1e-6)) if cell_cal is not None else None
+                lo_prior = float(np.clip(prior_cal.predict([f_lo[idx]])[0], 1e-6, 1 - 1e-6))
+                lo = lo_prior if lo_cell is None else float(np.clip(w * lo_cell + (1.0 - w) * lo_prior, 1e-6, 1 - 1e-6))
+
+            if np.isnan(out.at[idx, "threshold_high"]):
+                hi = 1.0
+            else:
+                hi_cell = float(np.clip(cell_cal.predict([f_hi[idx]])[0], 1e-6, 1 - 1e-6)) if cell_cal is not None else None
+                hi_prior = float(np.clip(prior_cal.predict([f_hi[idx]])[0], 1e-6, 1 - 1e-6))
+                hi = hi_prior if hi_cell is None else float(np.clip(w * hi_cell + (1.0 - w) * hi_prior, 1e-6, 1 - 1e-6))
+
+            out.at[idx, "model_prob"] = np.clip(hi - lo, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+
         out.drop(columns=[c for c in ["regime_bin", "spread_bin"] if c in out.columns], inplace=True)
     else:
         out["model_prob"] = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
@@ -1336,6 +1394,7 @@ def main() -> None:
         "E13_neural_synthesis_mlp",
         "E14_distributional_neural_nll",
         "E15_conditional_calibration_spread_regime",
+        "E16_conditional_calibration_shrunk",
     ]
 
     full_rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
@@ -1346,17 +1405,17 @@ def main() -> None:
     by_model = {row["model"]: row for row in full_rows}
 
     summary = pd.DataFrame(rows).sort_values("overall_model_brier").reset_index(drop=True)
-    summary.to_csv(OUT_ROOT / "e0_e14_benchmark_summary.csv", index=False)
+    summary.to_csv(OUT_ROOT / "e0_e16_benchmark_summary.csv", index=False)
 
     top_model_name = summary.iloc[0]["model"]
     top_df = _apply_variant(base_df, top_model_name, cfg)
     gating_df = _run_edge_quality_gating(top_df, top_model_name)
     gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results.csv", index=False)
 
-    challenger_name = "E14_distributional_neural_nll"
+    challenger_name = "E16_conditional_calibration_shrunk"
     challenger_df = _apply_variant(base_df, challenger_name, cfg)
     challenger_gating_df = _run_edge_quality_gating(challenger_df, challenger_name)
-    challenger_gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results_e14.csv", index=False)
+    challenger_gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results_e16.csv", index=False)
     paper_gate = _build_paper_trading_gate_report(
         top_model_name,
         summary,
@@ -1383,7 +1442,7 @@ def main() -> None:
                 "calibration_period": "2023",
                 "benchmark_period": "2023-2025",
                 "ev_gating_results": "ev_edge_quality_gating_results.csv",
-                "ev_gating_results_e14": "ev_edge_quality_gating_results_e14.csv",
+                "ev_gating_results_e16": "ev_edge_quality_gating_results_e16.csv",
                 "contract_timesafe_audit": "contract_and_timesafe_audit.json",
                 "paper_trading_gate": "paper_trading_gate_report.json",
             },
@@ -1395,13 +1454,13 @@ def main() -> None:
         json.dump(cfg["contract_audit"], f, indent=2)
 
     with open(OUT_ROOT / "README.md", "w", encoding="utf-8") as f:
-        f.write("# E0-E15 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
+        f.write("# E0-E16 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
         f.write(summary.to_string(index=False))
         f.write("\n\n## Top 2\n\n")
         f.write(top2.to_string(index=False))
         f.write("\n\n## EV-aware dynamic edge gating (best-Brier model)\n\n")
         f.write(gating_df.to_string(index=False))
-        f.write("\n\n## EV-aware dynamic edge gating (E14 distributional neural challenger)\n\n")
+        f.write("\n\n## EV-aware dynamic edge gating (E16 shrunk-conditional-calibration challenger)\n\n")
         f.write(challenger_gating_df.to_string(index=False))
         f.write("\n\n## Contract/time-safe audit\n\n")
         f.write(json.dumps(cfg["contract_audit"], indent=2))
@@ -1410,7 +1469,7 @@ def main() -> None:
         f.write("\n")
 
     print("Saved:")
-    print(f"  - {OUT_ROOT / 'e0_e14_benchmark_summary.csv'}")
+    print(f"  - {OUT_ROOT / 'e0_e16_benchmark_summary.csv'}")
     print(f"  - {OUT_ROOT / 'top2_benchmark_summary.csv'}")
 
 
