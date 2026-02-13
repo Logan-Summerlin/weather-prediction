@@ -13,7 +13,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
+from sklearn.neural_network import MLPClassifier
 
 import importlib.util
 
@@ -64,6 +66,7 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
 
     # Lightweight synthesis-stacker fit using calibration-year only data.
     stacker = _fit_synthesis_stacker(base_df[base_df["date_dt"].dt.year == 2023].copy())
+    neural_stacker = _fit_neural_synthesis_stacker(base_df[base_df["date_dt"].dt.year == 2023].copy())
 
     # Capacity sweep multipliers (small regularized search on calibration year).
     capacity = _fit_capacity_sweep(calib)
@@ -78,6 +81,7 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
         "resid_scale": resid_scale,
         "conditional_cal": _fit_conditional_calibration(calib),
         "synthesis_stacker": stacker,
+        "neural_synthesis_stacker": neural_stacker,
         "capacity_sweep": capacity,
         "contract_audit": _build_contract_and_timesafe_audit(base_df),
     }
@@ -236,6 +240,124 @@ def _fit_capacity_sweep(calib: pd.DataFrame) -> dict[str, float]:
                     best = {"resid_gain": float(rg), "sigma_gain": float(sg), "global_scale": float(gs)}
     return best
 
+
+
+def _fit_neural_synthesis_stacker(calib: pd.DataFrame) -> dict[str, object]:
+    """Fit chronology-safe MLP synthesis stacker with isotonic post-calibration."""
+    frame = calib.copy()
+    frame["model_prob"] = bench.compute_bucket_probs(frame, "model_mu", "model_sigma")
+    frame["nws_prob"] = bench.compute_bucket_probs(frame, "nws_mu", "nws_sigma")
+    frame[["model_prob", "nws_prob", "presettlement_prob"]] = frame[[
+        "model_prob",
+        "nws_prob",
+        "presettlement_prob",
+    ]].clip(bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    y = frame["actual_outcome"].values.astype(float)
+
+    state = _build_market_state_features(frame)
+    m = frame["model_prob"].values
+    n = frame["nws_prob"].values
+    k = frame["presettlement_prob"].values
+    s = state["sigma_norm"].values
+    spread = state["spread"].values
+    depth = state["depth"].values
+    stale = state["stale_norm"].values
+
+    X = np.column_stack([
+        m,
+        n,
+        k,
+        m - k,
+        m - n,
+        n - k,
+        spread,
+        s,
+        depth,
+        stale,
+        m * (1.0 - spread),
+        m * (1.0 - s),
+        (m - k) * depth,
+    ])
+
+    n_total = len(frame)
+    n_train = int(n_total * 0.60)
+    n_val = int(n_total * 0.20)
+    train_idx = slice(0, n_train)
+    val_idx = slice(n_train, n_train + n_val)
+    cal_idx = slice(n_train + n_val, n_total)
+
+    X_train, y_train = X[train_idx], y[train_idx]
+    X_val, y_val = X[val_idx], y[val_idx]
+    X_cal, y_cal = X[cal_idx], y[cal_idx]
+
+    mu = X_train.mean(axis=0)
+    sd = X_train.std(axis=0)
+    sd = np.where(sd < 1e-6, 1.0, sd)
+    X_train_z = (X_train - mu) / sd
+    X_val_z = (X_val - mu) / sd
+    X_cal_z = (X_cal - mu) / sd
+
+    best = None
+    best_brier = float("inf")
+    configs = [
+        ((16,), 1e-3),
+        ((32,), 1e-3),
+        ((32, 16), 1e-3),
+        ((64, 32), 3e-3),
+    ]
+    for hidden, alpha in configs:
+        clf = MLPClassifier(
+            hidden_layer_sizes=hidden,
+            activation="relu",
+            alpha=alpha,
+            learning_rate_init=1e-3,
+            max_iter=800,
+            random_state=42,
+            early_stopping=False,
+        )
+        clf.fit(X_train_z, y_train)
+        val_pred = np.clip(clf.predict_proba(X_val_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+        val_brier = float(np.mean((val_pred - y_val) ** 2))
+        if val_brier < best_brier:
+            best_brier = val_brier
+            best = clf
+
+    assert best is not None
+    cal_raw = np.clip(best.predict_proba(X_cal_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    iso = IsotonicRegression(y_min=bench.PROB_CLIP_MIN, y_max=bench.PROB_CLIP_MAX, out_of_bounds="clip")
+    iso.fit(cal_raw, y_cal)
+
+    cal_calibrated = np.clip(iso.predict(cal_raw), bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+
+    return {
+        "feature_mean": mu.tolist(),
+        "feature_std": sd.tolist(),
+        "coefs": [w.tolist() for w in best.coefs_],
+        "intercepts": [b.tolist() for b in best.intercepts_],
+        "hidden_layers": list(best.hidden_layer_sizes),
+        "activation": best.activation,
+        "isotonic_x": iso.X_thresholds_.tolist(),
+        "isotonic_y": iso.y_thresholds_.tolist(),
+        "features": [
+            "model_prob",
+            "nws_prob",
+            "presettlement_prob",
+            "model_minus_market",
+            "model_minus_nws",
+            "nws_minus_market",
+            "spread",
+            "sigma_norm",
+            "depth",
+            "stale_norm",
+            "model_liquidity",
+            "model_confidence",
+            "edge_depth",
+        ],
+        "sigma_p05": float(state["sigma_p05"].iloc[0]),
+        "sigma_p95": float(state["sigma_p95"].iloc[0]),
+        "validation_brier": best_brier,
+        "calibration_window_brier": float(np.mean((cal_calibrated - y_cal) ** 2)),
+    }
 
 def _build_contract_and_timesafe_audit(df: pd.DataFrame) -> dict[str, object]:
     """Build audit metadata for contract alignment + time-safe live data checks."""
@@ -494,6 +616,8 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         offs = np.array([cfg["offset_by_season"].get(s, cfg["offset_global"]) for s in season])
         mu = mu + cap["resid_gain"] * offs
         sigma = np.clip(sigma * cap["sigma_gain"] * cap["global_scale"], 0.5, 15.0)
+    elif variant == "E13_neural_synthesis_mlp":
+        pass
     else:
         raise ValueError(variant)
 
@@ -602,6 +726,45 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         logits = z @ beta + float(stack["intercept"])
         pred = 1.0 / (1.0 + np.exp(-np.clip(logits, -30.0, 30.0)))
         out["model_prob"] = np.clip(pred, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    elif variant == "E13_neural_synthesis_mlp":
+        stack = cfg["neural_synthesis_stacker"]
+        model_prob = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
+        nws_prob = bench.compute_bucket_probs(out, "nws_mu", "nws_sigma")
+        market_prob = out["presettlement_prob"].values
+        state = _build_market_state_features(out, sigma_p05=stack["sigma_p05"], sigma_p95=stack["sigma_p95"])
+        spread = state["spread"].values
+        s = state["sigma_norm"].values
+        depth = state["depth"].values
+        stale = state["stale_norm"].values
+
+        x = np.column_stack([
+            model_prob,
+            nws_prob,
+            market_prob,
+            model_prob - market_prob,
+            model_prob - nws_prob,
+            nws_prob - market_prob,
+            spread,
+            s,
+            depth,
+            stale,
+            model_prob * (1.0 - spread),
+            model_prob * (1.0 - s),
+            (model_prob - market_prob) * depth,
+        ])
+        x = (x - np.array(stack["feature_mean"])) / np.array(stack["feature_std"])
+
+        acts = x
+        for i, (w, b) in enumerate(zip(stack["coefs"], stack["intercepts"])):
+            acts = acts @ np.array(w) + np.array(b)
+            if i < len(stack["coefs"]) - 1:
+                acts = np.maximum(acts, 0.0)
+        raw = 1.0 / (1.0 + np.exp(-np.clip(acts.reshape(-1), -30.0, 30.0)))
+
+        iso_x = np.array(stack["isotonic_x"])
+        iso_y = np.array(stack["isotonic_y"])
+        out["model_prob"] = np.interp(np.clip(raw, iso_x.min(), iso_x.max()), iso_x, iso_y)
+        out["model_prob"] = np.clip(out["model_prob"], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
     else:
         out["model_prob"] = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
 
@@ -919,6 +1082,7 @@ def main() -> None:
         "E10_wga_mdn_regime_mixture",
         "E11_synthesis_stacker_market_aware",
         "E12_capacity_sweep_residual_synthesis",
+        "E13_neural_synthesis_mlp",
     ]
 
     full_rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
@@ -929,12 +1093,17 @@ def main() -> None:
     by_model = {row["model"]: row for row in full_rows}
 
     summary = pd.DataFrame(rows).sort_values("overall_model_brier").reset_index(drop=True)
-    summary.to_csv(OUT_ROOT / "e0_e12_benchmark_summary.csv", index=False)
+    summary.to_csv(OUT_ROOT / "e0_e13_benchmark_summary.csv", index=False)
 
     top_model_name = summary.iloc[0]["model"]
     top_df = _apply_variant(base_df, top_model_name, cfg)
     gating_df = _run_edge_quality_gating(top_df, top_model_name)
     gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results.csv", index=False)
+
+    challenger_name = "E13_neural_synthesis_mlp"
+    challenger_df = _apply_variant(base_df, challenger_name, cfg)
+    challenger_gating_df = _run_edge_quality_gating(challenger_df, challenger_name)
+    challenger_gating_df.to_csv(OUT_ROOT / "ev_edge_quality_gating_results_e13.csv", index=False)
     paper_gate = _build_paper_trading_gate_report(
         top_model_name,
         summary,
@@ -961,6 +1130,7 @@ def main() -> None:
                 "calibration_period": "2023",
                 "benchmark_period": "2023-2025",
                 "ev_gating_results": "ev_edge_quality_gating_results.csv",
+                "ev_gating_results_e13": "ev_edge_quality_gating_results_e13.csv",
                 "contract_timesafe_audit": "contract_and_timesafe_audit.json",
                 "paper_trading_gate": "paper_trading_gate_report.json",
             },
@@ -972,12 +1142,14 @@ def main() -> None:
         json.dump(cfg["contract_audit"], f, indent=2)
 
     with open(OUT_ROOT / "README.md", "w", encoding="utf-8") as f:
-        f.write("# E0-E12 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
+        f.write("# E0-E13 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
         f.write(summary.to_string(index=False))
         f.write("\n\n## Top 2\n\n")
         f.write(top2.to_string(index=False))
         f.write("\n\n## EV-aware dynamic edge gating (best-Brier model)\n\n")
         f.write(gating_df.to_string(index=False))
+        f.write("\n\n## EV-aware dynamic edge gating (E13 neural synthesis challenger)\n\n")
+        f.write(challenger_gating_df.to_string(index=False))
         f.write("\n\n## Contract/time-safe audit\n\n")
         f.write(json.dumps(cfg["contract_audit"], indent=2))
         f.write("\n\n## Paper-trading gate report\n\n")
@@ -985,7 +1157,7 @@ def main() -> None:
         f.write("\n")
 
     print("Saved:")
-    print(f"  - {OUT_ROOT / 'e0_e12_benchmark_summary.csv'}")
+    print(f"  - {OUT_ROOT / 'e0_e13_benchmark_summary.csv'}")
     print(f"  - {OUT_ROOT / 'top2_benchmark_summary.csv'}")
 
 

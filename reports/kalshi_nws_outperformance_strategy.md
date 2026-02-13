@@ -578,3 +578,62 @@ Run command:
 - [ ] Advance E11 from trainable logistic stacker to full neural synthesis layer trained with distribution-aware objectives and calibration holdout.
 - [ ] Reconcile improved Brier with persistently negative post-cost EV (execution redesign and fill realism still required).
 - [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).
+
+### Implemented in this sprint (Phase B neural synthesis advancement)
+
+15. **Neural synthesis stacker (MLP + isotonic) integrated into benchmark harness (Phase B.2 advancement)**
+   - Added `E13_neural_synthesis_mlp` to `scripts/run_e0_e8_best_model_benchmark.py`.
+   - Implemented chronology-safe three-way split inside calibration year (2023):
+     - early 60% train neural stacker,
+     - next 20% hyperparameter selection,
+     - final 20% isotonic post-calibration.
+   - Feature set extends E11 state-aware blending with nonlinear interactions over:
+     - model/NWS/market probabilities,
+     - spread, uncertainty (`sigma_norm`), depth, staleness,
+     - liquidity/confidence interaction terms.
+   - Added dedicated EV gating artifact for the neural challenger:
+     - `results/prediction_market_benchmark/e0_e8_best_model_base/ev_edge_quality_gating_results_e13.csv`.
+
+### Results from neural synthesis run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast/Brier impact
+- `E13_neural_synthesis_mlp` ranked #2 overall in E0–E13 summary:
+  - Overall model Brier: **0.1168424**
+  - OOS model Brier: **0.1048905**
+- Relative to E11:
+  - Slightly worse overall Brier (E11: 0.1165790),
+  - Slightly better OOS Brier (E11: 0.1053637).
+
+Interpretation:
+- Nonlinear synthesis captured incremental OOS probability quality beyond linear trainable stacking, while preserving strong outperformance vs pre-settlement on Brier.
+
+#### Calibration / trading impact
+- E13 model ECE improved versus E11 but remains slightly above gate:
+  - E13 ECE: **0.03157** (gate: 0.03; E11 was ~0.03585).
+- Standard threshold trading (Model_OOS) best net P&L:
+  - **-4.55** at threshold 0.20.
+- EV-aware gated OOS best cut (`quality_cut=0.06`):
+  - net P&L **-3.87**, ROI **-11.14%**, CI **[-6.66, -0.91]**.
+
+Interpretation:
+- Neural synthesis improved OOS Brier and ECE relative to E11, but post-cost EV remains negative with CI still below zero.
+
+### Updated outstanding task list status (post E13 neural synthesis integration)
+
+#### Phase B
+- [~] WGA-MDN model training/evaluation integration in benchmark harness. *(proxy mixture variant E10 implemented; full trainable WGA-MDN with wind-gated station inputs still pending)*
+- [~] Synthesis-Stacker with market-state inputs. *(trainable logistic E11 + neural MLP E13 implemented; full distributional neural synthesis path still pending)*
+- [x] Conditional calibration grid prototype.
+- [~] Capacity sweep for residual + synthesis backbones under strict calibration gates. *(E12 residual/sigma sweep implemented; deeper backbone sweep still pending)*
+- [ ] Station expansion ablation ladder.
+- [ ] Data-history extension run.
+- [ ] AVN/ETA MOS backfill feasibility implementation.
+
+#### Remaining highest-priority gaps (updated)
+- [ ] Build fully trainable WGA-MDN path (not proxy) with strict chronological OOS validation and explicit station-input lineage.
+- [ ] Add distributional neural synthesis objective (CRPS/NLL over full contract CDF), not just bucket-probability classification.
+- [ ] Reconcile improved Brier with persistently negative post-cost EV (execution redesign + fill realism still required).
+- [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).

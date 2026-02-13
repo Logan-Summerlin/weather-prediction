@@ -13,15 +13,17 @@
     "E9_conditional_calibration_grid",
     "E10_wga_mdn_regime_mixture",
     "E11_synthesis_stacker_market_aware",
-    "E12_capacity_sweep_residual_synthesis"
+    "E12_capacity_sweep_residual_synthesis",
+    "E13_neural_synthesis_mlp"
   ],
   "top2": [
     "E11_synthesis_stacker_market_aware",
-    "E3_weighted_ensemble_E4_uncertainty"
+    "E13_neural_synthesis_mlp"
   ],
   "calibration_period": "2023",
   "benchmark_period": "2023-2025",
   "ev_gating_results": "ev_edge_quality_gating_results.csv",
+  "ev_gating_results_e13": "ev_edge_quality_gating_results_e13.csv",
   "contract_timesafe_audit": "contract_and_timesafe_audit.json",
   "paper_trading_gate": "paper_trading_gate_report.json"
 }
