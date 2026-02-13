@@ -1,0 +1,254 @@
+{
+  "architecture_ablation": {
+    "wga_v2_full": {
+      "description": "4-head + 3-layer encoder + lag-2 features (full V2)",
+      "ensemble_test": {
+        "mae": 2.0575,
+        "rmse": 2.7046,
+        "r2": 0.9722,
+        "mae_DJF": 2.2044,
+        "mae_MAM": 2.3515,
+        "mae_JJA": 1.8977,
+        "mae_SON": 1.7758
+      },
+      "ensemble_val": {
+        "mae": 2.1336,
+        "rmse": 2.8406,
+        "r2": 0.9734,
+        "mae_DJF": 2.325,
+        "mae_MAM": 2.493,
+        "mae_JJA": 1.7734,
+        "mae_SON": 1.9445
+      },
+      "pi_coverage_95": 0.9453,
+      "pi_avg_width": 10.96,
+      "n_params": 42668,
+      "n_stations": 47,
+      "n_station_features": 9,
+      "n_heads": 4,
+      "encoder_depth": 3,
+      "use_lag2": true,
+      "per_seed_test_mae": {
+        "42": 2.0707,
+        "123": 2.0883,
+        "456": 2.0976,
+        "789": 2.0978,
+        "2024": 2.0828
+      }
+    },
+    "wga_v2_multihead_only": {
+      "description": "4-head + 2-layer encoder + original 6 features",
+      "ensemble_test": {
+        "mae": 2.0545,
+        "rmse": 2.7221,
+        "r2": 0.9719,
+        "mae_DJF": 2.2501,
+        "mae_MAM": 2.3661,
+        "mae_JJA": 1.8847,
+        "mae_SON": 1.7164
+      },
+      "ensemble_val": {
+        "mae": 2.1362,
+        "rmse": 2.8494,
+        "r2": 0.9733,
+        "mae_DJF": 2.3155,
+        "mae_MAM": 2.5406,
+        "mae_JJA": 1.7912,
+        "mae_SON": 1.8983
+      },
+      "pi_coverage_95": 0.9521,
+      "pi_avg_width": 11.0,
+      "n_params": 38124,
+      "n_stations": 47,
+      "n_station_features": 6,
+      "n_heads": 4,
+      "encoder_depth": 2,
+      "use_lag2": false,
+      "per_seed_test_mae": {
+        "42": 2.0774,
+        "123": 2.0877,
+        "456": 2.0967,
+        "789": 2.0671,
+        "2024": 2.096
+      }
+    },
+    "wga_v2_deep_only": {
+      "description": "1-head + 3-layer encoder + original 6 features",
+      "ensemble_test": {
+        "mae": 2.0648,
+        "rmse": 2.7243,
+        "r2": 0.9718,
+        "mae_DJF": 2.2278,
+        "mae_MAM": 2.3424,
+        "mae_JJA": 1.908,
+        "mae_SON": 1.7806
+      },
+      "ensemble_val": {
+        "mae": 2.1824,
+        "rmse": 2.9216,
+        "r2": 0.9719,
+        "mae_DJF": 2.3961,
+        "mae_MAM": 2.5351,
+        "mae_JJA": 1.8169,
+        "mae_SON": 1.9829
+      },
+      "pi_coverage_95": 0.9508,
+      "pi_avg_width": 11.3,
+      "n_params": 17865,
+      "n_stations": 47,
+      "n_station_features": 6,
+      "n_heads": 1,
+      "encoder_depth": 3,
+      "use_lag2": false,
+      "per_seed_test_mae": {
+        "42": 2.0735,
+        "123": 2.0533,
+        "456": 2.0595,
+        "789": 2.1029,
+        "2024": 2.0849
+      }
+    },
+    "wga_v2_lag2_only": {
+      "description": "1-head + 2-layer encoder + lag-2 features",
+      "ensemble_test": {
+        "mae": 2.0656,
+        "rmse": 2.7286,
+        "r2": 0.9718,
+        "mae_DJF": 2.1924,
+        "mae_MAM": 2.3862,
+        "mae_JJA": 1.8848,
+        "mae_SON": 1.7983
+      },
+      "ensemble_val": {
+        "mae": 2.1535,
+        "rmse": 2.8766,
+        "r2": 0.9728,
+        "mae_DJF": 2.3458,
+        "mae_MAM": 2.4974,
+        "mae_JJA": 1.7937,
+        "mae_SON": 1.9786
+      },
+      "pi_coverage_95": 0.9412,
+      "pi_avg_width": 11.12,
+      "n_params": 14089,
+      "n_stations": 47,
+      "n_station_features": 9,
+      "n_heads": 1,
+      "encoder_depth": 2,
+      "use_lag2": true,
+      "per_seed_test_mae": {
+        "42": 2.0991,
+        "123": 2.0803,
+        "456": 2.0492,
+        "789": 2.0869,
+        "2024": 2.0763
+      }
+    }
+  },
+  "station_ablation": {
+    "top_10": {
+      "n_stations": 10,
+      "stations": [
+        "USW00014732",
+        "USW00094741",
+        "USW00014734",
+        "USW00094789",
+        "USW00054743",
+        "USW00094745",
+        "USW00054787",
+        "USW00054785",
+        "USW00054779",
+        "USW00054793"
+      ],
+      "test_mae": 2.0978,
+      "test_rmse": 2.7787,
+      "test_r2": 0.9707,
+      "val_mae": 2.1602,
+      "pi_coverage_95": 0.9412,
+      "n_params": 38124
+    },
+    "top_20": {
+      "n_stations": 20,
+      "stations": [
+        "USW00014732",
+        "USW00094741",
+        "USW00014734",
+        "USW00094789",
+        "USW00054743",
+        "USW00094745",
+        "USW00054787",
+        "USW00054785",
+        "USW00054779",
+        "USW00054793",
+        "USW00004781",
+        "USW00054734",
+        "USW00094702",
+        "USW00004789",
+        "USW00014792",
+        "USW00054790",
+        "USW00014757",
+        "USW00014758",
+        "USW00054786",
+        "USW00014719"
+      ],
+      "test_mae": 2.0921,
+      "test_rmse": 2.7729,
+      "test_r2": 0.9708,
+      "val_mae": 2.1691,
+      "pi_coverage_95": 0.9439,
+      "n_params": 38124
+    },
+    "top_30": {
+      "n_stations": 30,
+      "stations": [
+        "USW00014732",
+        "USW00094741",
+        "USW00014734",
+        "USW00094789",
+        "USW00054743",
+        "USW00094745",
+        "USW00054787",
+        "USW00054785",
+        "USW00054779",
+        "USW00054793",
+        "USW00004781",
+        "USW00054734",
+        "USW00094702",
+        "USW00004789",
+        "USW00014792",
+        "USW00054790",
+        "USW00014757",
+        "USW00014758",
+        "USW00054786",
+        "USW00014719",
+        "USW00094732",
+        "USW00093780",
+        "USW00054789",
+        "USW00014737",
+        "USW00013739",
+        "USW00054782",
+        "USW00093730",
+        "USW00014777",
+        "USW00013724",
+        "USW00014740"
+      ],
+      "test_mae": 2.1106,
+      "test_rmse": 2.7791,
+      "test_r2": 0.9707,
+      "val_mae": 2.1727,
+      "pi_coverage_95": 0.9439,
+      "n_params": 38124
+    },
+    "all_47": {
+      "n_stations": 47,
+      "test_mae": 2.0774,
+      "test_rmse": 2.7475,
+      "test_r2": 0.9714,
+      "val_mae": 2.2047,
+      "pi_coverage_95": 0.9508,
+      "n_params": 38124
+    }
+  },
+  "best_config": "wga_v2_multihead_only",
+  "best_test_mae": 2.0545
+}

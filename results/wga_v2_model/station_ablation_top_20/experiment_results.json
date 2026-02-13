@@ -1,0 +1,64 @@
+{
+  "seed_42_train": {
+    "mae": 2.2239,
+    "rmse": 2.9321,
+    "r2": 0.9739,
+    "mae_DJF": 2.4259,
+    "mae_MAM": 2.7311,
+    "mae_JJA": 1.8716,
+    "mae_SON": 1.8951
+  },
+  "seed_42_val": {
+    "mae": 2.1691,
+    "rmse": 2.9075,
+    "r2": 0.9722,
+    "mae_DJF": 2.3376,
+    "mae_MAM": 2.5473,
+    "mae_JJA": 1.8274,
+    "mae_SON": 1.9647
+  },
+  "seed_42_test": {
+    "mae": 2.0921,
+    "rmse": 2.7729,
+    "r2": 0.9708,
+    "mae_DJF": 2.1746,
+    "mae_MAM": 2.446,
+    "mae_JJA": 1.9331,
+    "mae_SON": 1.813
+  },
+  "ensemble_train": {
+    "mae": 2.2239,
+    "rmse": 2.9321,
+    "r2": 0.9739,
+    "mae_DJF": 2.4259,
+    "mae_MAM": 2.7311,
+    "mae_JJA": 1.8716,
+    "mae_SON": 1.8951
+  },
+  "ensemble_val": {
+    "mae": 2.1691,
+    "rmse": 2.9075,
+    "r2": 0.9722,
+    "mae_DJF": 2.3376,
+    "mae_MAM": 2.5473,
+    "mae_JJA": 1.8274,
+    "mae_SON": 1.9647
+  },
+  "ensemble_test": {
+    "mae": 2.0921,
+    "rmse": 2.7729,
+    "r2": 0.9708,
+    "mae_DJF": 2.1746,
+    "mae_MAM": 2.446,
+    "mae_JJA": 1.9331,
+    "mae_SON": 1.813
+  },
+  "pi_coverage_95": 0.9439,
+  "pi_avg_width": 11.21,
+  "n_params": 38124,
+  "n_stations": 20,
+  "n_station_features": 6,
+  "n_heads": 4,
+  "encoder_depth": 2,
+  "use_lag2": false
+}

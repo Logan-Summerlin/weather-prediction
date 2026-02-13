@@ -1,0 +1,6 @@
+variant,base_cut,n_trades,net_pnl,roi_pct,win_rate,sharpe,pnl_ci95_low,pnl_ci95_high
+E41_wga_v2_flat_ensemble,0.02,1564,-71.95,-12.95,0.3325,-0.1428,-92.66,-48.68
+E41_wga_v2_flat_ensemble,0.03,1457,-61.48,-11.95,0.3342,-0.1293,-82.13,-39.15
+E41_wga_v2_flat_ensemble,0.04,1382,-58.5,-12.05,0.3321,-0.1289,-80.4,-36.43
+E41_wga_v2_flat_ensemble,0.05,1292,-54.92,-12.08,0.3328,-0.128,-75.8,-31.34
+E41_wga_v2_flat_ensemble,0.06,1222,-52.37,-12.05,0.3363,-0.1277,-72.94,-30.98

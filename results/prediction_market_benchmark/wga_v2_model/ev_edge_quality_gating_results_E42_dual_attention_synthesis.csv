@@ -1,0 +1,6 @@
+variant,base_cut,n_trades,net_pnl,roi_pct,win_rate,sharpe,pnl_ci95_low,pnl_ci95_high
+E42_dual_attention_synthesis,0.02,1022,-48.7,-7.85,0.6018,-0.136,-75.4,-22.81
+E42_dual_attention_synthesis,0.03,825,-36.88,-7.4,0.6012,-0.1226,-62.95,-13.33
+E42_dual_attention_synthesis,0.04,673,-29.63,-7.31,0.6003,-0.119,-52.18,-7.3
+E42_dual_attention_synthesis,0.05,557,-22.35,-6.68,0.6032,-0.1063,-40.52,-1.48
+E42_dual_attention_synthesis,0.06,451,-19.3,-7.31,0.5831,-0.1108,-37.76,-1.51

@@ -1,0 +1,6 @@
+variant,base_cut,n_trades,net_pnl,roi_pct,win_rate,sharpe,pnl_ci95_low,pnl_ci95_high
+E39_deep_only_synthesis,0.02,1068,-51.59,-13.26,0.3399,-0.1401,-73.59,-31.1
+E39_deep_only_synthesis,0.03,889,-40.29,-12.69,0.3352,-0.1286,-62.38,-17.09
+E39_deep_only_synthesis,0.04,703,-31.43,-12.81,0.3272,-0.1227,-52.29,-10.16
+E39_deep_only_synthesis,0.05,587,-26.54,-12.6,0.3373,-0.1203,-46.19,-6.87
+E39_deep_only_synthesis,0.06,483,-22.07,-13.2,0.323,-0.1213,-39.0,-4.32
