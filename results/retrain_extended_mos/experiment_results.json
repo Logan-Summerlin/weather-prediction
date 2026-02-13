@@ -1,0 +1,218 @@
+{
+  "E_seed_42_train": {
+    "mae": 2.0809,
+    "rmse": 2.7695,
+    "r2": 0.9765,
+    "mae_DJF": 2.2463,
+    "mae_MAM": 2.5031,
+    "mae_JJA": 1.7897,
+    "mae_SON": 1.8055
+  },
+  "E_seed_42_val": {
+    "mae": 2.0488,
+    "rmse": 2.748,
+    "r2": 0.9735,
+    "mae_DJF": 2.4371,
+    "mae_MAM": 2.0886,
+    "mae_JJA": 1.843,
+    "mae_SON": 1.8327
+  },
+  "E_seed_42_test": {
+    "mae": 2.0589,
+    "rmse": 2.6472,
+    "r2": 0.976,
+    "mae_DJF": 2.2114,
+    "mae_MAM": 2.6691,
+    "mae_JJA": 1.7423,
+    "mae_SON": 1.6095
+  },
+  "E_seed_42_oos": {
+    "mae": 2.069,
+    "rmse": 2.7204,
+    "r2": 0.9783,
+    "mae_DJF": 2.0185,
+    "mae_MAM": 2.8221,
+    "mae_JJA": 1.6537,
+    "mae_SON": 1.7774
+  },
+  "E_seed_123_train": {
+    "mae": 2.0071,
+    "rmse": 2.678,
+    "r2": 0.978,
+    "mae_DJF": 2.0922,
+    "mae_MAM": 2.4042,
+    "mae_JJA": 1.7824,
+    "mae_SON": 1.7667
+  },
+  "E_seed_123_val": {
+    "mae": 2.0285,
+    "rmse": 2.7351,
+    "r2": 0.9737,
+    "mae_DJF": 2.296,
+    "mae_MAM": 2.1367,
+    "mae_JJA": 1.8736,
+    "mae_SON": 1.8113
+  },
+  "E_seed_123_test": {
+    "mae": 2.018,
+    "rmse": 2.6359,
+    "r2": 0.9762,
+    "mae_DJF": 2.0511,
+    "mae_MAM": 2.6589,
+    "mae_JJA": 1.7474,
+    "mae_SON": 1.6107
+  },
+  "E_seed_123_oos": {
+    "mae": 2.0052,
+    "rmse": 2.6598,
+    "r2": 0.9793,
+    "mae_DJF": 1.8665,
+    "mae_MAM": 2.7757,
+    "mae_JJA": 1.6455,
+    "mae_SON": 1.7271
+  },
+  "E_seed_456_train": {
+    "mae": 1.9952,
+    "rmse": 2.6703,
+    "r2": 0.9781,
+    "mae_DJF": 2.0968,
+    "mae_MAM": 2.3918,
+    "mae_JJA": 1.7502,
+    "mae_SON": 1.7596
+  },
+  "E_seed_456_val": {
+    "mae": 2.0457,
+    "rmse": 2.7704,
+    "r2": 0.973,
+    "mae_DJF": 2.3831,
+    "mae_MAM": 2.1472,
+    "mae_JJA": 1.8546,
+    "mae_SON": 1.8028
+  },
+  "E_seed_456_test": {
+    "mae": 1.9951,
+    "rmse": 2.6054,
+    "r2": 0.9768,
+    "mae_DJF": 2.0218,
+    "mae_MAM": 2.657,
+    "mae_JJA": 1.7381,
+    "mae_SON": 1.559
+  },
+  "E_seed_456_oos": {
+    "mae": 2.0018,
+    "rmse": 2.6791,
+    "r2": 0.979,
+    "mae_DJF": 1.8204,
+    "mae_MAM": 2.8789,
+    "mae_JJA": 1.6164,
+    "mae_SON": 1.6841
+  },
+  "E_seed_789_train": {
+    "mae": 1.9641,
+    "rmse": 2.6317,
+    "r2": 0.9788,
+    "mae_DJF": 2.0601,
+    "mae_MAM": 2.3554,
+    "mae_JJA": 1.7172,
+    "mae_SON": 1.741
+  },
+  "E_seed_789_val": {
+    "mae": 2.0429,
+    "rmse": 2.7287,
+    "r2": 0.9739,
+    "mae_DJF": 2.3551,
+    "mae_MAM": 2.1215,
+    "mae_JJA": 1.8646,
+    "mae_SON": 1.835
+  },
+  "E_seed_789_test": {
+    "mae": 2.0519,
+    "rmse": 2.6658,
+    "r2": 0.9757,
+    "mae_DJF": 2.0102,
+    "mae_MAM": 2.8097,
+    "mae_JJA": 1.7647,
+    "mae_SON": 1.618
+  },
+  "E_seed_789_oos": {
+    "mae": 2.036,
+    "rmse": 2.6959,
+    "r2": 0.9787,
+    "mae_DJF": 1.8309,
+    "mae_MAM": 2.9121,
+    "mae_JJA": 1.6484,
+    "mae_SON": 1.7449
+  },
+  "E_seed_2024_train": {
+    "mae": 2.0641,
+    "rmse": 2.7481,
+    "r2": 0.9768,
+    "mae_DJF": 2.1819,
+    "mae_MAM": 2.4831,
+    "mae_JJA": 1.8123,
+    "mae_SON": 1.7983
+  },
+  "E_seed_2024_val": {
+    "mae": 2.0303,
+    "rmse": 2.7441,
+    "r2": 0.9736,
+    "mae_DJF": 2.3048,
+    "mae_MAM": 2.1534,
+    "mae_JJA": 1.876,
+    "mae_SON": 1.7903
+  },
+  "E_seed_2024_test": {
+    "mae": 2.0109,
+    "rmse": 2.6251,
+    "r2": 0.9764,
+    "mae_DJF": 2.0355,
+    "mae_MAM": 2.6549,
+    "mae_JJA": 1.7023,
+    "mae_SON": 1.6472
+  },
+  "E_seed_2024_oos": {
+    "mae": 2.0373,
+    "rmse": 2.7141,
+    "r2": 0.9784,
+    "mae_DJF": 1.8604,
+    "mae_MAM": 2.8506,
+    "mae_JJA": 1.7043,
+    "mae_SON": 1.7265
+  },
+  "E_Ensemble_5seed_train": {
+    "mae": 2.005,
+    "rmse": 2.6779,
+    "r2": 0.978,
+    "mae_DJF": 2.1098,
+    "mae_MAM": 2.4102,
+    "mae_JJA": 1.7577,
+    "mae_SON": 1.7603
+  },
+  "E_Ensemble_5seed_val": {
+    "mae": 2.0173,
+    "rmse": 2.7232,
+    "r2": 0.974,
+    "mae_DJF": 2.3285,
+    "mae_MAM": 2.1088,
+    "mae_JJA": 1.8401,
+    "mae_SON": 1.7962
+  },
+  "E_Ensemble_5seed_test": {
+    "mae": 2.0062,
+    "rmse": 2.6113,
+    "r2": 0.9767,
+    "mae_DJF": 2.0252,
+    "mae_MAM": 2.6765,
+    "mae_JJA": 1.7302,
+    "mae_SON": 1.5886
+  },
+  "E_Ensemble_5seed_oos": {
+    "mae": 2.011,
+    "rmse": 2.6698,
+    "r2": 0.9791,
+    "mae_DJF": 1.8473,
+    "mae_MAM": 2.8344,
+    "mae_JJA": 1.6369,
+    "mae_SON": 1.7187
+  }
+}
