@@ -61,6 +61,16 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 - Geography gap analysis: `reports/station_geography_report.md`
 - ESE gap (LI south shore) confirmed unfillable; SSE ocean gap irreducible
 
+## WGA-MDN Model (2026-02-13) — Prediction Market Benchmark
+- **Wind-Gated Attention + MDN**: `scripts/train_wga_mdn.py`, 47 stations, 13,245 params/seed
+- Test MAE: 2.062°F (ensemble), 95% PI coverage: 95.2%
+- E36_wga_contract_brier: Overall Brier 0.1137, **ECE 0.0088** (best ever), IS Brier 0.1186
+- E36 ties E17 (0.1136) as best overall Brier; attention provides complementary signal to flat model
+- OOS gap to PreSettlement remains ~0.004 (0.1027 vs 0.0988); likely fundamental information limit
+- Remaining levers: station ablation, multi-head attention, end-to-end Brier training
+- Results: `results/wga_mdn_model/`, `results/prediction_market_benchmark/wga_mdn_model/`
+- Strategy doc: `reports/kalshi_nws_outperformance_strategy.md`
+
 ## Active File Reference
 | Category | Key Files |
 |----------|-----------|
@@ -74,6 +84,7 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 | Market proxy | `src/market_proxy.py`, `src/enhanced_market_proxy.py`, `src/mos_market_proxy.py` |
 | Backtest scripts | `scripts/run_max_train_backtest.py`, `scripts/run_mos_backtest.py` |
 | MOS data | `scripts/download_iem_mos.py`, `scripts/validate_mos_quality.py` |
+| WGA-MDN | `scripts/train_wga_mdn.py`, `scripts/run_wga_benchmark.py`, `src/wind_gated_attention.py` |
 | Reports | `reports/nn_pipeline_optimization_report.md`, `reports/mos_integration_report.md` |
 
 ## Cleanup Log (2026-02-10)
