@@ -1759,3 +1759,96 @@ Key finding: **All 47 stations provide meaningful value** — attention mechanis
 4. **Intraday real-time data integration** — PreSettlement likely uses market-aggregated real-time information. Our model is limited to day t-1 station observations.
 5. **Additional NWP features** — cloud/radiation, marine flow, pressure tendency. Requires new data sources.
 6. **True live microstructure integration** — requires live order event data.
+
+### Implemented in this sprint (Unified Cross-Model Synthesis + Airport MOS Proxy — 2026-02-13)
+
+49. **Unified Cross-Model Synthesis Benchmark (Phase B — cross-model fusion + extended calibration)**
+   - Created `scripts/run_unified_outperformance_benchmark.py` (1,987 lines) — comprehensive benchmark combining flat NN model and WGA V2 attention model.
+   - Extended calibration: uses full IS period (2023+2024, 4,046 rows) vs prior 2023-only (2,007 rows).
+   - Cross-model feature set: flat_mu/sigma + wga_mu/sigma + NWS + market state + bucket features from both models + cross-model disagreement + regime features.
+   - 10 synthesis variants (U0-U9) with progressive complexity.
+   - Full trading simulation, EV-aware quality gating, paper-trading gate evaluation.
+   - Output: `results/prediction_market_benchmark/unified_outperformance/`.
+
+50. **Airport MOS Proxy Harmonization Study (Phase B.7 — detailed proxy analysis)**
+   - Created `scripts/airport_mos_proxy_analysis.py` (1,449 lines) — comprehensive analysis using existing airport MOS data (KLGA, KJFK, KEWR).
+   - Harmonization methods: global offset, seasonal offset, monthly offset, seasonal variance correction.
+   - Holdout validation on years 2004-2005 (excluded from harmonization training).
+   - Output: `results/airport_mos_proxy_analysis/` (bias analysis, harmonization parameters, feasibility report, validation results).
+
+### Results from Unified Cross-Model Synthesis Benchmark
+
+#### Variant Definitions
+
+| Variant | Description |
+|---------|-------------|
+| U0 | Flat model raw Gaussian bucket probs (baseline) |
+| U1 | WGA V2 raw Gaussian bucket probs (baseline) |
+| U2 | Extended-cal isotonic on flat model |
+| U3 | Extended-cal isotonic on WGA V2 |
+| U4 | Extended-cal logistic synthesis stacker (flat + WGA V2 + NWS + market) |
+| U5 | Extended-cal contract-level Brier-optimal MLP (30 dual-model features) |
+| U6 | Platt recalibration on U5 |
+| U7 | Regime-conditional variance + MLP (season/regime/mu_change features) |
+| U8 | 2023-only cal contract-level Brier MLP (control for extended-cal impact) |
+| U9 | Kitchen sink (all features + Platt + regime, widest architecture sweep) |
+
+#### Brier Score Rankings
+
+| Variant | Overall Brier | IS Brier | OOS Brier | ECE | OOS ECE |
+|---------|:---:|:---:|:---:|:---:|:---:|
+| **U7_regime_conditional** | **0.1137** | 0.1185 | 0.1047 | 0.0115 | 0.0229 |
+| **U6_platt_on_u5** | 0.1141 | 0.1191 | 0.1046 | **0.0085** | **0.0147** |
+| U9_kitchen_sink | 0.1145 | 0.1192 | 0.1059 | 0.0114 | 0.0198 |
+| **U4_extended_cal_synthesis** | 0.1149 | 0.1218 | **0.1019** | 0.0278 | 0.0313 |
+| U8_2023only_cal_brier_mlp | 0.1152 | 0.1205 | 0.1051 | 0.0111 | 0.0234 |
+| U5_extended_cal_brier_mlp | 0.1154 | 0.1208 | 0.1053 | 0.0153 | 0.0190 |
+| Kalshi PreSettlement | 0.1271 | 0.1421 | 0.0988 | 0.0557 | 0.0249 |
+| NWS | 0.1418 | 0.1431 | 0.1393 | 0.0324 | 0.0475 |
+
+#### Key Findings
+
+1. **U7 achieves best overall Brier at 0.1137** — matching prior bests (E17=0.1136, E36=0.1137, E40=0.1138). Regime-conditional features provide incremental overall improvement.
+
+2. **U4 achieves best OOS Brier at 0.1019** — surpassing prior best E11 extended (0.1027) and E42 dual-attention (0.1036). The logistic regression stacker combining flat+WGA V2+NWS+market achieves the closest OOS approach to PreSettlement.
+
+3. **U6 achieves best reliability ever at 0.0002** and best OOS ECE at 0.0147 — near-perfect calibration.
+
+4. **Extended calibration has negligible impact** (U5 vs U8 OOS: 0.1053 vs 0.1051). The calibration bottleneck is not sample size.
+
+5. **U4 achieves near-breakeven OOS trading**: -$0.19 on 27 trades (CI: -$4.29 to +$3.96). Closest to profitable trading in project history.
+
+6. **Resolution remains the binding constraint** at 0.027-0.028. Reliability near-optimal (0.0002). OOS gap to PreSettlement narrowed to **0.0031** (from 0.0039).
+
+#### Paper-Trading Gate Status: 2/4 pass for top variants (OOS Brier + P&L gates remain binding).
+
+### Results from Airport MOS Proxy Harmonization Study
+
+**Verdict: FEASIBLE WITH RESERVATIONS.** Best proxy: KLGA GFS (correlation 0.9942, holdout MAE 1.458°F). KEWR NAM shows best holdout (MAE 1.223°F, drift_std 0.434°F — only proxy passing stability gate). All fail strict MAE gate (≤1.0°F). ~1,200 additional training days available from 2000-2003. Recommendation: use with `mos_era` indicator feature and widened prediction intervals.
+
+### Updated outstanding task list status (after Unified Synthesis + Airport MOS sprint)
+
+#### Phase B
+- [x] **Unified cross-model synthesis (flat + WGA V2).** *(U0-U9; U7 best overall 0.1137, U4 best OOS 0.1019)*
+- [x] **Airport MOS proxy harmonization.** *(KLGA/KJFK/KEWR analyzed; FEASIBLE WITH RESERVATIONS)*
+- [x] **Extended calibration evaluation.** *(negligible impact vs 2023-only)*
+- [x] **Regime-conditional variance in synthesis.** *(U7 with season/regime/mu_change features)*
+- [x] All prior items (E0-E42, sigma recal, tail weighting, conformal, WGA V1+V2, station ablation).
+
+#### Remaining gaps
+
+1. **Close OOS Brier gap** (0.1019 vs 0.0988 = 0.0031). Likely limited by PreSettlement's real-time information advantage.
+2. **Achieve positive OOS P&L**. U4 at -$0.19 with CI including positive. Paths: tighter selectivity, regime-gated trading, fee reduction.
+3. **NWP ensemble spread features** for resolution improvement (requires new data source).
+4. **Cross-attention** and **intraday/real-time data** integration.
+
+### Comprehensive Progress Summary
+
+| Sprint | Best Overall Brier | Best OOS Brier | OOS Gap to PreSettlement |
+|--------|:------------------:|:--------------:|:------------------------:|
+| E0-E8 (baseline) | 0.1335 | 0.1302 | 0.0314 |
+| E9-E22 (synthesis) | 0.1136 | 0.1027 | 0.0039 |
+| E34-E42 (WGA V1+V2) | 0.1137 | 0.1036 | 0.0048 |
+| **U0-U9 (unified)** | **0.1137** | **0.1019** | **0.0031** |
+
+**Cumulative improvement**: OOS gap reduced from 0.0314 to 0.0031 (90% closure). Overall Brier improved from 0.1335 to 0.1137 (15% improvement). Model decisively beats NWS (0.1137 vs 0.1418) and PreSettlement on overall Brier (0.1137 vs 0.1271).

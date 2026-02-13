@@ -71,6 +71,16 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
   - E42_dual_attention_synthesis: OOS Brier **0.1036** (combines WGA V2 + flat model)
   - Resolution remains binding constraint at ~0.028; likely fundamental information limit
 - Results: `results/wga_v2_model/`, `results/prediction_market_benchmark/wga_v2_model/`
+- **Unified Cross-Model Synthesis (2026-02-13)**: `scripts/run_unified_outperformance_benchmark.py`
+  - U7_regime_conditional: Overall Brier **0.1137**, U4_synthesis: OOS Brier **0.1019** (best ever)
+  - U6_platt_on_u5: Reliability **0.0002** (best ever), OOS ECE **0.0147** (best ever)
+  - U4 trading: -$0.19 OOS (near-breakeven, CI includes positive)
+  - OOS gap to PreSettlement narrowed to **0.0031** (from 0.0314 baseline, 90% closure)
+  - Results: `results/prediction_market_benchmark/unified_outperformance/`
+- **Airport MOS Proxy**: `scripts/airport_mos_proxy_analysis.py`
+  - KLGA GFS best proxy (corr=0.9942, MAE=1.52°F vs KNYC), KEWR NAM best holdout (MAE=1.22°F)
+  - Verdict: FEASIBLE WITH RESERVATIONS (no proxy passes MAE ≤ 1.0°F gate)
+  - Results: `results/airport_mos_proxy_analysis/`
 - Strategy doc: `reports/kalshi_nws_outperformance_strategy.md`
 
 ## Active File Reference
@@ -88,6 +98,8 @@ NYC daily max-temperature prediction using surrounding NOAA weather stations. Ta
 | MOS data | `scripts/download_iem_mos.py`, `scripts/validate_mos_quality.py` |
 | WGA-MDN V1 | `scripts/train_wga_mdn.py`, `scripts/run_wga_benchmark.py`, `src/wind_gated_attention.py` |
 | WGA-MDN V2 | `scripts/train_wga_v2.py`, `scripts/run_wga_v2_benchmark.py` |
+| Unified Synthesis | `scripts/run_unified_outperformance_benchmark.py` |
+| Airport MOS Proxy | `scripts/airport_mos_proxy_analysis.py` |
 | Reports | `reports/nn_pipeline_optimization_report.md`, `reports/mos_integration_report.md` |
 
 ## Cleanup Log (2026-02-10)
