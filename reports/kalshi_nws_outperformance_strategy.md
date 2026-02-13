@@ -532,3 +532,49 @@ Interpretation:
 - [ ] Convert E10/E11 proxy variants into fully trainable model paths (WGA-MDN + neural synthesis) with strict chronological validation.
 - [ ] Reconcile improved Brier with persistently negative post-cost EV (execution redesign and fill realism still required).
 - [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).
+
+
+### Implemented in this sprint (Phase B trainable synthesis advancement)
+
+14. **Chronology-safe trainable synthesis stacker upgrade (Phase B.2 advancement)**
+   - Upgraded `E11_synthesis_stacker_market_aware` in `scripts/run_e0_e8_best_model_benchmark.py` from a fixed heuristic weight blend to a **trainable logistic stacker** fitted on calibration-year data only (2023).
+   - Added explicit market-state feature builder used by synthesis/gating with time-safe inputs: spread, sigma-normalized uncertainty, depth proxy (`volume`/`open_interest`), and snapshot staleness.
+   - Added interaction features so the stacker can condition edge trust on confidence/liquidity (e.g., `(model-market)×(1-spread)`, `(model-market)×(1-sigma_norm)`).
+   - Added regularization sweep over logistic `C` on a chronological split inside 2023 (early 75% train, late 25% validation), then refit/infer with selected coefficients.
+
+### Results from trainable synthesis run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast/Brier impact
+- Top model remains **E11_synthesis_stacker_market_aware**, now with trainable coefficients.
+- Overall model Brier improved to **0.116579** (pre-settlement: **0.127061**).
+- OOS model Brier improved to **0.105364** (pre-settlement: **0.127061**).
+- Relative to prior E11 pass, this is an additional forecast-quality gain while preserving strict calibration chronology.
+
+#### Trading / promotion-gate impact
+- Best OOS trading P&L for E11 (standard threshold sweep) improved to **-3.57** (still negative after costs).
+- Best OOS edge-quality gate (`quality_cut=0.06`) remained negative: **-2.78** with CI **[-5.14, -0.57]**.
+- Paper-trading promotion gate remains **NOT READY**:
+  - OOS Brier beat vs pre-settlement: **PASS**
+  - OOS gated P&L > 0 with positive CI: **FAIL**
+  - ECE <= 0.03: **FAIL** (ECE ≈ 0.0359)
+  - Tail reliability max gap <= 0.20: **PASS**
+
+### Updated outstanding task list status (post trainable synthesis advancement)
+
+#### Phase B
+- [~] WGA-MDN model training/evaluation integration in benchmark harness. *(proxy mixture variant E10 implemented; full trainable WGA-MDN pipeline still pending)*
+- [~] Synthesis-Stacker with market-state inputs. *(trainable logistic stacker implemented for E11; full neural synthesis training path still pending)*
+- [x] Conditional calibration grid prototype.
+- [~] Capacity sweep for residual + synthesis backbones under strict calibration gates. *(E12 residual/sigma sweep implemented; deeper backbone sweep still pending)*
+- [ ] Station expansion ablation ladder.
+- [ ] Data-history extension run.
+- [ ] AVN/ETA MOS backfill feasibility implementation.
+
+#### Remaining highest-priority gaps (updated)
+- [ ] Build fully trainable WGA-MDN path (not proxy) with strict chronological OOS validation.
+- [ ] Advance E11 from trainable logistic stacker to full neural synthesis layer trained with distribution-aware objectives and calibration holdout.
+- [ ] Reconcile improved Brier with persistently negative post-cost EV (execution redesign and fill realism still required).
+- [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).

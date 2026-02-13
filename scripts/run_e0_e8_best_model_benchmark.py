@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
 
 import importlib.util
 
@@ -82,8 +83,48 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
     }
 
 
-def _fit_synthesis_stacker(calib: pd.DataFrame) -> dict[str, float]:
-    """Fit simple constrained blend weights for model/NWS/market probabilities."""
+def _build_market_state_features(frame: pd.DataFrame, sigma_p05: float | None = None, sigma_p95: float | None = None) -> pd.DataFrame:
+    """Build chronology-safe market/state features used by synthesis and gating layers."""
+    spread = ((
+        frame["ask_cents"].fillna(frame["presettlement_prob"] * 100)
+        - frame["bid_cents"].fillna(frame["presettlement_prob"] * 100)
+    ).clip(lower=0) / 100.0).values
+
+    sigma = frame["model_sigma"].values
+    if sigma_p05 is None:
+        sigma_p05 = float(np.percentile(sigma, 5))
+    if sigma_p95 is None:
+        sigma_p95 = float(np.percentile(sigma, 95))
+    sigma_norm = np.clip((sigma - sigma_p05) / (sigma_p95 - sigma_p05 + 1e-6), 0.0, 1.0)
+
+    volume = np.log1p(frame["volume"].fillna(0.0).values)
+    oi = np.log1p(frame["open_interest"].fillna(0.0).values)
+    depth = np.clip(
+        0.6 * (volume / (np.nanpercentile(volume, 95) + 1e-6))
+        + 0.4 * (oi / (np.nanpercentile(oi, 95) + 1e-6)),
+        0.0,
+        1.0,
+    )
+
+    snapshot_dt = pd.to_datetime(frame["snapshot_time_utc"], utc=True, errors="coerce")
+    cutoff_dt = pd.to_datetime(frame["date"], utc=True, errors="coerce") + pd.Timedelta(hours=5)
+    staleness_hours = ((cutoff_dt - snapshot_dt).dt.total_seconds() / 3600.0).clip(lower=0.0)
+    stale_norm = np.clip(staleness_hours.values / 8.0, 0.0, 1.0)
+
+    return pd.DataFrame(
+        {
+            "spread": spread,
+            "sigma_norm": sigma_norm,
+            "depth": depth,
+            "stale_norm": stale_norm,
+            "sigma_p05": sigma_p05,
+            "sigma_p95": sigma_p95,
+        }
+    )
+
+
+def _fit_synthesis_stacker(calib: pd.DataFrame) -> dict[str, object]:
+    """Fit trainable chronology-safe logistic stacker over model/NWS/market + state features."""
     frame = calib.copy()
     frame["model_prob"] = bench.compute_bucket_probs(frame, "model_mu", "model_sigma")
     frame["nws_prob"] = bench.compute_bucket_probs(frame, "nws_mu", "nws_sigma")
@@ -94,40 +135,79 @@ def _fit_synthesis_stacker(calib: pd.DataFrame) -> dict[str, float]:
     ]].clip(bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
     y = frame["actual_outcome"].values.astype(float)
 
-    spreads = ((
-        frame["ask_cents"].fillna(frame["presettlement_prob"] * 100)
-        - frame["bid_cents"].fillna(frame["presettlement_prob"] * 100)
-    ).clip(lower=0) / 100.0).values
-    sig = frame["model_sigma"].values
-    sigma_norm = np.clip((sig - np.percentile(sig, 5)) / (np.percentile(sig, 95) - np.percentile(sig, 5) + 1e-6), 0.0, 1.0)
-    market_conf = np.clip(1.0 - spreads / 0.2, 0.0, 1.0)
-    model_conf = np.clip(1.0 - sigma_norm, 0.0, 1.0)
-
-    grid = np.linspace(0.2, 0.9, 15)
-    best = (0.45, 0.25, 0.30)
-    best_brier = float("inf")
+    state = _build_market_state_features(frame)
     m = frame["model_prob"].values
     n = frame["nws_prob"].values
     k = frame["presettlement_prob"].values
-    for wm in grid:
-        for wn in np.linspace(0.05, 0.35, 13):
-            wk = max(0.0, 1.0 - wm - wn)
-            if wk < 0.05:
-                continue
-            w_model = np.clip(wm + 0.20 * (model_conf - 0.5), 0.10, 0.92)
-            w_nws = np.clip(wn + 0.10 * ((1.0 - sigma_norm) - 0.5), 0.03, 0.45)
-            w_market = np.clip(wk + 0.25 * (market_conf - 0.5), 0.03, 0.70)
-            w_sum = w_model + w_nws + w_market
-            pred = np.clip((w_model * m + w_nws * n + w_market * k) / w_sum, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
-            brier = float(np.mean((pred - y) ** 2))
-            if brier < best_brier:
-                best_brier = brier
-                best = (wm, wn, wk)
+    s = state["sigma_norm"].values
+    spread = state["spread"].values
+    depth = state["depth"].values
+    stale = state["stale_norm"].values
+
+    X = np.column_stack([
+        m,
+        n,
+        k,
+        m - k,
+        m - n,
+        n - k,
+        spread,
+        s,
+        depth,
+        stale,
+        (m - k) * (1.0 - spread),
+        (m - k) * (1.0 - s),
+        (m - n) * (1.0 - s),
+    ])
+
+    n_train = int(len(frame) * 0.75)
+    X_train, y_train = X[:n_train], y[:n_train]
+    X_val, y_val = X[n_train:], y[n_train:]
+    mu = X_train.mean(axis=0)
+    sd = X_train.std(axis=0)
+    sd = np.where(sd < 1e-6, 1.0, sd)
+    X_train_z = (X_train - mu) / sd
+    X_val_z = (X_val - mu) / sd
+
+    best = None
+    best_brier = float("inf")
+    for c in [0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0]:
+        clf = LogisticRegression(C=c, max_iter=2000, solver="lbfgs")
+        clf.fit(X_train_z, y_train)
+        val_pred = np.clip(clf.predict_proba(X_val_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+        val_brier = float(np.mean((val_pred - y_val) ** 2))
+        if val_brier < best_brier:
+            best_brier = val_brier
+            best = clf
+
+    assert best is not None
+    X_all_z = (X - mu) / sd
+    train_brier = float(np.mean((np.clip(best.predict_proba(X_all_z)[:, 1], bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX) - y) ** 2))
 
     return {
-        "w_model": float(best[0]),
-        "w_nws": float(best[1]),
-        "w_market": float(best[2]),
+        "feature_mean": mu.tolist(),
+        "feature_std": sd.tolist(),
+        "coef": best.coef_[0].tolist(),
+        "intercept": float(best.intercept_[0]),
+        "features": [
+            "model_prob",
+            "nws_prob",
+            "presettlement_prob",
+            "model_minus_market",
+            "model_minus_nws",
+            "nws_minus_market",
+            "spread",
+            "sigma_norm",
+            "depth",
+            "stale_norm",
+            "edge_liquidity",
+            "edge_confidence",
+            "model_nws_confidence",
+        ],
+        "sigma_p05": float(state["sigma_p05"].iloc[0]),
+        "sigma_p95": float(state["sigma_p95"].iloc[0]),
+        "validation_brier": best_brier,
+        "calibration_year_brier": train_brier,
     }
 
 
@@ -490,35 +570,38 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         # Preserve a comparable sigma summary for downstream gating diagnostics.
         out["model_sigma"] = np.clip(w1 * sigma1 + (1.0 - w1) * sigma2, 0.5, 15.0)
     elif variant == "E11_synthesis_stacker_market_aware":
+        stack = cfg["synthesis_stacker"]
         model_prob = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
         nws_prob = bench.compute_bucket_probs(out, "nws_mu", "nws_sigma")
         market_prob = out["presettlement_prob"].values
+        state = _build_market_state_features(out, sigma_p05=stack["sigma_p05"], sigma_p95=stack["sigma_p95"])
+        s = state["sigma_norm"].values
+        spread = state["spread"].values
+        depth = state["depth"].values
+        stale = state["stale_norm"].values
 
-        spread = ((
-            out["ask_cents"].fillna(out["presettlement_prob"] * 100)
-            - out["bid_cents"].fillna(out["presettlement_prob"] * 100)
-        ).clip(lower=0) / 100.0).values
-        sigma_norm = np.clip(
-            (out["model_sigma"].values - np.percentile(out["model_sigma"].values, 5))
-            / (np.percentile(out["model_sigma"].values, 95) - np.percentile(out["model_sigma"].values, 5) + 1e-6),
-            0.0,
-            1.0,
-        )
-        market_conf = np.clip(1.0 - spread / 0.20, 0.0, 1.0)
-        model_conf = np.clip(1.0 - sigma_norm, 0.0, 1.0)
-
-        wm0 = cfg["synthesis_stacker"]["w_model"]
-        wn0 = cfg["synthesis_stacker"]["w_nws"]
-        wk0 = cfg["synthesis_stacker"]["w_market"]
-        w_model = np.clip(wm0 + 0.20 * (model_conf - 0.5), 0.10, 0.92)
-        w_nws = np.clip(wn0 + 0.10 * ((1.0 - sigma_norm) - 0.5), 0.03, 0.45)
-        w_market = np.clip(wk0 + 0.25 * (market_conf - 0.5), 0.03, 0.70)
-        w_sum = w_model + w_nws + w_market
-        out["model_prob"] = np.clip(
-            (w_model * model_prob + w_nws * nws_prob + w_market * market_prob) / w_sum,
-            bench.PROB_CLIP_MIN,
-            bench.PROB_CLIP_MAX,
-        )
+        x = np.column_stack([
+            model_prob,
+            nws_prob,
+            market_prob,
+            model_prob - market_prob,
+            model_prob - nws_prob,
+            nws_prob - market_prob,
+            spread,
+            s,
+            depth,
+            stale,
+            (model_prob - market_prob) * (1.0 - spread),
+            (model_prob - market_prob) * (1.0 - s),
+            (model_prob - nws_prob) * (1.0 - s),
+        ])
+        mu_x = np.array(stack["feature_mean"])
+        sd_x = np.array(stack["feature_std"])
+        beta = np.array(stack["coef"])
+        z = (x - mu_x) / sd_x
+        logits = z @ beta + float(stack["intercept"])
+        pred = 1.0 / (1.0 + np.exp(-np.clip(logits, -30.0, 30.0)))
+        out["model_prob"] = np.clip(pred, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
     else:
         out["model_prob"] = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
 

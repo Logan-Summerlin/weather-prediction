@@ -1,7 +1,7 @@
 # E0-E12 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement
 
                                 model  overall_model_brier  overall_nws_brier  overall_presettlement_brier  oos_model_brier  oos_nws_brier  best_model_all_trading_pnl  best_model_oos_trading_pnl
-   E11_synthesis_stacker_market_aware             0.121762           0.141775                     0.127061         0.110530       0.139298                      -70.75                       -6.98
+   E11_synthesis_stacker_market_aware             0.116579           0.141775                     0.127061         0.105364       0.139298                      -88.47                       -3.57
   E3_weighted_ensemble_E4_uncertainty             0.133306           0.141775                     0.127061         0.130046       0.139298                     -124.66                      -21.17
                    E1_global_isotonic             0.133372           0.141775                     0.127061         0.130500       0.139298                     -123.32                      -18.24
          E4_uncertainty_decomposition             0.133388           0.141775                     0.127061         0.130096       0.139298                     -121.76                      -20.19
@@ -18,52 +18,52 @@ E12_capacity_sweep_residual_synthesis             0.133770           0.141775   
 ## Top 2
 
                               model  overall_model_brier  overall_nws_brier  overall_presettlement_brier  oos_model_brier  oos_nws_brier  best_model_all_trading_pnl  best_model_oos_trading_pnl
- E11_synthesis_stacker_market_aware             0.121762           0.141775                     0.127061         0.110530       0.139298                      -70.75                       -6.98
+ E11_synthesis_stacker_market_aware             0.116579           0.141775                     0.127061         0.105364       0.139298                      -88.47                       -3.57
 E3_weighted_ensemble_E4_uncertainty             0.133306           0.141775                     0.127061         0.130046       0.139298                     -124.66                      -21.17
 
 ## EV-aware dynamic edge gating (best-Brier model)
 
                              model       period  quality_cut  n_trades  avg_stake  net_pnl  roi_pct  win_rate  pnl_ci95_low  pnl_ci95_high  roi_ci95_low  roi_ci95_high  bootstrap_samples  avg_queue_pressure  avg_cancel_proxy  avg_latency_seconds
-E11_synthesis_stacker_market_aware          All         0.02      1515       0.25   -20.56   -14.14    0.3545        -27.09         -13.68        -18.44          -9.32               1000              0.0344            0.1326                19.87
-E11_synthesis_stacker_market_aware          All         0.03      1190       0.25   -17.12   -14.73    0.3580        -22.65         -11.26        -19.41          -9.90               1000              0.0257            0.1105                18.79
-E11_synthesis_stacker_market_aware          All         0.04       865       0.25   -11.22   -13.28    0.3642        -16.51          -6.48        -19.42          -7.62               1000              0.0192            0.0985                18.15
-E11_synthesis_stacker_market_aware          All         0.05       646       0.25   -10.63   -17.40    0.3359        -15.16          -6.16        -24.55         -10.18               1000              0.0162            0.0855                17.64
-E11_synthesis_stacker_market_aware          All         0.06       468       0.25    -8.86   -20.81    0.3098        -13.00          -4.87        -30.45         -11.34               1000              0.0131            0.0746                17.19
-E11_synthesis_stacker_market_aware           IS         0.02       502       0.25    -6.11   -11.93    0.3865         -9.97          -1.88        -19.44          -3.84               1000              0.0689            0.2922                25.85
-E11_synthesis_stacker_market_aware           IS         0.03       349       0.25    -4.59   -13.18    0.3725         -7.93          -1.29        -22.60          -3.87               1000              0.0517            0.2474                23.65
-E11_synthesis_stacker_market_aware           IS         0.04       227       0.25    -2.24   -10.41    0.3656         -4.78           0.40        -22.01           1.89               1000              0.0370            0.2306                22.45
-E11_synthesis_stacker_market_aware           IS         0.05       153       0.25    -1.94   -13.82    0.3399         -4.17           0.40        -29.62           2.72               1000              0.0309            0.1979                21.15
-E11_synthesis_stacker_market_aware           IS         0.06       100       0.25    -1.00   -11.83    0.3200         -2.83           0.93        -33.56          10.46               1000              0.0257            0.1612                19.86
-E11_synthesis_stacker_market_aware          OOS         0.02      1013       0.25   -14.45   -15.34    0.3386        -19.37          -9.69        -20.54         -10.34               1000              0.0174            0.0536                16.91
-E11_synthesis_stacker_market_aware          OOS         0.03       841       0.25   -12.53   -15.40    0.3520        -17.30          -7.44        -21.13          -9.31               1000              0.0148            0.0537                16.77
-E11_synthesis_stacker_market_aware          OOS         0.04       638       0.25    -8.98   -14.27    0.3636        -13.03          -5.14        -20.93          -8.15               1000              0.0128            0.0515                16.62
-E11_synthesis_stacker_market_aware          OOS         0.05       493       0.25    -8.69   -18.47    0.3347        -12.61          -4.81        -26.87         -10.24               1000              0.0116            0.0506                16.55
-E11_synthesis_stacker_market_aware          OOS         0.06       368       0.25    -7.86   -23.03    0.3071        -11.31          -3.99        -33.11         -11.78               1000              0.0097            0.0511                16.47
-E11_synthesis_stacker_market_aware      OOS_DJF         0.02       220       0.25    -1.85   -10.06    0.3227         -4.26           0.72        -22.22           4.18               1000              0.0189            0.0698                17.45
-E11_synthesis_stacker_market_aware      OOS_DJF         0.03       188       0.25    -1.35    -8.00    0.3564         -3.54           1.10        -21.09           6.40               1000              0.0165            0.0707                17.25
-E11_synthesis_stacker_market_aware      OOS_DJF         0.04       135       0.25    -1.29   -10.34    0.3556         -3.37           0.89        -27.26           7.52               1000              0.0155            0.0670                17.07
-E11_synthesis_stacker_market_aware      OOS_DJF         0.05        97       0.25    -1.57   -18.33    0.3093         -3.23           0.32        -37.65           3.73               1000              0.0132            0.0649                16.94
-E11_synthesis_stacker_market_aware      OOS_DJF         0.06        70       0.25    -1.85   -29.53    0.2714         -3.28          -0.31        -51.31          -4.96               1000              0.0120            0.0709                16.96
-E11_synthesis_stacker_market_aware      OOS_MAM         0.02       225       0.25    -4.40   -19.51    0.3467         -6.51          -2.09        -29.01          -9.11               1000              0.0183            0.0568                17.02
-E11_synthesis_stacker_market_aware      OOS_MAM         0.03       173       0.25    -2.58   -14.38    0.3815         -4.45          -0.66        -24.32          -3.73               1000              0.0153            0.0571                16.88
-E11_synthesis_stacker_market_aware      OOS_MAM         0.04       121       0.25    -2.21   -17.75    0.3636         -4.00          -0.45        -31.66          -3.79               1000              0.0122            0.0577                16.74
-E11_synthesis_stacker_market_aware      OOS_MAM         0.05        85       0.25    -1.24   -14.66    0.3647         -2.58           0.24        -30.70           2.88               1000              0.0123            0.0588                16.78
-E11_synthesis_stacker_market_aware      OOS_MAM         0.06        59       0.25    -1.21   -22.38    0.3051         -2.57           0.24        -48.55           4.51               1000              0.0113            0.0551                16.69
-E11_synthesis_stacker_market_aware      OOS_JJA         0.02       255       0.25    -2.29    -8.58    0.4118         -5.32           0.61        -19.90           2.39               1000              0.0198            0.0486                16.86
-E11_synthesis_stacker_market_aware      OOS_JJA         0.03       218       0.25    -2.84   -12.19    0.4037         -5.56           0.03        -23.47           0.12               1000              0.0173            0.0480                16.74
-E11_synthesis_stacker_market_aware      OOS_JJA         0.04       167       0.25    -1.19    -6.40    0.4491         -3.49           1.17        -19.21           6.49               1000              0.0151            0.0449                16.58
-E11_synthesis_stacker_market_aware      OOS_JJA         0.05       131       0.25    -1.73   -12.10    0.4122         -3.87           0.41        -27.15           2.94               1000              0.0144            0.0443                16.53
-E11_synthesis_stacker_market_aware      OOS_JJA         0.06        91       0.25    -1.26   -13.08    0.3956         -3.04           0.76        -32.34           8.16               1000              0.0099            0.0442                16.33
-E11_synthesis_stacker_market_aware      OOS_SON         0.02       313       0.25    -5.92   -22.24    0.2843         -8.13          -3.44        -30.27         -13.03               1000              0.0136            0.0438                16.49
-E11_synthesis_stacker_market_aware      OOS_SON         0.03       262       0.25    -5.76   -24.82    0.2863         -7.95          -3.26        -34.35         -14.25               1000              0.0113            0.0441                16.39
-E11_synthesis_stacker_market_aware      OOS_SON         0.04       215       0.25    -4.29   -22.11    0.3023         -6.36          -2.07        -33.53         -10.95               1000              0.0097            0.0435                16.31
-E11_synthesis_stacker_market_aware      OOS_SON         0.05       180       0.25    -4.16   -26.34    0.2778         -6.15          -2.03        -39.01         -12.93               1000              0.0084            0.0435                16.25
-E11_synthesis_stacker_market_aware      OOS_SON         0.06       148       0.25    -3.54   -27.60    0.2703         -5.72          -1.39        -44.04         -11.37               1000              0.0079            0.0443                16.24
-E11_synthesis_stacker_market_aware OOS_volatile         0.02       272       0.25    -3.48   -14.68    0.3199         -6.09          -0.79        -26.01          -3.43               1000              0.0201            0.0726                17.56
-E11_synthesis_stacker_market_aware OOS_volatile         0.03       216       0.25    -1.57    -7.97    0.3611         -3.86           0.76        -19.84           3.72               1000              0.0185            0.0750                17.45
-E11_synthesis_stacker_market_aware OOS_volatile         0.04       146       0.25    -1.87   -14.08    0.3356         -3.75           0.06        -28.55           0.48               1000              0.0165            0.0747                17.30
-E11_synthesis_stacker_market_aware OOS_volatile         0.05        98       0.25    -1.15   -13.73    0.3163         -2.74           0.38        -34.26           4.53               1000              0.0154            0.0765                17.31
-E11_synthesis_stacker_market_aware OOS_volatile         0.06        65       0.25    -1.12   -23.12    0.2462         -2.32           0.08        -48.66           1.50               1000              0.0146            0.0790                17.31
+E11_synthesis_stacker_market_aware          All         0.02      1099       0.25   -10.29   -13.32    0.2621        -15.04          -5.66        -19.31          -7.31               1000              0.0237            0.1102                18.93
+E11_synthesis_stacker_market_aware          All         0.03       794       0.25    -9.80   -17.06    0.2582        -13.57          -6.01        -23.56         -10.56               1000              0.0142            0.0870                17.77
+E11_synthesis_stacker_market_aware          All         0.04       548       0.25    -6.73   -16.83    0.2609        -10.07          -3.31        -25.02          -8.37               1000              0.0118            0.0834                17.49
+E11_synthesis_stacker_market_aware          All         0.05       412       0.25    -4.47   -13.90    0.2888         -7.63          -1.59        -23.20          -5.12               1000              0.0106            0.0823                17.31
+E11_synthesis_stacker_market_aware          All         0.06       309       0.25    -4.34   -17.32    0.2880         -6.88          -1.40        -27.62          -5.74               1000              0.0104            0.0807                17.25
+E11_synthesis_stacker_market_aware           IS         0.02       317       0.25    -3.61   -12.98    0.3281         -6.49          -0.76        -23.11          -2.80               1000              0.0532            0.2492                24.53
+E11_synthesis_stacker_market_aware           IS         0.03       211       0.25    -3.23   -20.75    0.2512         -5.45          -1.05        -34.60          -7.26               1000              0.0268            0.1869                21.31
+E11_synthesis_stacker_market_aware           IS         0.04       136       0.25    -1.59   -15.94    0.2647         -3.37           0.19        -34.40           1.90               1000              0.0238            0.1873                20.91
+E11_synthesis_stacker_market_aware           IS         0.05       100       0.25    -1.25   -16.60    0.2700         -2.97           0.48        -38.17           6.75               1000              0.0216            0.1991                20.70
+E11_synthesis_stacker_market_aware           IS         0.06        61       0.25    -1.55   -33.96    0.2131         -2.81          -0.14        -60.41          -3.27               1000              0.0232            0.2318                21.54
+E11_synthesis_stacker_market_aware          OOS         0.02       782       0.25    -6.68   -13.51    0.2353        -10.33          -2.83        -20.93          -5.80               1000              0.0118            0.0539                16.65
+E11_synthesis_stacker_market_aware          OOS         0.03       583       0.25    -6.58   -15.69    0.2607        -10.16          -3.34        -24.00          -8.07               1000              0.0097            0.0509                16.49
+E11_synthesis_stacker_market_aware          OOS         0.04       412       0.25    -5.14   -17.13    0.2597         -7.85          -2.44        -26.20          -8.28               1000              0.0079            0.0491                16.36
+E11_synthesis_stacker_market_aware          OOS         0.05       312       0.25    -3.22   -13.07    0.2949         -5.74          -0.90        -23.59          -3.73               1000              0.0071            0.0449                16.22
+E11_synthesis_stacker_market_aware          OOS         0.06       248       0.25    -2.78   -13.60    0.3065         -5.14          -0.57        -25.54          -2.78               1000              0.0072            0.0436                16.20
+E11_synthesis_stacker_market_aware      OOS_DJF         0.02       161       0.25    -0.28    -3.24    0.2236         -1.58           0.97        -18.16          11.56               1000              0.0081            0.0752                17.03
+E11_synthesis_stacker_market_aware      OOS_DJF         0.03       120       0.25    -0.55    -7.60    0.2417         -1.92           0.85        -26.91          11.46               1000              0.0070            0.0739                16.94
+E11_synthesis_stacker_market_aware      OOS_DJF         0.04        82       0.25    -0.04    -0.74    0.2683         -1.09           1.04        -21.15          21.34               1000              0.0058            0.0732                16.83
+E11_synthesis_stacker_market_aware      OOS_DJF         0.05        52       0.25     0.53    14.64    0.3462         -0.43           1.47        -12.20          40.78               1000              0.0044            0.0568                16.33
+E11_synthesis_stacker_market_aware      OOS_DJF         0.06        29       0.25     0.45    24.10    0.3448         -0.43           1.27        -23.35          73.34               1000              0.0025            0.0504                16.12
+E11_synthesis_stacker_market_aware      OOS_MAM         0.02        94       0.25    -1.49   -28.53    0.1702         -2.84          -0.34        -53.91          -5.99               1000              0.0104            0.0722                17.00
+E11_synthesis_stacker_market_aware      OOS_MAM         0.03        48       0.25    -1.70   -59.41    0.1042         -2.62          -0.71        -88.11         -26.21               1000              0.0087            0.0592                16.67
+E11_synthesis_stacker_market_aware      OOS_MAM         0.04        26       0.25    -0.97   -80.66    0.0385         -1.58          -0.35       -100.00         -33.40               1000              0.0044            0.0569                16.33
+E11_synthesis_stacker_market_aware      OOS_MAM         0.05         5       0.25    -0.39  -100.00    0.0000         -0.53          -0.24       -100.00        -100.00               1000              0.0032            0.0433                16.01
+E11_synthesis_stacker_market_aware      OOS_MAM         0.06         3       0.25    -0.28  -100.00    0.0000         -0.41          -0.11       -100.00        -100.00               1000              0.0044            0.0420                16.04
+E11_synthesis_stacker_market_aware      OOS_JJA         0.02       208       0.25    -0.13    -0.90    0.2981         -2.13           1.87        -14.43          13.13               1000              0.0151            0.0460                16.60
+E11_synthesis_stacker_market_aware      OOS_JJA         0.03       159       0.25    -0.45    -3.52    0.3333         -2.36           1.55        -18.37          12.31               1000              0.0124            0.0441                16.44
+E11_synthesis_stacker_market_aware      OOS_JJA         0.04        99       0.25    -1.19   -14.59    0.3030         -2.49           0.06        -30.55           0.72               1000              0.0110            0.0438                16.37
+E11_synthesis_stacker_market_aware      OOS_JJA         0.05        83       0.25    -1.17   -16.21    0.3133         -2.60           0.07        -36.45           1.05               1000              0.0105            0.0456                16.38
+E11_synthesis_stacker_market_aware      OOS_JJA         0.06        70       0.25    -1.04   -15.72    0.3429         -2.39           0.26        -36.50           3.82               1000              0.0109            0.0471                16.43
+E11_synthesis_stacker_market_aware      OOS_SON         0.02       319       0.25    -4.79   -22.73    0.2194         -7.20          -2.57        -33.99         -12.28               1000              0.0119            0.0429                16.39
+E11_synthesis_stacker_market_aware      OOS_SON         0.03       256       0.25    -3.87   -20.39    0.2539         -6.11          -1.72        -31.76          -9.06               1000              0.0094            0.0428                16.28
+E11_synthesis_stacker_market_aware      OOS_SON         0.04       205       0.25    -2.94   -18.98    0.2634         -5.05          -1.10        -32.16          -7.29               1000              0.0076            0.0410                16.16
+E11_synthesis_stacker_market_aware      OOS_SON         0.05       172       0.25    -2.20   -16.44    0.2791         -3.99          -0.41        -30.10          -3.19               1000              0.0065            0.0409                16.11
+E11_synthesis_stacker_market_aware      OOS_SON         0.06       146       0.25    -1.92   -16.40    0.2877         -3.39          -0.25        -29.69          -2.23               1000              0.0065            0.0406                16.10
+E11_synthesis_stacker_market_aware OOS_volatile         0.02       100       0.25    -0.69   -17.51    0.1400         -1.68           0.43        -45.05          10.15               1000              0.0069            0.1110                17.88
+E11_synthesis_stacker_market_aware OOS_volatile         0.03        58       0.25    -0.60   -27.08    0.1207         -1.39           0.30        -66.97          12.57               1000              0.0037            0.1094                17.73
+E11_synthesis_stacker_market_aware OOS_volatile         0.04        26       0.25    -0.22   -49.15    0.0385         -0.60           0.10       -100.00          16.37               1000              0.0006            0.1390                18.14
+E11_synthesis_stacker_market_aware OOS_volatile         0.05         8       0.25    -0.10   -29.93    0.1250         -0.47           0.21       -100.00          42.60               1000              0.0007            0.1222                17.47
+E11_synthesis_stacker_market_aware OOS_volatile         0.06         3       0.25    -0.01  -100.00    0.0000         -0.01          -0.01       -100.00        -100.00               1000              0.0009            0.1515                18.07
 
 ## Contract/time-safe audit
 
@@ -104,28 +104,28 @@ E11_synthesis_stacker_market_aware OOS_volatile         0.06        65       0.2
   "checks": {
     "oos_brier_beats_presettlement": {
       "pass": true,
-      "oos_model_brier": 0.11053013878012687,
+      "oos_model_brier": 0.10536368272790153,
       "presettlement_brier": 0.12706111379754997
     },
     "oos_gated_pnl_positive_with_positive_ci": {
       "pass": false,
       "best_oos_gated": {
         "quality_cut": 0.06,
-        "trades": 368,
-        "net_pnl": -7.86,
-        "roi_pct": -23.03,
-        "pnl_ci95_low": -11.31,
-        "pnl_ci95_high": -3.99
+        "trades": 248,
+        "net_pnl": -2.78,
+        "roi_pct": -13.6,
+        "pnl_ci95_low": -5.14,
+        "pnl_ci95_high": -0.57
       }
     },
     "calibration_ece_gate": {
       "pass": false,
-      "ece": 0.03143197451024529,
+      "ece": 0.03585406273617443,
       "threshold": 0.03
     },
     "tail_reliability_gate": {
       "pass": true,
-      "max_abs_bin_gap": 0.12860274838532854,
+      "max_abs_bin_gap": 0.15451372532079088,
       "threshold": 0.2
     }
   }
