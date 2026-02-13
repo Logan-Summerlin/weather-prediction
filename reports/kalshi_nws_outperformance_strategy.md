@@ -692,3 +692,58 @@ Interpretation:
 - [ ] Add **contract-level** distributional neural synthesis objective (CRPS/NLL over bucket-implied CDF directly), replacing the date-level proxy that failed in E14.
 - [ ] Reconcile improved Brier with persistently negative post-cost EV (execution redesign + fill realism still required).
 - [ ] True live microstructure/event feed integration (queue updates, cancels, fill timestamps).
+
+### Implemented in this sprint (second follow-up)
+
+9. **Conditional calibration refinement (Phase B.3 iterative pass)**
+   - Added `E15_conditional_calibration_spread_regime` to `scripts/run_e0_e8_best_model_benchmark.py`.
+   - New calibration key uses `season × market-spread tercile × regime tercile` with stricter minimum cell size (`min_points=60`) and hierarchical fallback (`season`, `spread`, `regime`, `global`).
+   - Goal: reduce over-fragmentation seen in the first conditional grid pass and better align calibration with tradability conditions.
+
+10. **Execution risk hard-stop filters (Phase C robustness pass)**
+   - Added no-trade filter for extreme microstructure risk conditions:
+     - `cancel_proxy > 0.85`, or
+     - `queue_pressure > 0.85`, or
+     - `latency_norm > 0.85`.
+   - This sits on top of existing dynamic-threshold + quality gating and is designed to cut worst-fill environments.
+
+### Results from second follow-up run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast/Brier impact
+- New variant `E15_conditional_calibration_spread_regime` did **not** improve forecast ranking in this first iteration.
+- `E15` results:
+  - Overall model Brier: **0.134469**
+  - OOS model Brier: **0.132387**
+- Top forecast variants remain unchanged:
+  - **E11_synthesis_stacker_market_aware** overall Brier **0.116579**
+  - **E13_neural_synthesis_mlp** OOS Brier **0.104891**
+
+#### Trading/EV impact
+- Hard-stop microstructure filters reduced high-risk exposures but did not flip EV positive.
+- Best all-period gated result (`E11`, `quality_cut=0.06`):
+  - trades=**304**, net P&L=**-3.94**, ROI=**-16.15%**, 95% CI **[-6.45, -1.30]**.
+- Best OOS gated result (`E11`, `quality_cut=0.06`):
+  - trades=**248**, net P&L=**-2.78**, ROI=**-13.60%**, 95% CI **[-5.19, -0.49]**.
+
+Interpretation:
+- Loss magnitude improved versus earlier larger-loss prototypes, but confidence intervals remain mostly negative.
+- Phase C remains partially successful on risk containment, not profitability.
+
+### Updated outstanding task list status (after second follow-up)
+
+#### Phase B
+- [ ] WGA-MDN model training/evaluation integration in benchmark harness. *(placeholder/heuristic variant exists as `E10`; no end-to-end trainable WGA-MDN training loop yet)*
+- [x] Synthesis-Stacker with market-state inputs. *(implemented as `E11` and `E13` in current benchmark harness)*
+- [x] Conditional calibration grid prototype + refinement passes. *(implemented as `E9` and `E15`; no Brier gain yet)*
+- [ ] Capacity sweep for residual + synthesis backbones under strict calibration gates. *(partial residual sigma/offset sweep exists; broader neural capacity sweep still pending)*
+- [ ] Station expansion ablation ladder.
+- [ ] Data-history extension run.
+- [ ] AVN/ETA MOS backfill feasibility implementation.
+
+#### Phase C
+- [x] Add queue-position proxy and cancellation proxy into quality and thresholds.
+- [x] Add latency proxy and extreme microstructure no-trade filters.
+- [ ] Add live execution latency model linked to actual order placement timestamps. *(requires live order event data not present in current historical snapshot dataset)*

@@ -15,7 +15,8 @@
     "E11_synthesis_stacker_market_aware",
     "E12_capacity_sweep_residual_synthesis",
     "E13_neural_synthesis_mlp",
-    "E14_distributional_neural_nll"
+    "E14_distributional_neural_nll",
+    "E15_conditional_calibration_spread_regime"
   ],
   "top2": [
     "E11_synthesis_stacker_market_aware",
