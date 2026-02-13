@@ -82,6 +82,7 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
         "offset_by_season": offset_by_season,
         "resid_scale": resid_scale,
         "conditional_cal": _fit_conditional_calibration(calib),
+        "conditional_cal_v2": _fit_conditional_calibration_v2(base_df[base_df["date_dt"].dt.year == 2023].copy()),
         "synthesis_stacker": stacker,
         "neural_synthesis_stacker": neural_stacker,
         "distributional_neural": distributional_neural,
@@ -678,6 +679,57 @@ def _fit_conditional_calibration(calib: pd.DataFrame) -> dict[str, object]:
     }
 
 
+def _fit_conditional_calibration_v2(calib: pd.DataFrame) -> dict[str, object]:
+    """Second-pass conditional isotonic: season x spread-tercile x regime-tercile with min-count fallback."""
+    cal = calib.sort_values("date_dt").copy()
+    cal["season"] = _season_from_month(cal["date_dt"].dt.month.values)
+    cal["spread"] = ((cal["ask_cents"].fillna(cal["presettlement_prob"] * 100) - cal["bid_cents"].fillna(cal["presettlement_prob"] * 100)).clip(lower=0) / 100.0)
+    cal["spread_bin"] = pd.qcut(cal["spread"], q=3, labels=["tight", "mid", "wide"], duplicates="drop").astype(str)
+
+    by_date = cal[["date", "date_dt", "model_mu"]].drop_duplicates("date").sort_values("date_dt").copy()
+    by_date["mu_change"] = by_date["model_mu"].diff().abs().fillna(0.0)
+    reg_edges = np.quantile(by_date["mu_change"].values, [0.0, 1 / 3, 2 / 3, 1.0])
+    reg_edges = np.unique(reg_edges)
+    by_date["regime_bin"] = _bin_labels(by_date["mu_change"].values, reg_edges, ["stable", "transition", "volatile"])
+    reg_map = dict(zip(by_date["date"], by_date["regime_bin"]))
+    cal["regime_bin"] = cal["date"].map(reg_map).fillna("transition")
+
+    min_points = 60
+    calibrators: dict[str, object] = {}
+    cell_sizes: dict[str, int] = {}
+    for key, grp in cal.groupby(["season", "spread_bin", "regime_bin"]):
+        k = "|".join(key)
+        cell_sizes[k] = int(len(grp))
+        if len(grp) < min_points:
+            continue
+        calibrators[k] = exp.calibrate_global(grp["model_mu"].values, grp["model_sigma"].values, grp["actual_tmax"].values)
+
+    fallbacks: dict[str, object] = {
+        "global": exp.calibrate_global(cal["model_mu"].values, cal["model_sigma"].values, cal["actual_tmax"].values),
+    }
+    for season, grp in cal.groupby("season"):
+        if len(grp) >= min_points:
+            fallbacks[f"season|{season}"] = exp.calibrate_global(grp["model_mu"].values, grp["model_sigma"].values, grp["actual_tmax"].values)
+    for spread_bin, grp in cal.groupby("spread_bin"):
+        if len(grp) >= min_points:
+            fallbacks[f"spread|{spread_bin}"] = exp.calibrate_global(grp["model_mu"].values, grp["model_sigma"].values, grp["actual_tmax"].values)
+    for regime_bin, grp in cal.groupby("regime_bin"):
+        if len(grp) >= min_points:
+            fallbacks[f"regime|{regime_bin}"] = exp.calibrate_global(grp["model_mu"].values, grp["model_sigma"].values, grp["actual_tmax"].values)
+
+    spread_edges = np.quantile(cal["spread"].values, [0.0, 1 / 3, 2 / 3, 1.0])
+    spread_edges = np.unique(spread_edges)
+
+    return {
+        "calibrators": calibrators,
+        "fallbacks": fallbacks,
+        "spread_edges": spread_edges,
+        "regime_edges": reg_edges,
+        "cell_sizes": cell_sizes,
+        "min_points": min_points,
+    }
+
+
 def _bin_labels(values: np.ndarray, edges: np.ndarray, labels: list[str]) -> np.ndarray:
     if len(edges) < 2:
         return np.array([labels[0]] * len(values))
@@ -757,6 +809,8 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
     elif variant == "E13_neural_synthesis_mlp":
         pass
     elif variant == "E14_distributional_neural_nll":
+        pass
+    elif variant == "E15_conditional_calibration_spread_regime":
         pass
     else:
         raise ValueError(variant)
@@ -928,6 +982,37 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         lo_cal = np.where(np.isnan(out["threshold_low"].values), 0.0, np.interp(np.clip(f_lo, iso_x.min(), iso_x.max()), iso_x, iso_y))
         hi_cal = np.where(np.isnan(out["threshold_high"].values), 1.0, np.interp(np.clip(f_hi, iso_x.min(), iso_x.max()), iso_x, iso_y))
         out["model_prob"] = np.clip(hi_cal - lo_cal, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    elif variant == "E15_conditional_calibration_spread_regime":
+        f_lo = np.where(np.isnan(out["threshold_low"].values), 0.0, e012._cdf(out["threshold_low"].values, mu, sigma))
+        f_hi = np.where(np.isnan(out["threshold_high"].values), 1.0, e012._cdf(out["threshold_high"].values, mu, sigma))
+
+        spread = ((out["ask_cents"].fillna(out["presettlement_prob"] * 100) - out["bid_cents"].fillna(out["presettlement_prob"] * 100)).clip(lower=0) / 100.0).values
+        spread_bin = _bin_labels(spread, cfg["conditional_cal_v2"]["spread_edges"], ["tight", "mid", "wide"])
+
+        by_date = out[["date", "date_dt", "model_mu"]].drop_duplicates("date").sort_values("date_dt").copy()
+        by_date["mu_change"] = by_date["model_mu"].diff().abs().fillna(0.0)
+        reg_bin = _bin_labels(by_date["mu_change"].values, cfg["conditional_cal_v2"]["regime_edges"], ["stable", "transition", "volatile"])
+        reg_map = dict(zip(by_date["date"].values, reg_bin))
+        out["regime_bin"] = out["date"].map(reg_map).fillna("transition")
+        out["spread_bin"] = spread_bin
+
+        out["model_prob"] = np.nan
+        season_labels = _season_from_month(out["date_dt"].dt.month.values)
+        for idx, s, sb, rb in zip(out.index, season_labels, out["spread_bin"].values, out["regime_bin"].values):
+            key = f"{s}|{sb}|{rb}"
+            cal = cfg["conditional_cal_v2"]["calibrators"].get(key)
+            if cal is None:
+                cal = cfg["conditional_cal_v2"]["fallbacks"].get(f"season|{s}")
+            if cal is None:
+                cal = cfg["conditional_cal_v2"]["fallbacks"].get(f"spread|{sb}")
+            if cal is None:
+                cal = cfg["conditional_cal_v2"]["fallbacks"].get(f"regime|{rb}")
+            if cal is None:
+                cal = cfg["conditional_cal_v2"]["fallbacks"]["global"]
+            lo = 0.0 if np.isnan(out.at[idx, "threshold_low"]) else float(np.clip(cal.predict([f_lo[idx]])[0], 1e-6, 1 - 1e-6))
+            hi = 1.0 if np.isnan(out.at[idx, "threshold_high"]) else float(np.clip(cal.predict([f_hi[idx]])[0], 1e-6, 1 - 1e-6))
+            out.at[idx, "model_prob"] = np.clip(hi - lo, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+        out.drop(columns=[c for c in ["regime_bin", "spread_bin"] if c in out.columns], inplace=True)
     else:
         out["model_prob"] = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
 
@@ -1089,8 +1174,11 @@ def _run_edge_quality_gating(df: pd.DataFrame, label: str) -> pd.DataFrame:
                 + 0.010 * sub_cancel
                 + 0.010 * sub_latency
             )
+            no_trade_mask = (sub_cancel > 0.85) | (sub_queue > 0.85) | (sub_latency > 0.85)
             buy_yes = (sub_edge > dyn_threshold) & (sub_quality >= q_cut)
             buy_no = (sub_edge < -dyn_threshold) & (sub_quality >= q_cut)
+            buy_yes = buy_yes & ~no_trade_mask
+            buy_no = buy_no & ~no_trade_mask
 
             # Contract cluster exposure control: max 2 positions per (date, neighboring strike neighborhood).
             strike = np.where(np.isnan(sub["threshold_low"].values), sub["threshold_high"].values, sub["threshold_low"].values)
@@ -1247,6 +1335,7 @@ def main() -> None:
         "E12_capacity_sweep_residual_synthesis",
         "E13_neural_synthesis_mlp",
         "E14_distributional_neural_nll",
+        "E15_conditional_calibration_spread_regime",
     ]
 
     full_rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
@@ -1306,7 +1395,7 @@ def main() -> None:
         json.dump(cfg["contract_audit"], f, indent=2)
 
     with open(OUT_ROOT / "README.md", "w", encoding="utf-8") as f:
-        f.write("# E0-E14 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
+        f.write("# E0-E15 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
         f.write(summary.to_string(index=False))
         f.write("\n\n## Top 2\n\n")
         f.write(top2.to_string(index=False))

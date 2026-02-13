@@ -14,8 +14,8 @@
         "trades": 248,
         "net_pnl": -2.78,
         "roi_pct": -13.6,
-        "pnl_ci95_low": -5.14,
-        "pnl_ci95_high": -0.57
+        "pnl_ci95_low": -5.19,
+        "pnl_ci95_high": -0.49
       }
     },
     "calibration_ece_gate": {
