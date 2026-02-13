@@ -1,113 +1,110 @@
-# Top 15 Models by Brier Score (Current E0–E22 Benchmark) and Their Implemented Functions
+# Top 15 Model Variants by Overall Brier (E0–E42 + U0–U9 scope)
 
-## Source of ranking
-Ranking below is taken from `results/prediction_market_benchmark/e0_e8_best_model_base/e0_e22_benchmark_summary.csv`, sorted by `overall_model_brier` ascending.
+## Ranking scope and method
+- Scope explicitly includes the E-lineage through **E42** and Unified variants through **U9**.
+- Rankings were built by combining model rows from:
+  - `results/prediction_market_benchmark/e0_e8_best_model_base/e0_e22_benchmark_summary.csv`
+  - `results/prediction_market_benchmark/wga_v2_model/benchmark_summary.csv`
+  - `results/prediction_market_benchmark/unified_outperformance/benchmark_summary.csv`
+- Baseline comparators (`NWS`, `Original_Model`, `Kalshi_*`) are excluded from ranking.
 
-## Ranked Top 15
+## Top 15 (lowest overall Brier first)
 
-| Rank | Model Variant | Overall Brier |
-|---:|---|---:|
-| 1 | E17_contract_brier_synthesis | 0.114090 |
-| 2 | E21_platt_recalibrated_e17 | 0.114406 |
-| 3 | E13_neural_synthesis_mlp | 0.116196 |
-| 4 | E22_expanded_platt_e13 | 0.116332 |
-| 5 | E19_platt_beta_calibration | 0.116378 |
-| 6 | E11_synthesis_stacker_market_aware | 0.116579 |
-| 7 | E18_regime_adaptive_ensemble | 0.123860 |
-| 8 | E3_weighted_ensemble_E4_uncertainty | 0.133306 |
-| 9 | E1_global_isotonic | 0.133372 |
-| 10 | E4_uncertainty_decomposition | 0.133388 |
-| 11 | E5_mdn2 | 0.133444 |
-| 12 | E0_baseline_ensemble | 0.133517 |
-| 13 | E10_wga_mdn_regime_mixture | 0.133584 |
-| 14 | E7_regularization_sweep | 0.133623 |
-| 15 | E12_capacity_sweep_residual_synthesis | 0.133770 |
-
----
-
-## Function and method map (how each top model is implemented)
-
-> Core dispatcher: `_apply_variant(df, variant, cfg)` in `scripts/run_e0_e8_best_model_benchmark.py`.
-
-### 1) E17_contract_brier_synthesis
-- **Fit path:** `_fit_e17_contract_brier_synthesis(...)`
-- **Apply path:** E17 branch inside `_apply_variant(...)`
-- **Mechanics:** contract-level MLP synthesis trained directly on bucket-level outcomes; outputs calibrated `model_prob`.
-
-### 2) E21_platt_recalibrated_e17
-- **Fit path:** `_fit_e21_platt_e17(...)`
-- **Apply path:** E21 branch in `_apply_variant(...)`
-- **Mechanics:** two-stage recalibration over E17 output:
-  1. Platt scaling on logits
-  2. isotonic remapping to final probability.
-
-### 3) E13_neural_synthesis_mlp
-- **Fit path:** `_fit_neural_synthesis_stacker(...)`
-- **Apply path:** E13 branch in `_apply_variant(...)`
-- **Mechanics:** chronology-safe MLP stacker over model/NWS/market + state features, with post-calibration.
-
-### 4) E22_expanded_platt_e13
-- **Fit path:** `_fit_e22_expanded_platt_e13(...)`
-- **Apply path:** E22 branch in `_apply_variant(...)`
-- **Mechanics:** expanded-feature Platt layer on E13 probabilities (sigma, seasonality, bucket geometry, interactions) followed by isotonic.
-
-### 5) E19_platt_beta_calibration
-- **Fit path:** `_fit_e19_platt_beta_cal(...)`
-- **Apply path:** E19 branch in `_apply_variant(...)`
-- **Mechanics:** Platt+isotonic calibration over E13 outputs (compact recalibration pipeline).
-
-### 6) E11_synthesis_stacker_market_aware
-- **Fit path:** `_fit_synthesis_stacker(...)`
-- **Apply path:** E11 branch in `_apply_variant(...)`
-- **Mechanics:** logistic stacker combining model/NWS/market with spread, depth, staleness, and sigma-normalized confidence features.
-
-### 7) E18_regime_adaptive_ensemble
-- **Fit path:** `_fit_e18_regime_ensemble(...)`
-- **Apply path:** E18 branch in `_apply_variant(...)`
-- **Mechanics:** regime-conditioned blending of top variant probabilities with seasonal and volatility context.
-
-### 8) E3_weighted_ensemble_E4_uncertainty
-- **Fit dependency:** `_fit_experiment_transforms(...)` generates `sigma_mult_global`
-- **Apply path:** E3 branch in `_apply_variant(...)`
-- **Mechanics:** uncertainty scaling by global sigma multiplier.
-
-### 9) E1_global_isotonic
-- **Fit dependency:** `exp.calibrate_global(...)`
-- **Apply path:** E1 branch in `_apply_variant(...)`
-- **Mechanics:** isotonic calibration of CDF edges then bucket mass by difference.
-
-### 10) E4_uncertainty_decomposition
-- **Fit dependency:** residual scale from `_fit_experiment_transforms(...)`
-- **Apply path:** E4 branch in `_apply_variant(...)`
-- **Mechanics:** sigma decomposition with additive residual variance term.
-
-### 11) E5_mdn2
-- **Fit dependency:** global residual offset from `_fit_experiment_transforms(...)`
-- **Apply path:** E5 branch in `_apply_variant(...)`
-- **Mechanics:** mean-shift correction using global residual bias.
-
-### 12) E0_baseline_ensemble
-- **Apply path:** E0 branch in `_apply_variant(...)`
-- **Mechanics:** canonical baseline using base `model_mu/model_sigma` to compute bucket probabilities.
-
-### 13) E10_wga_mdn_regime_mixture
-- **Apply path:** E10 branch in `_apply_variant(...)`
-- **Mechanics:** regime signal derived from day-to-day `model_mu` change magnitude; used in variant-specific probability adjustment.
-
-### 14) E7_regularization_sweep
-- **Fit dependency:** `_fit_seasonal_sigma_multiplier(...)` through `_fit_experiment_transforms(...)`
-- **Apply path:** E7 branch in `_apply_variant(...)`
-- **Mechanics:** season-conditioned sigma multiplier regularization.
-
-### 15) E12_capacity_sweep_residual_synthesis
-- **Fit path:** `_fit_capacity_sweep(...)`
-- **Apply path:** E12 branch in `_apply_variant(...)`
-- **Mechanics:** small-capacity residual gain + sigma gain + global scale optimization from calibration-year sweep.
+| Rank | Variant | Overall Brier | Family |
+|---:|---|---:|---|
+| 1 | U7_regime_conditional | 0.113719 | Unified |
+| 2 | E40_lag2_only_contract_brier | 0.113810 | E38–E42/WGA V2 |
+| 3 | U6_platt_on_u5 | 0.114081 | Unified |
+| 4 | E17_contract_brier_synthesis | 0.114090 | E0–E22 |
+| 5 | E40_multihead_only_contract_brier | 0.114242 | E38–E42/WGA V2 |
+| 6 | E21_platt_recalibrated_e17 | 0.114406 | E0–E22 |
+| 7 | U9_kitchen_sink | 0.114545 | Unified |
+| 8 | U4_extended_cal_synthesis | 0.114857 | Unified |
+| 9 | E40_deep_only_contract_brier | 0.114880 | E38–E42/WGA V2 |
+| 10 | E42_dual_attention_synthesis | 0.114981 | E38–E42/WGA V2 |
+| 11 | U8_2023only_cal_brier_mlp | 0.115162 | Unified |
+| 12 | U5_extended_cal_brier_mlp | 0.115415 | Unified |
+| 13 | E39_deep_only_synthesis | 0.115569 | E38–E42/WGA V2 |
+| 14 | E39_full_synthesis | 0.115838 | E38–E42/WGA V2 |
+| 15 | E39_multihead_only_synthesis | 0.116007 | E38–E42/WGA V2 |
 
 ---
 
-## Shared helper functions used by many top models
-- `_build_market_state_features(...)`: liquidity/staleness/sigma normalization features.
-- `bench.compute_bucket_probs(...)`: Gaussian bucket mass conversion from (`mu`, `sigma`).
-- `e012._cdf(...)`: CDF boundary evaluation for calibrated bucket-probability construction.
-- `_mlp_forward(...)`: deterministic forward pass helper for stored MLP weights in advanced variants.
+## Functions and methods for the ranked top 15
+
+### Unified-family variants (U4/U5/U6/U7/U8/U9)
+All implemented in `scripts/run_unified_outperformance_benchmark.py`.
+
+1. **U4_extended_cal_synthesis**
+   - Fit: `fit_u4_synthesis_stacker(...)`
+   - Apply: `apply_u4_synthesis_stacker(...)`
+   - Method: logistic stacker blending flat + WGA + NWS with market state and isotonic post-calibration.
+
+2. **U5_extended_cal_brier_mlp**
+   - Feature build: `_build_u5_features(...)` + `build_bucket_features(...)` + `build_market_state_features(...)`
+   - Fit: `fit_contract_brier_mlp(...)`
+   - Apply: `apply_contract_brier_mlp(...)`
+   - Method: contract-level Brier-optimized MLP on extended calibration (IS: 2023+2024).
+
+3. **U6_platt_on_u5**
+   - Fit: `fit_platt_recalibration(...)` on U5 outputs
+   - Apply: `apply_platt_recalibration(...)` then `_per_day_renormalize(...)`
+   - Method: Platt recalibration layer on top of U5.
+
+4. **U7_regime_conditional**
+   - Feature extension: `_build_regime_features(...)` appended to U5 features.
+   - Fit/apply via the same contract-MLP path as U5.
+   - Method: regime-aware contract-level MLP (best overall Brier in current artifacts).
+
+5. **U8_2023only_cal_brier_mlp**
+   - Same core machinery as U5 but calibration fit window restricted to 2023.
+   - Method: calibration-window sensitivity check for robustness.
+
+6. **U9_kitchen_sink**
+   - Base fit: `fit_contract_brier_mlp(...)` with wider architecture sweep.
+   - Recalibration: `fit_platt_recalibration(...)` + `apply_platt_recalibration(...)` + per-day renorm.
+   - Method: maximal feature/architecture stack with extra post-calibration.
+
+### E0–E22 synthesis variants in top 15
+Implemented in `scripts/run_e0_e8_best_model_benchmark.py`.
+
+7. **E17_contract_brier_synthesis**
+   - Fit: `_fit_e17_contract_brier_synthesis(...)`
+   - Apply dispatch: `_apply_variant(..., "E17_contract_brier_synthesis", ...)`
+   - Method: contract-row MLP trained on model/NWS/market + bucket geometry + market-state features; isotonic post-calibration.
+
+8. **E21_platt_recalibrated_e17**
+   - Fit: `_fit_e21_platt_e17(...)`
+   - Apply dispatch: `_apply_variant(..., "E21_platt_recalibrated_e17", ...)`
+   - Method: two-stage recalibration over E17 (Platt on logits, then isotonic).
+
+### WGA V2 lineage variants in top 15
+Implemented in `scripts/run_wga_v2_benchmark.py`.
+
+9. **E39_deep_only_synthesis / E39_full_synthesis / E39_multihead_only_synthesis**
+   - Fit/apply family: `fit_e39_synthesis_logistic(...)`, `apply_e39_synthesis_logistic(...)`
+   - Method: logistic synthesis blending WGA-V2 probs, original flat model probs, NWS, market state, and disagreement interactions.
+
+10. **E40_lag2_only_contract_brier / E40_multihead_only_contract_brier / E40_deep_only_contract_brier**
+    - Fit: `fit_e40_contract_brier_mlp(...)`
+    - Apply: `apply_e40_contract_brier_mlp(...)`
+    - Method: contract-level Brier-optimized MLP over WGA-V2 + flat + NWS + market + bucket-feature composites.
+
+11. **E42_dual_attention_synthesis**
+    - Fit: `fit_e42_dual_attention_synthesis(...)`
+    - Apply: `apply_e42_dual_attention_synthesis(...)`
+    - Method: dual-model feature stack using both WGA-V2 and original flat model bucket descriptors, cross-model disagreement, and market-state interactions.
+
+---
+
+## Shared implementation primitives used repeatedly
+- Bucketization:
+  - `compute_bucket_probs(...)`
+  - `compute_bucket_probs_from_arrays(...)`
+- Calibration helpers:
+  - `fit_isotonic(...)`, `apply_isotonic(...)`
+  - `fit_platt_recalibration(...)`, `apply_platt_recalibration(...)`
+- Feature engines:
+  - `build_bucket_features(...)`
+  - `build_market_state_features(...)`
+  - `_build_u5_features(...)`, `_build_regime_features(...)`

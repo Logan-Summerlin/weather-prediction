@@ -1,49 +1,67 @@
-# Current Codebase State and Directory Guide
+# Current State of the Codebase + Directory Guide
 
-## Executive State Summary
-This repository currently operates as a **probabilistic weather-to-market pipeline** with five active modules:
-1. Data ingestion and preprocessing (station + operational feeds)
-2. Feature generation (time-safe weather/regime features)
-3. Distributional forecasting (baseline, NN, WGA, synthesis)
-4. Calibration + bucketization into Kalshi contracts
-5. EV-gated trading simulation and benchmark analytics
+## Current system state (as of latest benchmark artifacts)
+The repository is now centered on a **contract-aligned probabilistic forecasting and trading-research pipeline** for NYC KXHIGHNY buckets, with model lineage extended through **E42** and unified synthesis through **U9**.
 
-The active benchmark center of gravity is the E0–E22 pipeline plus unified outperformance experiments.
+### Active benchmark families
+1. **E-series core benchmark (E0–E22)**
+   - Runner: `scripts/run_e0_e8_best_model_benchmark.py`
+   - Summary: `results/prediction_market_benchmark/e0_e8_best_model_base/e0_e22_benchmark_summary.csv`
+2. **WGA V2 benchmark extensions (E38–E42)**
+   - Runner: `scripts/run_wga_v2_benchmark.py`
+   - Summary: `results/prediction_market_benchmark/wga_v2_model/benchmark_summary.csv`
+3. **Unified cross-model synthesis (U0–U9)**
+   - Runner: `scripts/run_unified_outperformance_benchmark.py`
+   - Summary: `results/prediction_market_benchmark/unified_outperformance/benchmark_summary.csv`
 
-## High-Level Directory Map
+### Headline benchmark position
+- Best overall Brier among model variants in current artifacts: **U7_regime_conditional**.
+- Strong cluster immediately behind U7 includes **E40 (lag2 contract-brier)**, **U6**, **E17**, and **E42/U9-range** variants.
+
+## Directory map
 
 ```text
 weather-prediction/
-├── src/                         # Reusable core modules
-├── scripts/                     # Experiment and benchmark runners
-├── tests/                       # Unit/integration tests
-├── data/                        # Input datasets and model prediction artifacts
-├── results/                     # Benchmark outputs, model artifacts, diagnostics
-├── reports/                     # Narrative reports and strategy write-ups
-├── docs/                        # Current project documentation (new)
-├── ARCHIVE/                     # Explicitly archived legacy code
-├── .claude/rules/MEMORY.md      # Project memory for agent workflow
+├── src/                              # Core modules (ingestion, features, modeling, calibration, trading)
+├── scripts/                          # Active benchmark/training/utility runners
+├── tests/                            # Unit tests
+├── data/                             # Input datasets + generated prediction artifacts
+├── results/                          # Benchmark outputs and diagnostics
+├── reports/                          # Narrative strategy + analysis reports
+├── docs/                             # Current operational/project docs
+├── ARCHIVE/                          # Archived legacy code (not active path)
+│   ├── legacy_runners/
+│   └── legacy_experiments/
+├── .claude/rules/MEMORY.md           # Project memory and active status
 └── nyc_temp_prediction_project_plan.md
 ```
 
-## `src/` module overview
-- `data_collection.py`, `asos_collection.py`, `nwp_collection.py`, `soundings_collection.py`: ingestion paths for weather inputs.
-- `data_preprocessing.py`, `asos_preprocessing.py`, `nwp_preprocessing.py`, `soundings_preprocessing.py`: deterministic transforms from raw to model-ready inputs.
-- `model.py`, `wind_gated_attention.py`, `synthesis_model.py`: model families for temperature distribution and meta-synthesis.
-- `calibration.py`, `evaluate.py`, `baselines.py`, `crps_loss.py`: probabilistic training/evaluation tooling.
-- `kalshi_client.py`, `kalshi_backtester.py`, `trading.py`: market mapping, contract scoring, and EV/risk simulation.
-- `operational_features.py`, `station_registry.py`: station metadata and production-safe feature orchestration.
+## Active module responsibilities
 
-## `scripts/` usage pattern
-- **Primary benchmark runner:** `run_e0_e8_best_model_benchmark.py` (E0–E22 variants).
-- **Unified synthesis benchmark:** `run_unified_outperformance_benchmark.py`.
-- **WGA model development:** `train_wga_mdn.py`, `train_wga_v2.py`, and associated benchmark scripts.
-- **Data prep/utility scripts:** MOS download/validation, feature engineering, retraining, and diagnostic generation.
+### `src/`
+- Ingestion: `data_collection.py`, `asos_collection.py`, `nwp_collection.py`, `soundings_collection.py`
+- Preprocessing: `data_preprocessing.py`, `asos_preprocessing.py`, `nwp_preprocessing.py`, `soundings_preprocessing.py`
+- Modeling: `model.py`, `wind_gated_attention.py`, `synthesis_model.py`
+- Probabilistic eval/calibration: `calibration.py`, `evaluate.py`, `crps_loss.py`, `baselines.py`
+- Trading/market: `kalshi_client.py`, `kalshi_backtester.py`, `trading.py`, `market_proxy.py`, `mos_market_proxy.py`, `enhanced_market_proxy.py`
 
-## `results/` interpretation
-- `results/prediction_market_benchmark/` is the most decision-relevant output tree.
-- Contains per-variant Brier/log metrics, calibration tables, EV-gating outputs, and paper-trading reports.
-- `unified_outperformance/` and `e0_e8_best_model_base/` contain the strongest recent comparative artifacts.
+### `scripts/` (active high-value runners)
+- `run_e0_e8_best_model_benchmark.py` → E0–E22 lineage.
+- `run_wga_v2_benchmark.py` → WGA V2 variants and E38–E42 synthesis stack.
+- `run_unified_outperformance_benchmark.py` → U0–U9 unified variants + EV gating + promotion checks.
+- `run_extended_val_benchmark.py`, `run_gfs_residual_no_nam_benchmark.py` → targeted benchmark branches.
+- MOS/data utilities remain active for input generation and diagnostics.
 
-## Archived code
-- `ARCHIVE/legacy_runners/run_kalshi_real_backtest.py` was moved out of active workflow to reduce confusion with newer OOS and E/U benchmark pipelines.
+## What was archived in this update
+To reduce confusion and prevent accidental use of superseded pipelines, legacy exploratory phase-1 scripts were moved from `scripts/` to `ARCHIVE/legacy_experiments/`.
+
+Archived files:
+- `advanced_models_eval.py`
+- `enhanced_nn_pipeline.py`
+- `phase1_architecture_temporal.py`
+- `phase1_combined_best.py`
+- `phase1_ensemble_training.py`
+- `phase1_feature_engineering.py`
+- `phase1_probabilistic_output.py`
+
+These are preserved for historical reproducibility only.

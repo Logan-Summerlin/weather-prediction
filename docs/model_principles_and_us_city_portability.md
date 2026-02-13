@@ -1,77 +1,103 @@
-# High-Level Modeling Principles and How to Rebuild This Stack for Any U.S. City
+# High-Level Modeling Principles + How to Port This Stack to Any U.S. City
 
-## 1) Core principles used in this project
+## A. Core principles used in the current stack
 
-1. **Contract-first target definition**
-   - Align target variable to settlement measurement (station, day boundary, bucket rules, inclusivity).
+1. **Contract-definition-first modeling**
+   - Target definition, day boundary, bucket thresholds, and inclusivity rules must match settlement logic exactly before any model training.
 
-2. **Time-safe operational design**
-   - Use only inputs available before the daily decision cutoff in live mode.
-   - Keep training-only archives isolated from operational feature generation.
+2. **Time-safe operational parity**
+   - Live features must be available by the decision cutoff.
+   - Training pipelines must mimic live feature construction to minimize train/inference mismatch.
 
-3. **Distribution-first forecasting**
-   - Predict uncertainty-aware distributions (`mu`, `sigma`, or richer forms), not just point values.
-   - Optimize proper probabilistic scoring (Brier/CRPS/NLL), with MAE as secondary.
+3. **Distribution-first forecast output**
+   - The stack is built to output calibrated probabilities per bucket, not just point temperature.
+   - Bucket probabilities are created from `mu/sigma` CDF mass or directly from contract-level classifiers.
 
-4. **Calibration is mandatory**
-   - Apply post-hoc calibration (isotonic, conditional, Platt+isotonic) before trading.
-   - Validate mass conservation and reliability.
+4. **Calibration as a first-class layer**
+   - Isotonic, Platt+isotonic, and regime-aware recalibration are deeply integrated.
+   - Model promotion is tied to reliability/ECE and OOS Brier, not raw fit metrics alone.
 
-5. **Market-aware synthesis beats single-source forecasts**
-   - Blend model, NWS/MOS, and market state features when out-of-sample evidence supports it.
+5. **Model-combination over single-source dependence**
+   - Best variants combine multiple signals: flat model, WGA model, NWS, and market-state context.
+   - Cross-model disagreement features improve robustness in regime shifts.
 
-6. **Trading must be cost-aware and risk-limited**
-   - Compute EV net of fees, spread/slippage assumptions.
-   - Use capped/fractional sizing with hard halts.
+6. **Trading discipline > score chasing**
+   - EV-gated deployment, fee/slippage awareness, exposure controls, and promotion gates are required.
+   - No assumption that a Brier win automatically translates to tradable edge.
 
-## 2) Portable city-agnostic architecture
+## B. Architecture principles by layer
 
-### Layer A — City contract alignment
-- Select target station used by the contract (e.g., airport/site ID).
-- Encode exact local day boundary and bucket thresholds.
+### 1) Ingestion layer
+- Keep operational and training-only data sources separated.
+- Maintain schema/version checks and source provenance tags for each feature group.
 
-### Layer B — Data sources
-- Operational: local+regional station obs, MOS/NWP previews, market snapshots.
-- Training-only: long archives/reanalysis for robust historical fit and diagnostics.
+### 2) Feature layer
+- Build physically plausible, low-leakage features:
+  - persistence/trend,
+  - bucket geometry (quantile, width, distance in sigma-space),
+  - market-state diagnostics (spread, depth, staleness),
+  - regime indicators (volatility/uncertainty normalization).
 
-### Layer C — Feature template
-- Persistence and lag deltas of target and neighbor stations.
-- Seasonality (harmonics), frontal/regime volatility proxies.
-- Optional market-state features (spread, depth, staleness) for synthesis layer.
+### 3) Modeling layer
+- Maintain families with complementary biases:
+  - E-series calibrated synthesis,
+  - WGA V2 attention-driven spatial synthesis,
+  - Unified U-series cross-model stackers.
+- Prefer compact models unless complexity gives repeatable OOS gains.
 
-### Layer D — Modeling template
-- Start with baseline distributional model.
-- Add calibration variants.
-- Add synthesis models only if they improve OOS calibration + Brier.
+### 4) Calibration + bucketization layer
+- Enforce monotonicity and clipping safeguards.
+- Validate daily probability mass and reliability before downstream trading steps.
 
-### Layer E — Trading template
-- Bucketize calibrated CDF.
-- Compute EV vs market-implied probabilities.
-- Gate trades by edge, liquidity, and confidence.
+### 5) Trading simulation/execution layer
+- Use cost-adjusted EV thresholds.
+- Apply gating by quality diagnostics (OOS Brier, ECE, seasonal stress, slippage sensitivity).
 
-## 3) Step-by-step migration to a new U.S. city
+## C. How to build this for any U.S. city (implementation recipe)
 
-1. **Define contract spec:** settle station, timezone/day cutoff, bucket endpoints.
-2. **Build station registry:** target + surrounding stations with completeness thresholds.
-3. **Implement time-safe ingestion:** only sources available pre-cutoff in live mode.
-4. **Recreate feature pipeline:** same transforms used in training and inference.
-5. **Train baseline distributional model:** chronological split with holdout and calibration windows.
-6. **Calibrate + reliability check:** PIT/reliability/interval coverage by season/regime.
-7. **Run benchmark suite:** compare against NWS/MOS and pre-settlement market.
-8. **Simulate trading conservatively:** fees, spread, slippage, fill uncertainty.
-9. **Paper trade:** require stable edge and bounded drawdowns before scaling.
+1. **Contract + observation alignment (hard prerequisite)**
+   - Identify settlement station/site and official measurement convention.
+   - Encode timezone/day roll and bucket boundaries exactly.
 
-## 4) City-specific challenges and mitigations
+2. **City-specific data source mapping**
+   - Operational by cutoff: local station observations, forecast proxies, market snapshots.
+   - Training-only: archives/reanalysis for historical fit and diagnostics.
 
-- **Sparse station network (Mountain West/rural):** use stronger regularization and broader spatial composites.
-- **Coastal regimes (marine influence):** include wind-direction and humidity/cloud proxies.
-- **Extreme seasonality (Upper Midwest):** use season-specific calibration, regime-conditioned sigma.
-- **Frequent convective volatility (Southeast):** favor wider uncertainty modeling + stronger gating thresholds.
+3. **Station network design**
+   - Build a target-centered station registry with directional sectors and availability scores.
+   - Add fallback logic for sparse/missing stations.
 
-## 5) What should remain invariant across cities
+4. **Time-safe feature pipeline**
+   - Recreate the same transformations in training and live paths.
+   - Persist scalers/feature schema and block post-cutoff columns.
 
-- Chronological validation only.
-- Strict train/inference parity.
-- Calibration before any trading.
-- EV net of costs and risk-managed sizing.
-- Full logging/audit artifacts for every decision day.
+5. **Baseline + probabilistic model build**
+   - Start with simple distributional baseline (flat model, isotonic calibration).
+   - Add WGA/synthesis only if OOS Brier + reliability improve over baseline.
+
+6. **Unified synthesis and calibration sweep**
+   - Add cross-model stackers and contract-level Brier-MLP variants.
+   - Compare calibration windows (e.g., single year vs multi-year) and regime-conditioned features.
+
+7. **Backtest with conservative execution assumptions**
+   - Include fees, spread/slippage, and realistic fill constraints.
+   - Evaluate per-regime, per-season, and OOS-only slices.
+
+8. **Paper-trade promotion gates**
+   - Require pass on reliability + edge quality + drawdown constraints before scaling.
+   - Keep kill-switch rules for missing data/schema/calibration drift.
+
+## D. City-specific adaptation guidelines
+
+- **Coastal cities (e.g., BOS, SFO):** emphasize wind-direction, marine layer/cloud proxies.
+- **Continental extremes (e.g., DEN, MSP):** stronger regime/season-conditioned sigma modeling.
+- **Convective regimes (e.g., ATL, MIA):** wider uncertainty treatment and stricter EV thresholds.
+- **Sparse station regions:** stronger regularization + robust fallback to broader regional aggregates.
+
+## E. Invariants that should not change across cities
+
+- Chronological evaluation only.
+- Calibrated probabilities before trading decisions.
+- Strict train/inference parity and cutoff-time safety.
+- Cost-aware EV and risk-limited sizing.
+- Complete logging/audit artifacts for every daily run.
