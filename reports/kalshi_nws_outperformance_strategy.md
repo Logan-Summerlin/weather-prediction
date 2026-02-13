@@ -747,3 +747,49 @@ Interpretation:
 - [x] Add queue-position proxy and cancellation proxy into quality and thresholds.
 - [x] Add latency proxy and extreme microstructure no-trade filters.
 - [ ] Add live execution latency model linked to actual order placement timestamps. *(requires live order event data not present in current historical snapshot dataset)*
+
+### Implemented in this sprint (model-quality focused follow-up)
+
+11. **Shrunk conditional calibration variant (Phase B.3 advancement)**
+   - Added `E16_conditional_calibration_shrunk` in `scripts/run_e0_e8_best_model_benchmark.py`.
+   - Method: empirical-Bayes shrinkage over `season × spread × regime` isotonic cells.
+   - Formula: `calibrated_cdf = w_cell * cell_isotonic + (1 - w_cell) * season_prior`, with `w_cell = n_cell / (n_cell + 120)`.
+   - Rationale: reduce sparse-cell variance while preserving regime-aware calibration structure.
+
+12. **Benchmark harness extension for E0–E16 lineage**
+   - Extended benchmark variant list to include E16 and updated summary/gating outputs:
+     - `e0_e16_benchmark_summary.csv`
+     - `ev_edge_quality_gating_results_e16.csv`
+   - Updated generated benchmark README/metadata to reflect E0–E16 run.
+
+### Results from model-quality focused follow-up run
+
+Run command:
+`python scripts/run_e0_e8_best_model_benchmark.py`
+
+#### Forecast/Brier impact
+- `E16_conditional_calibration_shrunk` improved over `E15` but still trails top variants.
+- `E16` results:
+  - Overall Brier: **0.134133**
+  - OOS Brier: **0.131791**
+- Prior `E15` for comparison:
+  - Overall Brier: **0.134469**
+  - OOS Brier: **0.132387**
+- Top forecast variants in this run remain:
+  - **E11_synthesis_stacker_market_aware** overall Brier **0.116579**
+  - **E13_neural_synthesis_mlp** OOS Brier **0.104891**
+
+Interpretation:
+- Shrinkage-based conditional calibration is directionally useful (better than raw conditional cells), but calibration-only tweaks are no longer the highest-leverage path.
+- Largest gains are currently from synthesis families (E11/E13), suggesting next quality work should prioritize stronger distributional synthesis objectives and stricter leakage/microstructure realism audits.
+
+### Updated outstanding task list status (after model-quality follow-up)
+
+#### Phase B
+- [ ] WGA-MDN model training/evaluation integration in benchmark harness. *(heuristic proxy exists as `E10`; full trainable WGA-MDN remains unimplemented)*
+- [x] Synthesis-Stacker with market-state inputs. *(E11/E13 implemented and currently strongest by Brier)*
+- [x] Conditional calibration grid with shrinkage refinement. *(E9/E15/E16 implemented; E16 improved over E15 but not top)*
+- [ ] Capacity sweep for residual + synthesis backbones under strict calibration gates. *(residual-scale sweep exists; full architecture-capacity sweep still pending)*
+- [ ] Station expansion ablation ladder.
+- [ ] Data-history extension run.
+- [ ] AVN/ETA MOS backfill feasibility implementation.
