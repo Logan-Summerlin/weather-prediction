@@ -61,6 +61,12 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
     offset_by_season = calib.groupby("season").apply(lambda x: float(np.mean(x["actual_tmax"] - x["model_mu"]))).to_dict()
     resid_scale = float(np.std(resid))
 
+    # Lightweight synthesis-stacker fit using calibration-year only data.
+    stacker = _fit_synthesis_stacker(base_df[base_df["date_dt"].dt.year == 2023].copy())
+
+    # Capacity sweep multipliers (small regularized search on calibration year).
+    capacity = _fit_capacity_sweep(calib)
+
     return {
         "global_cal": global_cal,
         "seasonal_cal": seasonal_cal,
@@ -70,8 +76,85 @@ def _fit_experiment_transforms(base_df: pd.DataFrame):
         "offset_by_season": offset_by_season,
         "resid_scale": resid_scale,
         "conditional_cal": _fit_conditional_calibration(calib),
+        "synthesis_stacker": stacker,
+        "capacity_sweep": capacity,
         "contract_audit": _build_contract_and_timesafe_audit(base_df),
     }
+
+
+def _fit_synthesis_stacker(calib: pd.DataFrame) -> dict[str, float]:
+    """Fit simple constrained blend weights for model/NWS/market probabilities."""
+    frame = calib.copy()
+    frame["model_prob"] = bench.compute_bucket_probs(frame, "model_mu", "model_sigma")
+    frame["nws_prob"] = bench.compute_bucket_probs(frame, "nws_mu", "nws_sigma")
+    frame[["model_prob", "nws_prob", "presettlement_prob"]] = frame[[
+        "model_prob",
+        "nws_prob",
+        "presettlement_prob",
+    ]].clip(bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+    y = frame["actual_outcome"].values.astype(float)
+
+    spreads = ((
+        frame["ask_cents"].fillna(frame["presettlement_prob"] * 100)
+        - frame["bid_cents"].fillna(frame["presettlement_prob"] * 100)
+    ).clip(lower=0) / 100.0).values
+    sig = frame["model_sigma"].values
+    sigma_norm = np.clip((sig - np.percentile(sig, 5)) / (np.percentile(sig, 95) - np.percentile(sig, 5) + 1e-6), 0.0, 1.0)
+    market_conf = np.clip(1.0 - spreads / 0.2, 0.0, 1.0)
+    model_conf = np.clip(1.0 - sigma_norm, 0.0, 1.0)
+
+    grid = np.linspace(0.2, 0.9, 15)
+    best = (0.45, 0.25, 0.30)
+    best_brier = float("inf")
+    m = frame["model_prob"].values
+    n = frame["nws_prob"].values
+    k = frame["presettlement_prob"].values
+    for wm in grid:
+        for wn in np.linspace(0.05, 0.35, 13):
+            wk = max(0.0, 1.0 - wm - wn)
+            if wk < 0.05:
+                continue
+            w_model = np.clip(wm + 0.20 * (model_conf - 0.5), 0.10, 0.92)
+            w_nws = np.clip(wn + 0.10 * ((1.0 - sigma_norm) - 0.5), 0.03, 0.45)
+            w_market = np.clip(wk + 0.25 * (market_conf - 0.5), 0.03, 0.70)
+            w_sum = w_model + w_nws + w_market
+            pred = np.clip((w_model * m + w_nws * n + w_market * k) / w_sum, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+            brier = float(np.mean((pred - y) ** 2))
+            if brier < best_brier:
+                best_brier = brier
+                best = (wm, wn, wk)
+
+    return {
+        "w_model": float(best[0]),
+        "w_nws": float(best[1]),
+        "w_market": float(best[2]),
+    }
+
+
+def _fit_capacity_sweep(calib: pd.DataFrame) -> dict[str, float]:
+    """Select residual/uncertainty scaling from small regularized calibration sweep."""
+    y = calib["actual_tmax"].values
+    mu0 = calib["model_mu"].values
+    sig0 = calib["model_sigma"].values
+    season = _season_from_month(calib["date_dt"].dt.month.values)
+    season_resid = calib.assign(season=season).groupby("season").apply(
+        lambda x: float(np.mean(x["actual_tmax"] - x["model_mu"]))
+    ).to_dict()
+
+    best = {"resid_gain": 0.0, "sigma_gain": 1.0, "global_scale": 1.0}
+    best_nll = float("inf")
+    for rg in np.linspace(0.0, 0.4, 9):
+        for sg in np.linspace(0.9, 1.4, 11):
+            for gs in [0.95, 1.0, 1.05]:
+                offs = np.array([season_resid.get(s, 0.0) for s in season])
+                mu = mu0 + rg * offs
+                sigma = np.clip(sig0 * sg * gs, 0.5, 15.0)
+                z = (y - mu) / sigma
+                nll = float(np.mean(0.5 * np.log(2 * np.pi * sigma**2) + 0.5 * z**2))
+                if nll < best_nll:
+                    best_nll = nll
+                    best = {"resid_gain": float(rg), "sigma_gain": float(sg), "global_scale": float(gs)}
+    return best
 
 
 def _build_contract_and_timesafe_audit(df: pd.DataFrame) -> dict[str, object]:
@@ -263,6 +346,24 @@ def _bin_labels(values: np.ndarray, edges: np.ndarray, labels: list[str]) -> np.
     return np.array([labels[i] for i in idx])
 
 
+def _mixture_bucket_probs(
+    threshold_low: np.ndarray,
+    threshold_high: np.ndarray,
+    mu1: np.ndarray,
+    sigma1: np.ndarray,
+    mu2: np.ndarray,
+    sigma2: np.ndarray,
+    w1: np.ndarray,
+) -> np.ndarray:
+    f1_lo = np.where(np.isnan(threshold_low), 0.0, e012._cdf(threshold_low, mu1, sigma1))
+    f1_hi = np.where(np.isnan(threshold_high), 1.0, e012._cdf(threshold_high, mu1, sigma1))
+    f2_lo = np.where(np.isnan(threshold_low), 0.0, e012._cdf(threshold_low, mu2, sigma2))
+    f2_hi = np.where(np.isnan(threshold_high), 1.0, e012._cdf(threshold_high, mu2, sigma2))
+    p1 = np.clip(f1_hi - f1_lo, 1e-6, 1.0)
+    p2 = np.clip(f2_hi - f2_lo, 1e-6, 1.0)
+    return np.clip(w1 * p1 + (1.0 - w1) * p2, bench.PROB_CLIP_MIN, bench.PROB_CLIP_MAX)
+
+
 def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
     out = df.copy()
     season = _season_from_month(out["date_dt"].dt.month.values)
@@ -295,6 +396,24 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
         sigma = np.clip(sigma * mult, 0.5, 15.0)
     elif variant == "E9_conditional_calibration_grid":
         pass
+    elif variant == "E10_wga_mdn_regime_mixture":
+        mu_change = out.sort_values("date_dt").drop_duplicates("date")["model_mu"].diff().abs().fillna(0.0)
+        date_mu_change = dict(
+            zip(
+                out.sort_values("date_dt").drop_duplicates("date")["date"],
+                mu_change,
+            )
+        )
+        reg = np.array([date_mu_change.get(d, 0.0) for d in out["date"].values])
+        reg_norm = np.clip(reg / (np.nanpercentile(reg, 90) + 1e-6), 0.0, 1.0)
+        out["_mdn_regime_norm"] = reg_norm
+    elif variant == "E11_synthesis_stacker_market_aware":
+        pass
+    elif variant == "E12_capacity_sweep_residual_synthesis":
+        cap = cfg["capacity_sweep"]
+        offs = np.array([cfg["offset_by_season"].get(s, cfg["offset_global"]) for s in season])
+        mu = mu + cap["resid_gain"] * offs
+        sigma = np.clip(sigma * cap["sigma_gain"] * cap["global_scale"], 0.5, 15.0)
     else:
         raise ValueError(variant)
 
@@ -351,6 +470,55 @@ def _apply_variant(df: pd.DataFrame, variant: str, cfg: dict) -> pd.DataFrame:
             hi_cal = np.where(np.isnan(out.loc[m, "threshold_high"].values), 1.0, np.clip(cal.predict(f_hi[m]), 1e-6, 1 - 1e-6))
             out.loc[m, "model_prob"] = np.clip(hi_cal - lo_cal, 1e-6, 1.0)
         out.drop(columns=[c for c in ["cond_key", "season_cond"] if c in out.columns], inplace=True)
+    elif variant == "E10_wga_mdn_regime_mixture":
+        reg_norm = out.pop("_mdn_regime_norm").values
+        season_offsets = np.array([cfg["offset_by_season"].get(s, cfg["offset_global"]) for s in season])
+        mu1 = mu + 0.45 * season_offsets
+        mu2 = mu - 0.35 * season_offsets
+        sigma1 = np.clip(sigma * (0.90 - 0.20 * reg_norm), 0.5, 15.0)
+        sigma2 = np.clip(sigma * (1.10 + 0.35 * reg_norm), 0.5, 15.0)
+        w1 = np.clip(0.70 - 0.35 * reg_norm, 0.30, 0.85)
+        out["model_prob"] = _mixture_bucket_probs(
+            out["threshold_low"].values,
+            out["threshold_high"].values,
+            mu1,
+            sigma1,
+            mu2,
+            sigma2,
+            w1,
+        )
+        # Preserve a comparable sigma summary for downstream gating diagnostics.
+        out["model_sigma"] = np.clip(w1 * sigma1 + (1.0 - w1) * sigma2, 0.5, 15.0)
+    elif variant == "E11_synthesis_stacker_market_aware":
+        model_prob = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
+        nws_prob = bench.compute_bucket_probs(out, "nws_mu", "nws_sigma")
+        market_prob = out["presettlement_prob"].values
+
+        spread = ((
+            out["ask_cents"].fillna(out["presettlement_prob"] * 100)
+            - out["bid_cents"].fillna(out["presettlement_prob"] * 100)
+        ).clip(lower=0) / 100.0).values
+        sigma_norm = np.clip(
+            (out["model_sigma"].values - np.percentile(out["model_sigma"].values, 5))
+            / (np.percentile(out["model_sigma"].values, 95) - np.percentile(out["model_sigma"].values, 5) + 1e-6),
+            0.0,
+            1.0,
+        )
+        market_conf = np.clip(1.0 - spread / 0.20, 0.0, 1.0)
+        model_conf = np.clip(1.0 - sigma_norm, 0.0, 1.0)
+
+        wm0 = cfg["synthesis_stacker"]["w_model"]
+        wn0 = cfg["synthesis_stacker"]["w_nws"]
+        wk0 = cfg["synthesis_stacker"]["w_market"]
+        w_model = np.clip(wm0 + 0.20 * (model_conf - 0.5), 0.10, 0.92)
+        w_nws = np.clip(wn0 + 0.10 * ((1.0 - sigma_norm) - 0.5), 0.03, 0.45)
+        w_market = np.clip(wk0 + 0.25 * (market_conf - 0.5), 0.03, 0.70)
+        w_sum = w_model + w_nws + w_market
+        out["model_prob"] = np.clip(
+            (w_model * model_prob + w_nws * nws_prob + w_market * market_prob) / w_sum,
+            bench.PROB_CLIP_MIN,
+            bench.PROB_CLIP_MAX,
+        )
     else:
         out["model_prob"] = bench.compute_bucket_probs(out, "model_mu", "model_sigma")
 
@@ -665,6 +833,9 @@ def main() -> None:
         "E7_regularization_sweep",
         "E8_feature_pruning_sweep",
         "E9_conditional_calibration_grid",
+        "E10_wga_mdn_regime_mixture",
+        "E11_synthesis_stacker_market_aware",
+        "E12_capacity_sweep_residual_synthesis",
     ]
 
     full_rows = [_run_variant(base_df, v, cfg, save_artifacts=False) for v in variants]
@@ -675,7 +846,7 @@ def main() -> None:
     by_model = {row["model"]: row for row in full_rows}
 
     summary = pd.DataFrame(rows).sort_values("overall_model_brier").reset_index(drop=True)
-    summary.to_csv(OUT_ROOT / "e0_e8_benchmark_summary.csv", index=False)
+    summary.to_csv(OUT_ROOT / "e0_e12_benchmark_summary.csv", index=False)
 
     top_model_name = summary.iloc[0]["model"]
     top_df = _apply_variant(base_df, top_model_name, cfg)
@@ -718,7 +889,7 @@ def main() -> None:
         json.dump(cfg["contract_audit"], f, indent=2)
 
     with open(OUT_ROOT / "README.md", "w", encoding="utf-8") as f:
-        f.write("# E0-E8 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
+        f.write("# E0-E12 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement\n\n")
         f.write(summary.to_string(index=False))
         f.write("\n\n## Top 2\n\n")
         f.write(top2.to_string(index=False))
@@ -731,7 +902,7 @@ def main() -> None:
         f.write("\n")
 
     print("Saved:")
-    print(f"  - {OUT_ROOT / 'e0_e8_benchmark_summary.csv'}")
+    print(f"  - {OUT_ROOT / 'e0_e12_benchmark_summary.csv'}")
     print(f"  - {OUT_ROOT / 'top2_benchmark_summary.csv'}")
 
 

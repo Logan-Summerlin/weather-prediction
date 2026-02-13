@@ -10,11 +10,14 @@
     "E6_quantile",
     "E7_regularization_sweep",
     "E8_feature_pruning_sweep",
-    "E9_conditional_calibration_grid"
+    "E9_conditional_calibration_grid",
+    "E10_wga_mdn_regime_mixture",
+    "E11_synthesis_stacker_market_aware",
+    "E12_capacity_sweep_residual_synthesis"
   ],
   "top2": [
-    "E3_weighted_ensemble_E4_uncertainty",
-    "E1_global_isotonic"
+    "E11_synthesis_stacker_market_aware",
+    "E3_weighted_ensemble_E4_uncertainty"
   ],
   "calibration_period": "2023",
   "benchmark_period": "2023-2025",
