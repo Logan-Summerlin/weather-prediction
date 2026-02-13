@@ -21,16 +21,21 @@
     "E17_contract_brier_synthesis",
     "E18_regime_adaptive_ensemble",
     "E19_platt_beta_calibration",
-    "E20_crps_distributional_synthesis"
+    "E20_crps_distributional_synthesis",
+    "E21_platt_recalibrated_e17",
+    "E22_expanded_platt_e13"
   ],
   "top2": [
     "E17_contract_brier_synthesis",
-    "E13_neural_synthesis_mlp"
+    "E21_platt_recalibrated_e17"
   ],
   "calibration_period": "2023",
   "benchmark_period": "2023-2025",
   "ev_gating_results": "ev_edge_quality_gating_results.csv",
   "ev_gating_results_e16": "ev_edge_quality_gating_results_e16.csv",
+  "ev_gating_results_e13": "ev_edge_quality_gating_results_e13.csv",
+  "ev_gating_results_e21": "ev_edge_quality_gating_results_e21.csv",
+  "ev_gating_results_e22": "ev_edge_quality_gating_results_e22.csv",
   "contract_timesafe_audit": "contract_and_timesafe_audit.json",
   "paper_trading_gate": "paper_trading_gate_report.json"
 }

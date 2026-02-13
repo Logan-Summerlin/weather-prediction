@@ -1,8 +1,10 @@
-# E0-E20 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement
+# E0-E22 Best-Model-Based Benchmark vs NWS + Kalshi PreSettlement
 
                                     model  overall_model_brier  overall_nws_brier  overall_presettlement_brier  oos_model_brier  oos_nws_brier  best_model_all_trading_pnl  best_model_oos_trading_pnl
              E17_contract_brier_synthesis             0.114090           0.141775                     0.127061         0.106640       0.139298                      -79.90                       -6.08
+               E21_platt_recalibrated_e17             0.114406           0.141775                     0.127061         0.109023       0.139298                      -76.84                      -12.61
                  E13_neural_synthesis_mlp             0.116196           0.141775                     0.127061         0.103582       0.139298                      -85.10                       -1.01
+                   E22_expanded_platt_e13             0.116332           0.141775                     0.127061         0.104314       0.139298                      -90.82                       -4.74
                E19_platt_beta_calibration             0.116378           0.141775                     0.127061         0.103835       0.139298                      -83.32                        3.63
        E11_synthesis_stacker_market_aware             0.116579           0.141775                     0.127061         0.105364       0.139298                      -88.47                       -3.57
              E18_regime_adaptive_ensemble             0.123860           0.141775                     0.127061         0.113080       0.139298                     -131.85                      -20.69
@@ -15,8 +17,8 @@
                   E7_regularization_sweep             0.133623           0.141775                     0.127061         0.130537       0.139298                     -126.19                      -21.41
     E12_capacity_sweep_residual_synthesis             0.133770           0.141775                     0.127061         0.130561       0.139298                     -122.27                      -18.55
        E16_conditional_calibration_shrunk             0.134133           0.141775                     0.127061         0.131791       0.139298                     -125.14                      -18.84
-          E9_conditional_calibration_grid             0.134247           0.141775                     0.127061         0.131587       0.139298                     -127.25                      -17.05
                   E2_seasonal_calibration             0.134247           0.141775                     0.127061         0.131587       0.139298                     -127.25                      -17.05
+          E9_conditional_calibration_grid             0.134247           0.141775                     0.127061         0.131587       0.139298                     -127.25                      -17.05
                               E6_quantile             0.134413           0.141775                     0.127061         0.131367       0.139298                     -121.45                      -17.78
 E15_conditional_calibration_spread_regime             0.134469           0.141775                     0.127061         0.132387       0.139298                     -124.05                      -18.44
                  E8_feature_pruning_sweep             0.136353           0.141775                     0.127061         0.134766       0.139298                     -139.56                      -24.47
@@ -26,8 +28,8 @@ E15_conditional_calibration_spread_regime             0.134469           0.14177
 ## Top 2
 
                        model  overall_model_brier  overall_nws_brier  overall_presettlement_brier  oos_model_brier  oos_nws_brier  best_model_all_trading_pnl  best_model_oos_trading_pnl
-E17_contract_brier_synthesis             0.114090           0.141775                     0.127061         0.106640       0.139298                       -79.9                       -6.08
-    E13_neural_synthesis_mlp             0.116196           0.141775                     0.127061         0.103582       0.139298                       -85.1                       -1.01
+E17_contract_brier_synthesis             0.114090           0.141775                     0.127061         0.106640       0.139298                      -79.90                       -6.08
+  E21_platt_recalibrated_e17             0.114406           0.141775                     0.127061         0.109023       0.139298                      -76.84                      -12.61
 
 ## EV-aware dynamic edge gating (best-Brier model)
 
