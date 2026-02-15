@@ -1,0 +1,6 @@
+{
+  "city": "phl",
+  "kalshi_contract_benchmark_status": "unavailable",
+  "notes": "Uses actual station outcomes and archived MOS/Kalshi files only. No synthetic data.",
+  "output_csv": "/workspace/weather-prediction/results/philadelphia/phl_nyc_template_benchmark.csv"
+}
