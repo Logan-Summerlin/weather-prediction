@@ -1,0 +1,4 @@
+source,daily_bucket_brier
+ridge,0.05477028768869105
+mos_residual_nn,0.08731242598027439
+nws_mos,0.08559958846973348
