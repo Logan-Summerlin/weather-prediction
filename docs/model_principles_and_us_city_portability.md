@@ -1,4 +1,6 @@
-# High-Level Modeling Principles + How to Port This Stack to Any U.S. City
+# High-Level Modeling Principles + Multi-City Portability Guide
+
+**Last updated:** 2026-02-15
 
 ## A. Core principles used in the current stack
 
@@ -10,8 +12,8 @@
    - Training pipelines must mimic live feature construction to minimize train/inference mismatch.
 
 3. **Distribution-first forecast output**
-   - The stack is built to output calibrated probabilities per bucket, not just point temperature.
-   - Bucket probabilities are created from `mu/sigma` CDF mass or directly from contract-level classifiers.
+   - The stack outputs calibrated probabilities per bucket, not just point temperature.
+   - Bucket probabilities are created from mu/sigma CDF mass or directly from contract-level classifiers.
 
 4. **Calibration as a first-class layer**
    - Isotonic, Platt+isotonic, and regime-aware recalibration are deeply integrated.
@@ -53,51 +55,87 @@
 - Use cost-adjusted EV thresholds.
 - Apply gating by quality diagnostics (OOS Brier, ECE, seasonal stress, slippage sensitivity).
 
-## C. How to build this for any U.S. city (implementation recipe)
+## C. Multi-city expansion recipe
 
-1. **Contract + observation alignment (hard prerequisite)**
-   - Identify settlement station/site and official measurement convention.
-   - Encode timezone/day roll and bucket boundaries exactly.
+### Step 1: Contract + observation alignment (hard prerequisite)
+- Identify settlement station/site and official measurement convention.
+- Encode timezone/day roll and bucket boundaries exactly.
+- Confirm contract ticker and bucket structure on Kalshi.
 
-2. **City-specific data source mapping**
-   - Operational by cutoff: local station observations, forecast proxies, market snapshots.
-   - Training-only: archives/reanalysis for historical fit and diagnostics.
+### Step 2: City-specific data source mapping
+- **Operational by cutoff:** local ASOS stations, NWS forecast point, Kalshi market snapshots.
+- **Training-only:** GHCN-Daily archives, reanalysis for historical fit and diagnostics.
 
-3. **Station network design**
-   - Build a target-centered station registry with directional sectors and availability scores.
-   - Add fallback logic for sparse/missing stations.
+### Step 3: Station network design
+- Use `src/station_discovery.py` to build a target-centered station registry.
+- Classify by distance rings and compass sectors (same schema as NYC `config_expanded.py`).
+- Create city-specific config file (e.g., `config_chicago.py`, `config_philadelphia.py`).
+- Validate completeness (>= 80% TMAX coverage over study period).
 
-4. **Time-safe feature pipeline**
-   - Recreate the same transformations in training and live paths.
-   - Persist scalers/feature schema and block post-cutoff columns.
+### Step 4: Time-safe feature pipeline
+- Recreate the same transformations in training and live paths.
+- Persist scalers/feature schema and block post-cutoff columns.
+- Reuse `src/operational_features.py` with city-specific station metadata.
 
-5. **Baseline + probabilistic model build**
-   - Start with simple distributional baseline (flat model, isotonic calibration).
-   - Add WGA/synthesis only if OOS Brier + reliability improve over baseline.
+### Step 5: Baseline + probabilistic model build
+- Start with simple distributional baseline (flat model, isotonic calibration).
+- Port flat feedforward model (`src/model.py`) with city-specific inputs.
+- Add WGA/synthesis only if OOS Brier + reliability improve over baseline.
 
-6. **Unified synthesis and calibration sweep**
-   - Add cross-model stackers and contract-level Brier-MLP variants.
-   - Compare calibration windows (e.g., single year vs multi-year) and regime-conditioned features.
+### Step 6: Unified synthesis and calibration sweep
+- Add cross-model stackers and contract-level Brier-MLP variants.
+- Compare calibration windows and regime-conditioned features.
+- Leverage NYC model architecture decisions as strong priors.
 
-7. **Backtest with conservative execution assumptions**
-   - Include fees, spread/slippage, and realistic fill constraints.
-   - Evaluate per-regime, per-season, and OOS-only slices.
+### Step 7: Backtest with conservative execution assumptions
+- Include fees, spread/slippage, and realistic fill constraints.
+- Evaluate per-regime, per-season, and OOS-only slices.
 
-8. **Paper-trade promotion gates**
-   - Require pass on reliability + edge quality + drawdown constraints before scaling.
-   - Keep kill-switch rules for missing data/schema/calibration drift.
+### Step 8: Paper-trade promotion gates
+- Require pass on reliability + edge quality + drawdown constraints before scaling.
+- Keep kill-switch rules for missing data/schema/calibration drift.
 
-## D. City-specific adaptation guidelines
+## D. City-specific adaptation notes
 
-- **Coastal cities (e.g., BOS, SFO):** emphasize wind-direction, marine layer/cloud proxies.
-- **Continental extremes (e.g., DEN, MSP):** stronger regime/season-conditioned sigma modeling.
-- **Convective regimes (e.g., ATL, MIA):** wider uncertainty treatment and stricter EV thresholds.
-- **Sparse station regions:** stronger regularization + robust fallback to broader regional aggregates.
+### Chicago (KXHIGHCHI)
+- **Settlement station:** O'Hare International (USW00094846)
+- **Climate regime:** Continental, high seasonal variance, lake-effect modulation
+- **Key considerations:**
+  - Strong cold-air outbreaks from NW (Arctic intrusions) create tail events
+  - Lake Michigan moderates near-shore temperatures — station network must capture lake vs inland gradient
+  - Larger sigma (temperature variance) than NYC, especially winter — wider bucket uncertainty
+  - Wind direction is critical: onshore (NE/E) vs offshore (W/SW) drives 5-10F swings
+  - IGRA station: Davenport (DVN) or Lincoln (ILX) for upper-air context
+  - NWS forecast office: LOT (Chicago)
 
-## E. Invariants that should not change across cities
+### Philadelphia (KXHIGHPHL)
+- **Settlement station:** PHL International (USW00013739)
+- **Climate regime:** Mid-Atlantic transitional, moderate marine influence
+- **Key considerations:**
+  - Already in NYC's station network (Ring 2, 91 mi SW) — significant shared signal
+  - Delaware Valley urban heat island effect
+  - Summer convective uncertainty (thunderstorm events) adds tail risk
+  - Strong correlation with NYC — cross-city model sharing opportunities
+  - IGRA station: Sterling VA (IAD) or Upton (OKX, shared with NYC)
+  - NWS forecast office: PHI (Mt Holly)
+
+### General coastal cities (BOS, SFO)
+- Emphasize wind-direction, marine layer/cloud proxies.
+
+### Continental extremes (DEN, MSP)
+- Stronger regime/season-conditioned sigma modeling.
+
+### Convective regimes (ATL, MIA)
+- Wider uncertainty treatment and stricter EV thresholds.
+
+### Sparse station regions
+- Stronger regularization + robust fallback to broader regional aggregates.
+
+## E. Invariants that must not change across cities
 
 - Chronological evaluation only.
 - Calibrated probabilities before trading decisions.
 - Strict train/inference parity and cutoff-time safety.
 - Cost-aware EV and risk-limited sizing.
 - Complete logging/audit artifacts for every daily run.
+- Contract bucket definitions must exactly match Kalshi settlement spec.

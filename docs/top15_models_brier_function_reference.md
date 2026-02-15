@@ -1,5 +1,7 @@
 # Top 15 Model Variants by Overall Brier (E0–E42 + U0–U9 scope)
 
+**Last updated:** 2026-02-15
+
 ## Ranking scope and method
 - Scope explicitly includes the E-lineage through **E42** and Unified variants through **U9**.
 - Rankings were built by combining model rows from:
