@@ -838,48 +838,13 @@ def load_calibrated_predictions(results_dir: str) -> pd.DataFrame:
         if required.issubset(df.columns):
             return df
 
-    # Final fallback: generate synthetic predictions
-    logger.warning(
-        "No calibrated predictions found in %s. "
-        "Generating synthetic predictions for backtest.",
-        results_dir,
+    # AUDIT FIX: Synthetic data fallback removed — must have real predictions.
+    raise RuntimeError(
+        f"No calibrated predictions found in {results_dir}. "
+        f"Run the PHL synthesis/calibration script first to generate real "
+        f"predictions. Synthetic data fallback has been removed to prevent "
+        f"silent corruption of backtest results."
     )
-    return _generate_synthetic_predictions()
-
-
-def _generate_synthetic_predictions() -> pd.DataFrame:
-    """Generate synthetic calibrated predictions from PHL climatology.
-
-    Used when actual model predictions are not available.
-
-    Returns
-    -------
-    pd.DataFrame
-        Synthetic predictions with columns: date, mu, sigma, actual_tmax.
-    """
-    cfg = get_city_config("phl")
-    rng = np.random.RandomState(42)
-
-    dates = pd.date_range("2020-01-01", "2024-12-31", freq="D")
-    rows = []
-
-    for d in dates:
-        month = d.month
-        clim_mean = cfg.monthly_tmax_mean[month]
-        clim_std = cfg.monthly_tmax_std[month]
-
-        actual_tmax = clim_mean + rng.normal(0, clim_std)
-        model_mu = actual_tmax + rng.normal(0, 2.0)
-        model_sigma = max(clim_std * 0.55 + rng.normal(0, 0.4), 2.0)
-
-        rows.append({
-            "date": d,
-            "mu": model_mu,
-            "sigma": model_sigma,
-            "actual_tmax": actual_tmax,
-        })
-
-    return pd.DataFrame(rows)
 
 
 # ===========================================================================

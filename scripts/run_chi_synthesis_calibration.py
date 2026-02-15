@@ -118,60 +118,13 @@ def load_base_predictions(results_dir: str) -> pd.DataFrame:
             df["model_name"] = "flat_nn"
         return df
 
-    # Final fallback: generate synthetic predictions from CHI climatology
-    logger.warning(
-        "No benchmark predictions found in %s. "
-        "Generating synthetic predictions from CHI climatology.",
-        results_dir,
+    # AUDIT FIX: Synthetic data fallback removed — must have real benchmark data.
+    raise RuntimeError(
+        f"No benchmark predictions found in {results_dir}. "
+        f"Run the CHI benchmark script (run_chi_benchmark.py) first to "
+        f"generate real model predictions. Synthetic data fallback has been "
+        f"removed to prevent silent corruption of evaluation results."
     )
-    return _generate_synthetic_base_predictions()
-
-
-def _generate_synthetic_base_predictions() -> pd.DataFrame:
-    """Generate synthetic base model predictions from CHI climatology.
-
-    Used when actual benchmark predictions are not yet available.
-    Produces daily (mu, sigma) predictions for 4 years with realistic
-    seasonal patterns and model noise.
-
-    Returns
-    -------
-    pd.DataFrame
-        Synthetic predictions with columns: date, model_name, mu, sigma,
-        actual_tmax.
-    """
-    cfg = get_city_config("chi")
-    rng = np.random.RandomState(42)
-
-    dates = pd.date_range("2020-01-01", "2024-12-31", freq="D")
-    rows = []
-
-    for d in dates:
-        month = d.month
-        clim_mean = cfg.monthly_tmax_mean[month]
-        clim_std = cfg.monthly_tmax_std[month]
-
-        # Simulated actual temperature
-        actual_tmax = clim_mean + rng.normal(0, clim_std)
-
-        # Simulated model prediction: slightly noisy around actual
-        model_mu = actual_tmax + rng.normal(0, 2.5)
-        model_sigma = max(clim_std * 0.6 + rng.normal(0, 0.5), 2.0)
-
-        rows.append({
-            "date": d,
-            "model_name": "synthetic_base",
-            "mu": model_mu,
-            "sigma": model_sigma,
-            "actual_tmax": actual_tmax,
-        })
-
-    df = pd.DataFrame(rows)
-    logger.info(
-        "Generated %d synthetic base predictions for CHI (%s to %s)",
-        len(df), dates[0].strftime("%Y-%m-%d"), dates[-1].strftime("%Y-%m-%d"),
-    )
-    return df
 
 
 # ===========================================================================

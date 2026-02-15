@@ -115,8 +115,8 @@ class TestKalshiMarketSimulator:
 
     def test_init_default(self, market_sim):
         """Default constructor sets expected values."""
-        assert len(market_sim.bucket_edges) == 10
-        assert len(market_sim.bucket_labels) == 10
+        assert len(market_sim.bucket_edges) == 57
+        assert len(market_sim.bucket_labels) == 57
         assert market_sim.market_noise_std == 0.06
         assert market_sim.min_spread == 0.02
         assert market_sim.max_spread == 0.10
@@ -199,7 +199,7 @@ class TestKalshiMarketSimulator:
 
     def test_generate_daily_buckets_settlement_correctness(self, market_sim, rng):
         """Outcome is correct for known temperature values."""
-        # TMAX = 55.0 should settle in "50-59" bucket
+        # TMAX = 55.0 should settle in "54-56" bucket (2°F grid: [54, 56))
         buckets = market_sim.generate_daily_buckets(
             date=datetime.date(2025, 4, 15),
             actual_tmax=55.0,
@@ -208,7 +208,7 @@ class TestKalshiMarketSimulator:
             rng=rng,
         )
         for b in buckets:
-            if b["bucket_label"] == "50-59":
+            if b["bucket_label"] == "54-56":
                 assert b["actual_outcome"] == 1
             else:
                 assert b["actual_outcome"] == 0

@@ -1,6 +1,0 @@
-{
-  "city": "chi",
-  "status": "missing_required_inputs",
-  "error": "[Errno 2] No such file or directory: '/workspace/weather-prediction/data/chicago/processed/features_train.csv'",
-  "output_csv": "/workspace/weather-prediction/results/chicago/chi_nyc_template_benchmark.csv"
-}

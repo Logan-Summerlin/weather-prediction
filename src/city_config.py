@@ -92,61 +92,50 @@ class CityConfig:
 
 
 # ---------------------------------------------------------------------------
-# Shared bucket definitions
+# Shared bucket definitions (2°F resolution matching Kalshi contracts)
 # ---------------------------------------------------------------------------
-_NYC_PHL_BUCKET_EDGES: List[Tuple[float, float]] = [
-    (-999, 20),
-    (20, 30),
-    (30, 40),
-    (40, 50),
-    (50, 60),
-    (60, 70),
-    (70, 80),
-    (80, 90),
-    (90, 100),
-    (100, 999),
-]
+def _make_2f_bucket_grid(
+    floor: int, ceiling: int
+) -> Tuple[List[Tuple[float, float]], List[str]]:
+    """Generate 2°F-resolution bucket edges and labels.
 
-_NYC_PHL_BUCKET_LABELS: List[str] = [
-    "Below 20",
-    "20-29",
-    "30-39",
-    "40-49",
-    "50-59",
-    "60-69",
-    "70-79",
-    "80-89",
-    "90-99",
-    "Above 100",
-]
+    Creates a grid of 2°F-wide buckets from *floor* to *ceiling*, with
+    open-ended tails using -999/999 sentinels.  This matches the actual
+    Kalshi contract structure (e.g., KXHIGHNY "between" contracts are 2°F).
 
-_CHI_BUCKET_EDGES: List[Tuple[float, float]] = [
-    (-999, 10),
-    (10, 20),
-    (20, 30),
-    (30, 40),
-    (40, 50),
-    (50, 60),
-    (60, 70),
-    (70, 80),
-    (80, 90),
-    (90, 100),
-    (100, 999),
-]
+    Parameters
+    ----------
+    floor : int
+        Lower bound of the first non-tail bucket (must be even).
+    ceiling : int
+        Upper bound of the last non-tail bucket (must be even).
 
-_CHI_BUCKET_LABELS: List[str] = [
-    "Below 10",
-    "10-19",
-    "20-29",
-    "30-39",
-    "40-49",
-    "50-59",
-    "60-69",
-    "70-79",
-    "80-89",
-    "90-99",
-    "Above 100",
-]
+    Returns
+    -------
+    edges : list of (float, float)
+        Bucket boundary tuples, starting with (-999, floor) and ending
+        with (ceiling, 999).
+    labels : list of str
+        Human-readable labels (e.g., "Below 0", "0-2", "2-4", ...,
+        "Above 110").
+    """
+    assert floor % 2 == 0 and ceiling % 2 == 0, "floor and ceiling must be even"
+    edges: List[Tuple[float, float]] = [(-999, float(floor))]
+    labels: List[str] = [f"Below {floor}"]
+    for lo in range(floor, ceiling, 2):
+        hi = lo + 2
+        edges.append((float(lo), float(hi)))
+        labels.append(f"{lo}-{hi}")
+    edges.append((float(ceiling), 999))
+    labels.append(f"Above {ceiling}")
+    return edges, labels
+
+
+# NYC and PHL: 0°F floor, 110°F ceiling → 57 buckets
+_NYC_PHL_BUCKET_EDGES, _NYC_PHL_BUCKET_LABELS = _make_2f_bucket_grid(0, 110)
+
+# Chicago: -10°F floor, 110°F ceiling → 62 buckets (colder winters)
+_CHI_BUCKET_EDGES, _CHI_BUCKET_LABELS = _make_2f_bucket_grid(-10, 110)
 
 
 # ---------------------------------------------------------------------------
