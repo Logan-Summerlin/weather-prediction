@@ -39,7 +39,7 @@ TARGET_LON = CITY_CONFIG.target_lon
 TARGET_VARIABLE = "TMAX"
 
 # ==============================================================================
-# Surrounding Stations (~45 stations)
+# Surrounding Stations (~55 stations)
 # ==============================================================================
 # Format: {station_id: "Name, State (distance sector)"}
 # All stations have >= 80% TMAX completeness over 2018-2022.
@@ -84,7 +84,7 @@ SURROUNDING_STATIONS = {
     "USW00014834": "GREEN BAY AUSTIN STRAUBEL, WI (145mi N)",
     "USW00014920": "DUBUQUE REGIONAL AP, IA (145mi W)",
     "USW00093817": "TERRE HAUTE HULMAN RGNL, IN (145mi SE)",
-    # --- Ring 4: Far (150-250 mi) --- 8 stations
+    # --- Ring 4: Far (150-250 mi) --- 18 stations (expanded to ~55 total)
     "USW00014923": "MOLINE QUAD CITY INTL AP, IL (160mi W)",
     "USW00094910": "CEDAR RAPIDS EASTERN IOWA AP, IA (200mi W)",
     "USW00093819": "INDIANAPOLIS INTL AP, IN (165mi SE)",
@@ -93,6 +93,17 @@ SURROUNDING_STATIONS = {
     "USW00014922": "MASON CITY MUNI AP, IA (230mi NW)",
     "USW00014843": "SAGINAW MBS INTL AP, MI (230mi NE)",
     "USW00094850": "TRAVERSE CITY CHERRY CAPITAL, MI (230mi NE)",
+    # --- Expansion: fill gaps within 200 mi --- 10 additional stations
+    "USW00014845": "LANSING CAPITAL CITY AP, MI (170mi E)",
+    "USW00093822": "EVANSVILLE REGIONAL AP, IN (195mi SE)",
+    "USW00014852": "WAUSAU DOWNTOWN AP, WI (190mi N)",
+    "USW00014862": "TOLEDO EXPRESS AP, OH (200mi E)",
+    "USW00014918": "BURLINGTON SOUTHEAST IOWA RGNL, IA (170mi SW)",
+    "USW00013960": "MUNCIE DELAWARE CO AP, IN (165mi SE)",
+    "USW00003889": "MATTOON COLES CO MEM AP, IL (170mi S)",
+    "USW00014896": "FREEPORT ALBERTUS AP, IL (100mi W)",
+    "USW00094818": "GOSHEN MUNI AP, IN (110mi E)",
+    "USW00014817": "SHELBYVILLE MUNI AP, IL (155mi S)",
 }
 
 # All stations (target + expanded surrounding) for convenience
@@ -219,6 +230,16 @@ STATION_RINGS = {
         "USW00014922",
         "USW00014843",
         "USW00094850",
+        "USW00014845",
+        "USW00093822",
+        "USW00014852",
+        "USW00014862",
+        "USW00014918",
+        "USW00013960",
+        "USW00003889",
+        "USW00014896",
+        "USW00094818",
+        "USW00014817",
     ],
 }
 
