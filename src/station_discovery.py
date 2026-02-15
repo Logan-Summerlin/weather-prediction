@@ -2,12 +2,15 @@
 GHCN Station Discovery Module.
 
 Downloads the GHCN station inventory and identifies suitable surrounding
-stations for the NYC temperature prediction project. Stations are selected
-based on distance from Central Park, data completeness, and geographic
+stations for temperature prediction projects. Stations are selected based
+on distance from a target station, data completeness, and geographic
 diversity (ring and sector classification).
 
-This module is used once to build the expanded station list; it does not
-need to run during normal training/prediction workflows.
+Supports multi-city discovery: NYC (default), Chicago, Philadelphia, or
+any city specified by target coordinates and station ID.
+
+This module is used once per city to build the expanded station list; it
+does not need to run during normal training/prediction workflows.
 """
 
 import math
@@ -325,11 +328,14 @@ def discover_candidate_stations(
     required_end_year: int = REQUIRED_END_YEAR,
     us_only: bool = True,
     target_count: int = 50,
+    target_lat: float = CP_LAT,
+    target_lon: float = CP_LON,
+    target_station: str = config.TARGET_STATION,
 ) -> pd.DataFrame:
     """Discover candidate surrounding stations from the GHCN inventory.
 
     Selection criteria:
-    1. Within max_distance_mi of Central Park
+    1. Within max_distance_mi of the target station
     2. Has TMAX data covering the required date range
     3. Station ID starts with 'US' (if us_only=True)
     4. Not the target station itself
@@ -342,7 +348,7 @@ def discover_candidate_stations(
     inventory_df : pd.DataFrame
         Parsed ghcnd-inventory.txt data.
     max_distance_mi : float
-        Maximum distance from Central Park in miles.
+        Maximum distance from the target station in miles.
     required_start_year : int
         Station must have data starting at or before this year.
     required_end_year : int
@@ -351,6 +357,13 @@ def discover_candidate_stations(
         If True, only consider US stations (ID starts with 'US').
     target_count : int
         Approximate target number of stations to select.
+    target_lat : float
+        Latitude of the target station. Defaults to Central Park.
+    target_lon : float
+        Longitude of the target station. Defaults to Central Park.
+    target_station : str
+        GHCN station ID of the target station. Defaults to
+        config.TARGET_STATION (Central Park).
 
     Returns
     -------
@@ -384,13 +397,13 @@ def discover_candidate_stations(
         candidates = candidates[candidates["station_id"].str.startswith("US")]
 
     # Exclude the target station
-    candidates = candidates[candidates["station_id"] != config.TARGET_STATION]
+    candidates = candidates[candidates["station_id"] != target_station]
 
     logger.info("US stations with TMAX coverage: %d", len(candidates))
 
-    # Compute distance and bearing from Central Park
+    # Compute distance and bearing from target station
     candidates["distance_mi"] = candidates.apply(
-        lambda row: haversine_distance(CP_LAT, CP_LON,
+        lambda row: haversine_distance(target_lat, target_lon,
                                        row["latitude"], row["longitude"]),
         axis=1,
     )
@@ -401,7 +414,7 @@ def discover_candidate_stations(
 
     # Compute bearing and classifications
     candidates["bearing"] = candidates.apply(
-        lambda row: calculate_bearing(CP_LAT, CP_LON,
+        lambda row: calculate_bearing(target_lat, target_lon,
                                       row["latitude"], row["longitude"]),
         axis=1,
     )
@@ -427,9 +440,17 @@ def discover_candidate_stations(
     logger.info("  USW stations: %d", candidates["is_usw"].sum())
     logger.info("  With TMIN: %d", candidates["has_tmin"].sum())
 
+    # Determine which original station IDs to preserve (NYC only)
+    if target_station == config.TARGET_STATION:
+        original_ids = set(config.SURROUNDING_STATIONS.keys())
+    else:
+        original_ids = None
+
     # Select stations: take all USW stations first, then fill with others
     # while maintaining sector diversity
-    selected = _select_diverse_stations(candidates, target_count)
+    selected = _select_diverse_stations(
+        candidates, target_count, original_station_ids=original_ids,
+    )
 
     logger.info("Selected %d stations", len(selected))
     for ring in ["Ring1_Near", "Ring2_Regional", "Ring3_Extended", "Ring4_Far"]:
@@ -445,11 +466,12 @@ def discover_candidate_stations(
 def _select_diverse_stations(
     candidates: pd.DataFrame,
     target_count: int,
+    original_station_ids: Optional[set] = None,
 ) -> pd.DataFrame:
     """Select stations maintaining directional diversity.
 
     Strategy:
-    1. Always include the original 14 surrounding stations
+    1. Always include the original surrounding stations (if provided)
     2. Ensure every sector has at least 3 stations (if available)
     3. Ensure every ring has at least 5 stations (if available)
     4. Fill remaining slots with closest USW stations, round-robin by sector
@@ -461,17 +483,22 @@ def _select_diverse_stations(
         All candidate stations with priority, sector, ring columns.
     target_count : int
         Approximate target number of stations.
+    original_station_ids : set or None
+        Station IDs that must always be included (e.g. the original 14 NYC
+        stations). When *None*, no stations are forced into the selection.
 
     Returns
     -------
     pd.DataFrame
         Selected stations.
     """
-    original_ids = set(config.SURROUNDING_STATIONS.keys())
+    if original_station_ids is None:
+        original_station_ids = set()
+
     selected_ids = set()
 
-    # Step 1: Include all original 14 stations
-    for sid in original_ids:
+    # Step 1: Include all original stations (if any)
+    for sid in original_station_ids:
         if sid in candidates["station_id"].values:
             selected_ids.add(sid)
     logger.info("Step 1: Added %d original stations", len(selected_ids))
@@ -562,6 +589,9 @@ def _select_diverse_stations(
 def run_station_discovery(
     data_dir: Optional[str] = None,
     target_count: int = 50,
+    target_lat: float = CP_LAT,
+    target_lon: float = CP_LON,
+    target_station: str = config.TARGET_STATION,
 ) -> pd.DataFrame:
     """Run the full station discovery pipeline.
 
@@ -574,6 +604,13 @@ def run_station_discovery(
         Directory to store inventory files. Defaults to config.DATA_DIR.
     target_count : int
         Target number of surrounding stations.
+    target_lat : float
+        Latitude of the target station. Defaults to Central Park.
+    target_lon : float
+        Longitude of the target station. Defaults to Central Park.
+    target_station : str
+        GHCN station ID of the target station. Defaults to
+        config.TARGET_STATION (Central Park).
 
     Returns
     -------
@@ -607,43 +644,47 @@ def run_station_discovery(
     selected = discover_candidate_stations(
         stations_df, inventory_df,
         target_count=target_count,
+        target_lat=target_lat,
+        target_lon=target_lon,
+        target_station=target_station,
     )
 
-    # Ensure original 14 stations are included
-    original_ids = set(config.SURROUNDING_STATIONS.keys())
-    missing_originals = original_ids - set(selected["station_id"])
-    if missing_originals:
-        logger.warning(
-            "Adding %d original stations not in discovery: %s",
-            len(missing_originals), missing_originals,
-        )
-        for sid in missing_originals:
-            station_info = stations_df[stations_df["station_id"] == sid]
-            if not station_info.empty:
-                row = station_info.iloc[0]
-                dist = haversine_distance(CP_LAT, CP_LON,
-                                          row["latitude"], row["longitude"])
-                bearing = calculate_bearing(CP_LAT, CP_LON,
-                                            row["latitude"], row["longitude"])
-                new_row = {
-                    "station_id": sid,
-                    "name": row["name"],
-                    "latitude": row["latitude"],
-                    "longitude": row["longitude"],
-                    "elevation": row.get("elevation"),
-                    "state": row.get("state", ""),
-                    "distance_mi": dist,
-                    "bearing": bearing,
-                    "ring": classify_ring(dist),
-                    "sector": classify_sector(bearing),
-                    "has_tmin": True,
-                    "is_usw": sid.startswith("USW"),
-                    "priority": 3 if sid.startswith("USW") else 1,
-                }
-                selected = pd.concat(
-                    [selected, pd.DataFrame([new_row])],
-                    ignore_index=True,
-                )
+    # Ensure original 14 stations are included (NYC only)
+    if target_station == config.TARGET_STATION:
+        original_ids = set(config.SURROUNDING_STATIONS.keys())
+        missing_originals = original_ids - set(selected["station_id"])
+        if missing_originals:
+            logger.warning(
+                "Adding %d original stations not in discovery: %s",
+                len(missing_originals), missing_originals,
+            )
+            for sid in missing_originals:
+                station_info = stations_df[stations_df["station_id"] == sid]
+                if not station_info.empty:
+                    row = station_info.iloc[0]
+                    dist = haversine_distance(target_lat, target_lon,
+                                              row["latitude"], row["longitude"])
+                    bearing = calculate_bearing(target_lat, target_lon,
+                                                row["latitude"], row["longitude"])
+                    new_row = {
+                        "station_id": sid,
+                        "name": row["name"],
+                        "latitude": row["latitude"],
+                        "longitude": row["longitude"],
+                        "elevation": row.get("elevation"),
+                        "state": row.get("state", ""),
+                        "distance_mi": dist,
+                        "bearing": bearing,
+                        "ring": classify_ring(dist),
+                        "sector": classify_sector(bearing),
+                        "has_tmin": True,
+                        "is_usw": sid.startswith("USW"),
+                        "priority": 3 if sid.startswith("USW") else 1,
+                    }
+                    selected = pd.concat(
+                        [selected, pd.DataFrame([new_row])],
+                        ignore_index=True,
+                    )
 
     selected = selected.sort_values("distance_mi").reset_index(drop=True)
 
@@ -656,8 +697,105 @@ def run_station_discovery(
     return selected
 
 
+def run_city_station_discovery(
+    city_code: str,
+    target_lat: float,
+    target_lon: float,
+    target_station: str,
+    data_dir: Optional[str] = None,
+    target_count: int = 50,
+) -> pd.DataFrame:
+    """Run station discovery for any city.
+
+    Parameters
+    ----------
+    city_code : str
+        City identifier (e.g., "nyc", "phl", "chi").
+    target_lat, target_lon : float
+        Latitude and longitude of the target station.
+    target_station : str
+        GHCN station ID of the target station.
+    data_dir : str, optional
+        Directory to store inventory and output files.
+    target_count : int
+        Target number of surrounding stations.
+
+    Returns
+    -------
+    pd.DataFrame
+        Selected station metadata.
+    """
+    if data_dir is None:
+        data_dir = config.DATA_DIR
+
+    os.makedirs(data_dir, exist_ok=True)
+
+    # Download / cache GHCN inventory files
+    stations_path = os.path.join(data_dir, "ghcnd-stations.txt")
+    inventory_path = os.path.join(data_dir, "ghcnd-inventory.txt")
+
+    if not os.path.exists(stations_path):
+        download_file(GHCN_STATIONS_URL, stations_path)
+    else:
+        logger.info("Using cached %s", stations_path)
+
+    if not os.path.exists(inventory_path):
+        download_file(GHCN_INVENTORY_URL, inventory_path)
+    else:
+        logger.info("Using cached %s", inventory_path)
+
+    # Parse
+    stations_df = parse_ghcn_stations(stations_path)
+    inventory_df = parse_ghcn_inventory(inventory_path)
+
+    # Discover and select (no original-station enforcement for non-NYC)
+    selected = discover_candidate_stations(
+        stations_df, inventory_df,
+        target_count=target_count,
+        target_lat=target_lat,
+        target_lon=target_lon,
+        target_station=target_station,
+    )
+
+    selected = selected.sort_values("distance_mi").reset_index(drop=True)
+
+    # Save city-specific expanded stations CSV
+    csv_path = os.path.join(data_dir, f"stations_expanded_{city_code}.csv")
+    selected.to_csv(csv_path, index=False)
+    logger.info("Saved expanded station list to %s (%d stations)",
+                csv_path, len(selected))
+
+    return selected
+
+
 if __name__ == "__main__":
-    result = run_station_discovery()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="GHCN Station Discovery")
+    parser.add_argument(
+        "--city", default="nyc", choices=["nyc", "phl", "chi"],
+        help="City to discover stations for",
+    )
+    parser.add_argument(
+        "--count", type=int, default=50,
+        help="Target station count",
+    )
+    args = parser.parse_args()
+
+    if args.city == "nyc":
+        result = run_station_discovery(target_count=args.count)
+    else:
+        # Import city config
+        from src.city_config import get_city_config
+        cc = get_city_config(args.city)
+        result = run_city_station_discovery(
+            city_code=args.city,
+            target_lat=cc.target_lat,
+            target_lon=cc.target_lon,
+            target_station=cc.target_station,
+            target_count=args.count,
+        )
+
     print(f"\nDiscovered {len(result)} stations:")
     print(result[["station_id", "name", "state", "distance_mi", "ring", "sector"]]
           .to_string(index=False))
