@@ -16,7 +16,7 @@ Multi-city daily max-temperature probabilistic forecasting for Kalshi temperatur
 | 4 | Post-hoc calibration + bucketization (NYC) | COMPLETE |
 | 5 | EV/risk trading simulation + gating (NYC) | COMPLETE |
 | 6 | Daily production hardening (cutoff enforcement + kill switch) | IN PROGRESS |
-| 7 | Multi-city expansion (Chicago + Philadelphia) | PLANNING |
+| 7 | Multi-city expansion (Chicago + Philadelphia) | IN PROGRESS |
 | 8 | Operational dashboard | PLANNING |
 
 ## Canonical Benchmark State (2026-02-15)
@@ -59,6 +59,8 @@ Multi-city daily max-temperature probabilistic forecasting for Kalshi temperatur
 | ASOS/NWP/Soundings | `src/asos_collection.py`, `src/nwp_collection.py`, `src/soundings_collection.py` |
 | Station management | `src/station_registry.py`, `src/station_discovery.py`, `config_expanded.py` |
 | Market proxies | `src/market_proxy.py`, `src/mos_market_proxy.py`, `src/enhanced_market_proxy.py` |
+| Chicago pipeline | `config_chicago.py`, `scripts/run_chi_*.py`, `tests/test_chi_pipeline.py` |
+| Philadelphia pipeline | `config_philadelphia.py`, `scripts/run_phl_*.py` |
 
 ## Immediate Priorities
 1. Enforce cutoff-time feature availability checks via automated schema/contract tests.
@@ -68,10 +70,20 @@ Multi-city daily max-temperature probabilistic forecasting for Kalshi temperatur
 5. Improve execution microstructure assumptions (depth, queue, fill uncertainty).
 
 ## Multi-City Expansion Notes
-- Chicago target: O'Hare (USW00094846) — Kalshi contract KXHIGHCHI
-- Philadelphia target: PHL International (USW00013739) — Kalshi contract KXHIGHPHL
-- Reuse NYC pipeline architecture; adapt station networks, configs, and calibration per city
-- See `prediction_market_expansion.md` for detailed plan
+
+### Chicago (KXHIGHCHI) — Phase 2 Complete
+- Target: O'Hare (USW00094846), 11 buckets (10°F floor)
+- Station network: 45 stations across 4 rings (9 near / 12 regional / 16 extended / 8 far)
+- Meteorological sectors: WNW (cold advection), Lake (Michigan moderation), SW (Gulf warm), NearField, NE_Lake
+- Full pipeline: `config_chicago.py` + 6 scripts (data collection, preprocessing, benchmark, synthesis/calibration, backtest, promotion eval)
+- Tests: 27 passing in `tests/test_chi_pipeline.py`
+- Status: Pipeline code complete. Next: execute data collection → preprocessing → benchmark runs.
+
+### Philadelphia (KXHIGHPHL)
+- Target: PHL International (USW00013739), 10 buckets
+- Station network: ~48 stations in `config_philadelphia.py`
+- Full pipeline: 6 scripts in `scripts/run_phl_*.py`
+- Status: Pipeline code complete. Data collection and preprocessing in progress.
 
 # currentDate
 Today's date is 2026-02-15.
