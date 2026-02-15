@@ -1,0 +1,26 @@
+{
+  "city": "Philadelphia",
+  "kalshi_ticker": "KXHIGHPHL",
+  "target_station": "USW00013739",
+  "n_surrounding_stations": 50,
+  "date_range": "1985-01-01 to 2024-12-31",
+  "n_features": 200,
+  "n_train": 10226,
+  "n_val": 2191,
+  "n_test": 2192,
+  "n_buckets": 10,
+  "bucket_labels": [
+    "Below 20",
+    "20-29",
+    "30-39",
+    "40-49",
+    "50-59",
+    "60-69",
+    "70-79",
+    "80-89",
+    "90-99",
+    "Above 100"
+  ],
+  "best_model": "Ridge (a=100.0)",
+  "best_test_brier": 0.05477028768869107
+}
