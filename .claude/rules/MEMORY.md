@@ -5,25 +5,26 @@
 ---
 
 ## Project Overview
-NYC daily max-temperature probabilistic forecasting for Kalshi KXHIGHNY bucket contracts, with calibration-first evaluation and EV-gated trading simulation.
+Multi-city daily max-temperature probabilistic forecasting for Kalshi temperature bucket contracts, with calibration-first evaluation and EV-gated trading simulation. Currently operational for NYC (KXHIGHNY). Expansion to Chicago (KXHIGHCHI) and Philadelphia (KXHIGHPHL) in progress.
 
 ## Current Phase Status
 | Layer | Description | Status |
 |---|---|---|
-| 1 | Operational + historical ingestion | ACTIVE |
-| 2 | Time-safe feature engineering | ACTIVE |
-| 3 | Distributional + synthesis modeling (E/WGA/U) | ACTIVE |
-| 4 | Post-hoc calibration + bucketization | ACTIVE |
-| 5 | EV/risk trading simulation + gating | ACTIVE |
+| 1 | Operational + historical ingestion (NYC) | COMPLETE |
+| 2 | Time-safe feature engineering (NYC) | COMPLETE |
+| 3 | Distributional + synthesis modeling E/WGA/U (NYC) | COMPLETE |
+| 4 | Post-hoc calibration + bucketization (NYC) | COMPLETE |
+| 5 | EV/risk trading simulation + gating (NYC) | COMPLETE |
 | 6 | Daily production hardening (cutoff enforcement + kill switch) | IN PROGRESS |
-| 7 | Documentation synchronization | ACTIVE |
+| 7 | Multi-city expansion (Chicago + Philadelphia) | PLANNING |
+| 8 | Operational dashboard | PLANNING |
 
-## Canonical Benchmark State (2026-02-13)
+## Canonical Benchmark State (2026-02-15)
 - E-core benchmark: `scripts/run_e0_e8_best_model_benchmark.py` (E0–E22).
 - WGA extension benchmark: `scripts/run_wga_v2_benchmark.py` (E38–E42).
 - Unified benchmark: `scripts/run_unified_outperformance_benchmark.py` (U0–U9).
-- Current best overall model Brier in active artifacts: **U7_regime_conditional (0.1137)**.
-- Other top cluster: **E40_lag2_contract_brier, U6_platt_on_u5, E17_contract_brier, E42_dual_attention, U9_kitchen_sink**.
+- Current best overall model Brier: **U7_regime_conditional (0.1137)**.
+- Top cluster: **E40_lag2_contract_brier (0.1138), U6_platt_on_u5 (0.1141), E17_contract_brier (0.1141), E42_dual_attention (0.1150)**.
 
 ## Operational Guardrails (locked)
 1. No delayed training-grade source may appear in live feature computation.
@@ -32,14 +33,18 @@ NYC daily max-temperature probabilistic forecasting for Kalshi KXHIGHNY bucket c
 4. Persist audit artifacts for each run (mass checks, reliability metrics, trading diagnostics).
 5. Trigger kill-switch on critical data/schema/calibration failures.
 
-## Repo Hygiene State
-- Legacy exploratory phase-1 scripts moved to `ARCHIVE/legacy_experiments/`.
-- Legacy backtest runner retained in `ARCHIVE/legacy_runners/run_kalshi_real_backtest.py`.
+## Repo Hygiene State (2026-02-15)
+- Legacy phase-1 experiments in `ARCHIVE/legacy_experiments/`.
+- Legacy root-level runners in `ARCHIVE/legacy_root_runners/`.
+- Legacy intermediate benchmark scripts in `ARCHIVE/legacy_scripts/`.
+- Legacy early research docs in `ARCHIVE/legacy_docs/`.
+- Legacy backtest runner in `ARCHIVE/legacy_runners/`.
 - Current docs aligned to E42/U9 state:
   - `docs/current_state_and_directory.md`
   - `docs/top15_models_brier_function_reference.md`
   - `docs/model_principles_and_us_city_portability.md`
 - Planning doc synchronized: `nyc_temp_prediction_project_plan.md`.
+- Expansion plan: `prediction_market_expansion.md`.
 
 ## Active File Reference
 | Domain | Key Files |
@@ -51,9 +56,22 @@ NYC daily max-temperature probabilistic forecasting for Kalshi KXHIGHNY bucket c
 | Calibration + evaluation | `src/calibration.py`, `src/evaluate.py`, `src/kalshi_backtester.py` |
 | Trading + market integration | `src/trading.py`, `src/kalshi_client.py` |
 | Data + operational features | `src/data_collection.py`, `src/data_preprocessing.py`, `src/operational_features.py` |
+| ASOS/NWP/Soundings | `src/asos_collection.py`, `src/nwp_collection.py`, `src/soundings_collection.py` |
+| Station management | `src/station_registry.py`, `src/station_discovery.py`, `config_expanded.py` |
+| Market proxies | `src/market_proxy.py`, `src/mos_market_proxy.py`, `src/enhanced_market_proxy.py` |
 
 ## Immediate Priorities
 1. Enforce cutoff-time feature availability checks via automated schema/contract tests.
 2. Consolidate promotion rubric for production candidate selection across E/WGA/U families.
-3. Improve execution microstructure assumptions (depth, queue, fill uncertainty).
-4. Expand drift alerting + incident runbook automation.
+3. Execute multi-city expansion plan (Chicago + Philadelphia).
+4. Build operational dashboard for model vs market monitoring.
+5. Improve execution microstructure assumptions (depth, queue, fill uncertainty).
+
+## Multi-City Expansion Notes
+- Chicago target: O'Hare (USW00094846) — Kalshi contract KXHIGHCHI
+- Philadelphia target: PHL International (USW00013739) — Kalshi contract KXHIGHPHL
+- Reuse NYC pipeline architecture; adapt station networks, configs, and calibration per city
+- See `prediction_market_expansion.md` for detailed plan
+
+# currentDate
+Today's date is 2026-02-15.
