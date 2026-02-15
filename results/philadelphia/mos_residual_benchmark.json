@@ -1,0 +1,45 @@
+{
+  "city": "phl",
+  "date_run": "2026-02-15T20:54:47.801793",
+  "test_date_range": [
+    "2019-01-01",
+    "2024-12-31"
+  ],
+  "n_test_days": 2192,
+  "n_features": 225,
+  "bucket_labels": [
+    "Below 20",
+    "20-29",
+    "30-39",
+    "40-49",
+    "50-59",
+    "60-69",
+    "70-79",
+    "80-89",
+    "90-99",
+    "Above 100"
+  ],
+  "results": {
+    "Persistence": 0.0637285660513886,
+    "Climatology": 0.06726369284700233,
+    "Raw MOS": 0.041690114400437794,
+    "Ridge MOS": 0.045956038708534236,
+    "Ridge MOS + Cal": 0.0431226915365774,
+    "MOSResidualNet": 0.03436237952508772,
+    "MOSResidualNet + Cal": 0.03524304829931214,
+    "AttentionMOSNet": 0.03231103815404351,
+    "AttentionMOSNet + Cal": 0.03373647143046265,
+    "RegimeMOSNet": 0.034488179406740205,
+    "RegimeMOSNet + Cal": 0.0358936049170227,
+    "Ensemble (equal)": 0.0337796750575156,
+    "Ensemble (weighted)": 0.033770353768049245
+  },
+  "best_model": "AttentionMOSNet",
+  "best_brier": 0.03231103815404351,
+  "seasonal_brier": {
+    "DJF": 0.037038296710493995,
+    "MAM": 0.03556452492425612,
+    "JJA": 0.024979069125366245,
+    "SON": 0.03174171227323093
+  }
+}

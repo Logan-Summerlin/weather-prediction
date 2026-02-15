@@ -1,0 +1,46 @@
+{
+  "city": "chi",
+  "date_run": "2026-02-15T20:39:10.819381",
+  "test_date_range": [
+    "2019-01-01",
+    "2024-12-31"
+  ],
+  "n_test_days": 2192,
+  "n_features": 237,
+  "bucket_labels": [
+    "Below 10",
+    "10-19",
+    "20-29",
+    "30-39",
+    "40-49",
+    "50-59",
+    "60-69",
+    "70-79",
+    "80-89",
+    "90-99",
+    "Above 100"
+  ],
+  "results": {
+    "Persistence": 0.05966861619587112,
+    "Climatology": 0.06551293688106863,
+    "Raw MOS": 0.042948785631286915,
+    "Ridge MOS": 0.04443029627060027,
+    "Ridge MOS + Cal": 0.04053919222973227,
+    "MOSResidualNet": 0.03408410742512801,
+    "MOSResidualNet + Cal": 0.03478293482297491,
+    "AttentionMOSNet": 0.034000026498439674,
+    "AttentionMOSNet + Cal": 0.03489704497727894,
+    "RegimeMOSNet": 0.03428505817046617,
+    "RegimeMOSNet + Cal": 0.03492245171775453,
+    "Ensemble (equal)": 0.03389123707221929,
+    "Ensemble (weighted)": 0.03389205508239657
+  },
+  "best_model": "Ensemble (equal)",
+  "best_brier": 0.03389123707221929,
+  "seasonal_brier": {
+    "DJF": 0.03407555227506399,
+    "MAM": 0.039079557530329184,
+    "JJA": 0.030835739621828458,
+    "SON": 0.03155201154071244
+  }
+}
