@@ -1,0 +1,26 @@
+{
+  "city": "Chicago",
+  "city_code": "chi",
+  "kalshi_ticker": "KXHIGHCHI",
+  "target_station": "USW00094846",
+  "train_period": "2000-01-01 to 2021-12-31",
+  "val_period": "2022-01-01 to 2023-12-31",
+  "test_period": "2024-01-01+",
+  "n_base_features": 209,
+  "n_enhanced_features": 225,
+  "n_train": 8036,
+  "n_val": 730,
+  "n_test": 366,
+  "n_buckets": 62,
+  "benchmark_mos_brier": 0.01351374942777124,
+  "mos_coverage_pct": 100.0,
+  "mos_diagnostics": {
+    "mae": 2.807476806083651,
+    "rmse": 3.7371695843112533,
+    "bias": 0.7968790874524717,
+    "sigma": 3.651499434853746
+  },
+  "best_model": "Real_NWS_MOS",
+  "best_test_brier": 0.01351374942777124,
+  "timestamp": "2026-02-15T22:57:57.986064"
+}

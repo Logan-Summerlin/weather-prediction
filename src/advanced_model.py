@@ -628,7 +628,7 @@ def add_enhanced_features(
         )
 
     # Fill NaN in new features
-    X_enhanced = X_enhanced.fillna(method="ffill").fillna(method="bfill").fillna(0)
+    X_enhanced = X_enhanced.ffill().bfill().fillna(0)
 
     return X_enhanced
 
