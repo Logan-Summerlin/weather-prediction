@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Run NYC-template city benchmark (PHL/CHI) against NWS MOS and Kalshi pre-settlement.
+"""Run NYC-template benchmark (PHL/CHI) against NWS MOS and Kalshi pre-settlement.
 
-Implements the NYC-style MOS residual correction idea:
-1) train on actual station outcomes,
-2) model MOS Tmax error (residual),
-3) fit a small NN to correct residual,
-4) convert calibrated Gaussian (mu, sigma) to bucket/contract probabilities.
+This script ports NYC best-practice families into city expansion workflows:
+1) station-feature ridge baseline,
+2) MOS-residual correction (ridge + NN),
+3) U7-style regime-aware bucket synthesis stacker,
+4) NWS MOS baseline,
+5) Kalshi pre-settlement contract benchmark when archives are present.
 
-No synthetic data are generated in this script.
+All fitting uses real observed targets and archived inputs only.
+No synthetic training/evaluation data are generated.
 """
 from __future__ import annotations
 
@@ -19,13 +21,14 @@ import sys
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from sklearn.linear_model import Ridge
+from sklearn.isotonic import IsotonicRegression
+from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.neural_network import MLPRegressor
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.city_config import get_city_config, ensure_city_dirs
+from src.city_config import ensure_city_dirs, get_city_config
 
 PROB_CLIP_MIN = 1e-4
 PROB_CLIP_MAX = 1 - 1e-4
@@ -75,59 +78,8 @@ def _prepare_mos(city: str, y_all: pd.Series) -> pd.DataFrame:
     merged["mos_error_14d"] = merged["mos_error_lag1"].rolling(14, min_periods=5).mean()
     merged["mos_abs_error_7d"] = merged["mos_error_lag1"].abs().rolling(7, min_periods=3).mean()
     merged["month"] = merged["date"].dt.month
+    merged["doy"] = merged["date"].dt.dayofyear
     return merged
-
-
-def _fit_models(X_train, X_val, X_test, y_train, y_val, y_test, mos_df):
-    # Ridge baseline on station features
-    ridge = Ridge(alpha=100.0)
-    ridge.fit(X_train.values, y_train.values)
-    mu_ridge = ridge.predict(X_test.values)
-    sigma_ridge = max(1.0, float(np.std(y_train.values - ridge.predict(X_train.values))))
-
-    # NYC-template MOS residual NN
-    y_all = pd.concat([y_train, y_val, y_test])
-    idx = pd.to_datetime(y_all.index).normalize()
-    mos_indexed = mos_df.set_index("date").reindex(idx)
-    mos_feats = ["mos_tmax", "mos_error_lag1", "mos_error_7d", "mos_error_14d", "mos_abs_error_7d", "month"]
-    mos_indexed[mos_feats] = mos_indexed[mos_feats].ffill().bfill()
-
-    n_train, n_val = len(y_train), len(y_val)
-    X_res_all = mos_indexed[mos_feats].values
-    y_res_all = (y_all.values - mos_indexed["mos_tmax"].values)
-
-    X_res_train = X_res_all[:n_train]
-    y_res_train = y_res_all[:n_train]
-    X_res_val = X_res_all[n_train:n_train + n_val]
-    y_res_val = y_res_all[n_train:n_train + n_val]
-    X_res_test = X_res_all[n_train + n_val:]
-
-    nn = MLPRegressor(hidden_layer_sizes=(64, 32), activation="relu", alpha=1e-3,
-                      learning_rate_init=5e-4, max_iter=500, random_state=42)
-    nn.fit(np.vstack([X_res_train, X_res_val]), np.concatenate([y_res_train, y_res_val]))
-    resid_test = nn.predict(X_res_test)
-    mu_mos_nn = mos_indexed["mos_tmax"].values[n_train + n_val:] + resid_test
-
-    # sigma from train+val residuals, monthly where available
-    resid_cal = np.concatenate([y_res_train - nn.predict(X_res_train), y_res_val - nn.predict(X_res_val)])
-    months_cal = mos_indexed["month"].values[:n_train + n_val]
-    month_sigma = {}
-    for m in range(1, 13):
-        r = resid_cal[months_cal == m]
-        if len(r) >= 15:
-            month_sigma[m] = float(np.std(r))
-    global_sigma = max(1.0, float(np.std(resid_cal)))
-    months_test = mos_indexed["month"].values[n_train + n_val:]
-    sigma_mos_nn = np.array([max(1.0, month_sigma.get(int(m), global_sigma)) for m in months_test])
-
-    # NWS MOS baseline (mu=mos)
-    mos_test = mos_indexed["mos_tmax"].values[n_train + n_val:]
-    nws_sigma = np.array([max(1.0, month_sigma.get(int(m), global_sigma)) for m in months_test])
-    return {
-        "ridge": (mu_ridge, np.full_like(mu_ridge, sigma_ridge, dtype=float)),
-        "mos_residual_nn": (mu_mos_nn, sigma_mos_nn),
-        "nws_mos": (mos_test, nws_sigma),
-    }
 
 
 def _bucket_probs(mu: np.ndarray, sigma: np.ndarray, edges):
@@ -140,14 +92,176 @@ def _bucket_probs(mu: np.ndarray, sigma: np.ndarray, edges):
     return out
 
 
-def _brier_daily(bucket_probs, actual, edges):
-    outcomes = np.zeros_like(bucket_probs)
+def _daily_outcomes(actual, edges):
+    outcomes = np.zeros((len(actual), len(edges)))
     for d, t in enumerate(actual):
         for b, (lo, hi) in enumerate(edges):
             if (b == len(edges) - 1 and lo <= t <= hi) or (b < len(edges) - 1 and lo <= t < hi):
                 outcomes[d, b] = 1.0
                 break
+    return outcomes
+
+
+def _brier_daily(bucket_probs, actual, edges):
+    outcomes = _daily_outcomes(actual, edges)
     return float(np.mean((bucket_probs - outcomes) ** 2))
+
+
+def _fit_monthly_sigma(residuals: np.ndarray, months: np.ndarray):
+    monthly = {}
+    for m in range(1, 13):
+        r = residuals[months == m]
+        if len(r) >= 15:
+            monthly[m] = float(np.std(r))
+    global_sigma = max(1.0, float(np.std(residuals)))
+    return monthly, global_sigma
+
+
+def _sigma_for_months(monthly: dict, global_sigma: float, months: np.ndarray):
+    return np.array([max(1.0, monthly.get(int(m), global_sigma)) for m in months], dtype=float)
+
+
+def _fit_models(X_train, X_val, X_test, y_train, y_val, y_test, mos_df, bucket_edges):
+    y_all = pd.concat([y_train, y_val, y_test])
+    idx = pd.to_datetime(y_all.index).normalize()
+
+    mos_indexed = mos_df.set_index("date").reindex(idx)
+    mos_feats = ["mos_tmax", "mos_error_lag1", "mos_error_7d", "mos_error_14d", "mos_abs_error_7d", "month", "doy"]
+    mos_indexed[mos_feats] = mos_indexed[mos_feats].ffill().bfill()
+
+    n_train, n_val = len(y_train), len(y_val)
+    y_arr = y_all.values
+    months_all = mos_indexed["month"].values
+
+    # Station-feature ridge
+    ridge = Ridge(alpha=100.0)
+    ridge.fit(X_train.values, y_train.values)
+    mu_ridge_train = ridge.predict(X_train.values)
+    mu_ridge_val = ridge.predict(X_val.values)
+    mu_ridge_test = ridge.predict(X_test.values)
+    resid_ridge_train = y_train.values - mu_ridge_train
+    month_sigma_ridge, gsig_ridge = _fit_monthly_sigma(resid_ridge_train, months_all[:n_train])
+    sigma_ridge_test = _sigma_for_months(month_sigma_ridge, gsig_ridge, months_all[n_train + n_val:])
+
+    # MOS residual feature matrix
+    X_res_all = mos_indexed[mos_feats].values
+    y_res_all = y_arr - mos_indexed["mos_tmax"].values
+    X_res_train, X_res_val, X_res_test = X_res_all[:n_train], X_res_all[n_train:n_train + n_val], X_res_all[n_train + n_val:]
+    y_res_train, y_res_val = y_res_all[:n_train], y_res_all[n_train:n_train + n_val]
+
+    # MOS residual ridge
+    mos_ridge = Ridge(alpha=5.0)
+    mos_ridge.fit(X_res_train, y_res_train)
+    resid_ridge_val = mos_ridge.predict(X_res_val)
+    resid_ridge_test = mos_ridge.predict(X_res_test)
+    mu_mos_ridge_test = mos_indexed["mos_tmax"].values[n_train + n_val:] + resid_ridge_test
+
+    # MOS residual NN (NYC template)
+    mos_nn = MLPRegressor(
+        hidden_layer_sizes=(64, 32),
+        activation="relu",
+        alpha=1e-3,
+        learning_rate_init=5e-4,
+        max_iter=700,
+        random_state=42,
+    )
+    mos_nn.fit(np.vstack([X_res_train, X_res_val]), np.concatenate([y_res_train, y_res_val]))
+    resid_nn_train = mos_nn.predict(X_res_train)
+    resid_nn_val = mos_nn.predict(X_res_val)
+    resid_nn_test = mos_nn.predict(X_res_test)
+    mu_mos_nn_test = mos_indexed["mos_tmax"].values[n_train + n_val:] + resid_nn_test
+
+    resid_cal = np.concatenate([y_res_train - resid_nn_train, y_res_val - resid_nn_val])
+    months_cal = months_all[:n_train + n_val]
+    month_sigma_mos, gsig_mos = _fit_monthly_sigma(resid_cal, months_cal)
+    sigma_mos_test = _sigma_for_months(month_sigma_mos, gsig_mos, months_all[n_train + n_val:])
+
+    # NWS MOS baseline
+    mu_nws_test = mos_indexed["mos_tmax"].values[n_train + n_val:]
+
+    # Isotonic calibration for gaussian models using val-only CDF PIT values.
+    def calibrated_probs(mu_val, mu_test, sigma_test):
+        val_sigma = _sigma_for_months(month_sigma_mos, gsig_mos, months_all[n_train:n_train + n_val])
+        pit_raw = norm.cdf(y_val.values, loc=mu_val, scale=val_sigma)
+        pit_raw = np.clip(pit_raw, PROB_CLIP_MIN, PROB_CLIP_MAX)
+        iso = IsotonicRegression(out_of_bounds="clip")
+        q = np.linspace(0.01, 0.99, 99)
+        emp = np.array([(pit_raw <= qq).mean() for qq in q])
+        iso.fit(q, emp)
+
+        p_raw = _bucket_probs(mu_test, sigma_test, bucket_edges)
+        p_cal = p_raw.copy()
+        for i, (lo, hi) in enumerate(bucket_edges):
+            c_lo = 0.0 if lo <= -900 else iso.predict(norm.cdf(lo, loc=mu_test, scale=sigma_test))
+            c_hi = 1.0 if hi >= 900 else iso.predict(norm.cdf(hi, loc=mu_test, scale=sigma_test))
+            p_cal[:, i] = np.clip(c_hi - c_lo, PROB_CLIP_MIN, PROB_CLIP_MAX)
+        return p_cal / p_cal.sum(axis=1, keepdims=True)
+
+    mu_mos_nn_val = mos_indexed["mos_tmax"].values[n_train:n_train + n_val] + resid_nn_val
+    mu_mos_ridge_val = mos_indexed["mos_tmax"].values[n_train:n_train + n_val] + resid_ridge_val
+
+    model_outputs = {
+        "ridge": (mu_ridge_test, sigma_ridge_test, _bucket_probs(mu_ridge_test, sigma_ridge_test, bucket_edges)),
+        "mos_residual_ridge": (
+            mu_mos_ridge_test,
+            sigma_mos_test,
+            calibrated_probs(mu_mos_ridge_val, mu_mos_ridge_test, sigma_mos_test),
+        ),
+        "mos_residual_nn": (
+            mu_mos_nn_test,
+            sigma_mos_test,
+            calibrated_probs(mu_mos_nn_val, mu_mos_nn_test, sigma_mos_test),
+        ),
+        "nws_mos": (mu_nws_test, sigma_mos_test, _bucket_probs(mu_nws_test, sigma_mos_test, bucket_edges)),
+    }
+
+    # U7-style regime conditional synthesis (contract-row logistic stacker on val).
+    probs_val = {
+        "ridge": _bucket_probs(mu_ridge_val, _sigma_for_months(month_sigma_ridge, gsig_ridge, months_all[n_train:n_train + n_val]), bucket_edges),
+        "mos": calibrated_probs(mu_mos_nn_val, mu_mos_nn_val, _sigma_for_months(month_sigma_mos, gsig_mos, months_all[n_train:n_train + n_val])),
+        "nws": _bucket_probs(mos_indexed["mos_tmax"].values[n_train:n_train + n_val], _sigma_for_months(month_sigma_mos, gsig_mos, months_all[n_train:n_train + n_val]), bucket_edges),
+    }
+    probs_test = {
+        "ridge": model_outputs["ridge"][2],
+        "mos": model_outputs["mos_residual_nn"][2],
+        "nws": model_outputs["nws_mos"][2],
+    }
+
+    def _stack_features(prob_map, dates, sigma):
+        n_days, n_buckets = prob_map["mos"].shape
+        centers = np.array([(lo + hi) / 2 for lo, hi in bucket_edges], dtype=float)
+        m = prob_map["mos"].reshape(-1)
+        r = prob_map["ridge"].reshape(-1)
+        n = prob_map["nws"].reshape(-1)
+        bc = np.tile(centers, n_days)
+        month = np.repeat(pd.to_datetime(dates).month.values, n_buckets)
+        sin_month = np.sin(2 * np.pi * month / 12.0)
+        cos_month = np.cos(2 * np.pi * month / 12.0)
+        s_norm = np.repeat((sigma - np.percentile(sigma, 5)) / (np.percentile(sigma, 95) - np.percentile(sigma, 5) + 1e-6), n_buckets)
+        X = np.column_stack([
+            m, r, n,
+            m - r, m - n, r - n,
+            m * (1 - s_norm),
+            bc / 100.0,
+            sin_month, cos_month,
+        ])
+        return np.nan_to_num(X, nan=0.0)
+
+    val_dates = y_val.index
+    test_dates = y_test.index
+    sigma_val_for_stack = _sigma_for_months(month_sigma_mos, gsig_mos, months_all[n_train:n_train + n_val])
+    X_stack_val = _stack_features(probs_val, val_dates, sigma_val_for_stack)
+    X_stack_test = _stack_features(probs_test, test_dates, sigma_mos_test)
+    y_stack_val = _daily_outcomes(y_val.values, bucket_edges).reshape(-1)
+
+    stacker = LogisticRegression(C=0.5, max_iter=1500, solver="lbfgs")
+    stacker.fit(X_stack_val, y_stack_val)
+    p_stack = np.clip(stacker.predict_proba(X_stack_test)[:, 1], PROB_CLIP_MIN, PROB_CLIP_MAX)
+    p_stack = p_stack.reshape(len(y_test), len(bucket_edges))
+    p_stack /= p_stack.sum(axis=1, keepdims=True)
+
+    model_outputs["u7_style_regime_stacker"] = (None, None, p_stack)
+    return model_outputs
 
 
 def _load_kalshi_contract_rows(city: str, valid_dates: pd.DatetimeIndex) -> pd.DataFrame:
@@ -201,7 +315,7 @@ def main():
         cfg, X_train, X_val, X_test, y_train, y_val, y_test = _load_processed(args.city)
         y_all = pd.concat([y_train, y_val, y_test])
         mos_df = _prepare_mos(args.city, y_all)
-        models = _fit_models(X_train, X_val, X_test, y_train, y_val, y_test, mos_df)
+        models = _fit_models(X_train, X_val, X_test, y_train, y_val, y_test, mos_df, cfg.bucket_edges)
     except Exception as exc:
         pd.DataFrame([{"source": "status", "message": str(exc)}]).to_csv(out_csv, index=False)
         out_json.write_text(json.dumps({
@@ -215,11 +329,9 @@ def main():
         return
 
     rows = []
-    for name, (mu, sigma) in models.items():
-        bp = _bucket_probs(mu, sigma, cfg.bucket_edges)
-        rows.append({"source": name, "daily_bucket_brier": _brier_daily(bp, y_test.values, cfg.bucket_edges)})
+    for name, (mu, sigma, probs) in models.items():
+        rows.append({"source": name, "daily_bucket_brier": _brier_daily(probs, y_test.values, cfg.bucket_edges)})
 
-    # Kalshi pre-settlement benchmark when actual city rows exist in local data.
     kalshi = _load_kalshi_contract_rows(args.city, pd.to_datetime(y_test.index))
     kalshi_status = "unavailable"
     if not kalshi.empty:
@@ -229,7 +341,9 @@ def main():
             "source": "kalshi_presettlement",
             "contract_brier": float(np.mean((kalshi["presettlement_prob"].values - outcomes) ** 2)),
         })
-        for name, (mu, sigma) in models.items():
+        for name, (mu, sigma, _probs) in models.items():
+            if mu is None or sigma is None:
+                continue
             mu_s = pd.Series(mu, index=pd.to_datetime(y_test.index).normalize())
             sg_s = pd.Series(sigma, index=pd.to_datetime(y_test.index).normalize())
             p = _contract_probs(kalshi, mu_s, sg_s)
@@ -237,7 +351,6 @@ def main():
         kalshi_status = "available"
 
     pd.DataFrame(rows).to_csv(out_csv, index=False)
-
     metadata = {
         "city": args.city,
         "kalshi_contract_benchmark_status": kalshi_status,
