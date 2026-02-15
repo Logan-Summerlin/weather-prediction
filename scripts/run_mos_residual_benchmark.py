@@ -855,20 +855,84 @@ def load_city_data(city_code: str) -> dict:
     }
 
 
+def validate_mos_date_alignment(mos_df: pd.DataFrame, city_code: str) -> None:
+    """Validate that MOS dates represent the TARGET date (verification date),
+    not the forecast issuance date.
+
+    The MOS forecast made on day T-1 predicts TMAX for day T.
+    In our data, the 'date' column should be the TARGET date T,
+    and 'gfs_runtime' / 'nam_runtime' should be on day T-1 (or at most T at 00Z).
+
+    Raises AssertionError if date alignment is violated.
+    """
+    logger.info("--- Validating MOS date alignment for %s ---", city_code.upper())
+
+    # Check runtime columns exist
+    has_gfs_rt = "gfs_runtime" in mos_df.columns
+    has_nam_rt = "nam_runtime" in mos_df.columns
+
+    if not has_gfs_rt and not has_nam_rt:
+        logger.warning("  No runtime columns found; skipping alignment validation.")
+        return
+
+    rt_col = "gfs_runtime" if has_gfs_rt else "nam_runtime"
+    valid = mos_df.dropna(subset=[rt_col]).copy()
+    valid["runtime_dt"] = pd.to_datetime(valid[rt_col])
+    valid["date_dt"] = pd.to_datetime(valid["date"])
+
+    # MOS runtime should be BEFORE the target date (day-ahead forecast)
+    # Acceptable: runtime on day T-1 at any hour, or day T at 00Z
+    valid["rt_date"] = valid["runtime_dt"].dt.normalize()
+    valid["tgt_date"] = valid["date_dt"].dt.normalize()
+    day_ahead = (valid["rt_date"] < valid["tgt_date"]).sum()
+    same_day = (valid["rt_date"] == valid["tgt_date"]).sum()
+    future_leak = (valid["rt_date"] > valid["tgt_date"]).sum()
+
+    logger.info("  Date alignment check (%d rows with runtime):", len(valid))
+    logger.info("    Day-ahead forecasts (runtime < target date): %d (%.1f%%)",
+                day_ahead, 100 * day_ahead / max(len(valid), 1))
+    logger.info("    Same-day forecasts (runtime == target date, 00Z OK): %d (%.1f%%)",
+                same_day, 100 * same_day / max(len(valid), 1))
+    logger.info("    FUTURE LEAK (runtime > target date): %d", future_leak)
+
+    if future_leak > 0:
+        bad = valid[valid["rt_date"] > valid["tgt_date"]].head(3)
+        for _, row in bad.iterrows():
+            logger.error("    LEAK: date=%s, runtime=%s", row["date_dt"].date(), row["runtime_dt"])
+        raise AssertionError(
+            f"{city_code}: {future_leak} MOS entries have runtime AFTER target date. "
+            "This indicates a date alignment error."
+        )
+
+    # Show a few examples for verification
+    sample = valid.sample(min(3, len(valid)), random_state=42)
+    logger.info("  Sample entries (runtime -> target_date):")
+    for _, row in sample.iterrows():
+        logger.info("    MOS issued %s -> predicts TMAX for %s (ensemble=%.1f F)",
+                    row["runtime_dt"], row["date_dt"].date(),
+                    row.get("mos_ensemble_tmax_f", float("nan")))
+
+    logger.info("  Date alignment: PASSED")
+
+
 def merge_mos_with_features(
     X: pd.DataFrame,
     y: pd.Series,
     mos_df: pd.DataFrame,
     cfg,
 ) -> tuple[pd.DataFrame, pd.Series, np.ndarray, np.ndarray | None, np.ndarray | None]:
-    """Merge MOS forecasts with feature matrix, keeping only days with MOS data.
+    """Merge MOS forecasts with feature matrix by matching on TARGET date.
+
+    The MOS 'date' column = the date the TMAX forecast is FOR (verification date).
+    The feature index date = the date the TMAX target occurs.
+    Both represent the same calendar day, so we merge directly on date.
 
     For days without MOS data, uses persistence + climatology blend as fallback.
     """
     dates = pd.to_datetime(X.index)
     y_vals = y.values.copy()
 
-    # Build MOS lookup
+    # Build MOS lookup keyed by TARGET date (= verification date)
     mos_lookup = {}
     gfs_lookup = {}
     nam_lookup = {}
@@ -881,7 +945,7 @@ def merge_mos_with_features(
         if pd.notna(row.get("nam_mos_tmax_f")):
             nam_lookup[d] = float(row["nam_mos_tmax_f"])
 
-    # Build MOS forecast array
+    # Build MOS forecast array — match on target date
     mos_vals = np.full(len(dates), np.nan)
     gfs_vals = np.full(len(dates), np.nan)
     nam_vals = np.full(len(dates), np.nan)
@@ -895,10 +959,10 @@ def merge_mos_with_features(
         if d_ts in nam_lookup:
             nam_vals[i] = nam_lookup[d_ts]
 
-    # For days without MOS, use persistence + climatology blend
-    # (This is the fallback, not ideal but ensures coverage)
+    # For days without MOS, use persistence + climatology blend as fallback
     clim_mean = {m: cfg.monthly_tmax_mean.get(m, 60.0) for m in range(1, 13)}
-    y_lag1 = np.roll(y_vals, 1)
+    y_lag1 = np.full_like(y_vals, np.nan)
+    y_lag1[1:] = y_vals[:-1]
     y_lag1[0] = y_vals[0]
 
     for i in range(len(mos_vals)):
@@ -932,6 +996,10 @@ def run_city_benchmark(city_code: str) -> dict:
     cfg = data["cfg"]
     bucket_edges = list(cfg.bucket_edges)
     bucket_labels = list(cfg.bucket_labels)
+
+    # Validate MOS date alignment before proceeding
+    # Ensures: MOS 'date' = target/verification date, runtime = issuance date < target
+    validate_mos_date_alignment(data["mos_df"], city_code)
 
     # Merge MOS with features
     logger.info("Merging MOS with features...")
@@ -987,7 +1055,7 @@ def run_city_benchmark(city_code: str) -> dict:
 
     # Compute regime features for RegimeMOSNet
     y_all = np.concatenate([y_train, y_val, y_test])
-    dates_all = dates_train.append(dates_val).append(dates_test)
+    dates_all = pd.DatetimeIndex(np.concatenate([dates_train, dates_val, dates_test]))
     regime_all = compute_regime_features(dates_all, y_all)
     regime_train = regime_all[:len(y_train)]
     regime_val = regime_all[len(y_train):len(y_train) + len(y_val)]
