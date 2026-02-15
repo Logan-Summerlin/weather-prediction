@@ -1,0 +1,26 @@
+{
+  "city": "Philadelphia",
+  "city_code": "phl",
+  "kalshi_ticker": "KXHIGHPHL",
+  "target_station": "USW00013739",
+  "train_period": "2000-01-01 to 2021-12-31",
+  "val_period": "2022-01-01 to 2023-12-31",
+  "test_period": "2024-01-01+",
+  "n_base_features": 197,
+  "n_enhanced_features": 213,
+  "n_train": 8036,
+  "n_val": 730,
+  "n_test": 366,
+  "n_buckets": 57,
+  "benchmark_mos_brier": 0.014284429815551995,
+  "mos_coverage_pct": 100.0,
+  "mos_diagnostics": {
+    "mae": 2.4942539923954374,
+    "rmse": 3.3745855613729248,
+    "bias": 0.5302813688212931,
+    "sigma": 3.3329144692087587
+  },
+  "best_model": "Real_NWS_MOS",
+  "best_test_brier": 0.014284429815551995,
+  "timestamp": "2026-02-15T23:00:32.747600"
+}
