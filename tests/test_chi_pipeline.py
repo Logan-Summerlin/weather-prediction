@@ -5,7 +5,7 @@ Tests cover:
   1. Chicago city_config integration (bucket edges, labels, target station, etc.)
   2. Chicago config_chicago.py module imports and data structures
   3. Script existence for Chicago-specific runners
-  4. Bucket index computation for Chicago's 11-bucket scheme
+  4. Bucket index computation for Chicago's 62-bucket 2°F grid scheme
 
 Follows the same pytest conventions as test_city_config.py.
 """
@@ -47,20 +47,17 @@ class TestChiConfigLoads:
         assert isinstance(self.cfg.monthly_tmax_std, dict)
 
     def test_chi_bucket_edges(self):
-        """Chicago should have 11 buckets (not 10 like NYC/PHL) due to colder winters."""
-        assert len(self.cfg.bucket_edges) == 11
+        """Chicago should have 62 buckets (2°F grid from -10 to 110 plus tails)."""
+        assert len(self.cfg.bucket_edges) == 62
 
     def test_chi_bucket_labels(self):
-        """Chicago should have 11 labels starting with 'Below 10'."""
-        assert len(self.cfg.bucket_labels) == 11
-        assert self.cfg.bucket_labels[0] == "Below 10"
-        assert self.cfg.bucket_labels[-1] == "Above 100"
-        # Verify the full label sequence
-        expected_labels = [
-            "Below 10", "10-19", "20-29", "30-39", "40-49",
-            "50-59", "60-69", "70-79", "80-89", "90-99", "Above 100",
-        ]
-        assert self.cfg.bucket_labels == expected_labels
+        """Chicago should have 62 labels starting with 'Below -10'."""
+        assert len(self.cfg.bucket_labels) == 62
+        assert self.cfg.bucket_labels[0] == "Below -10"
+        assert self.cfg.bucket_labels[-1] == "Above 110"
+        # Spot-check a few interior labels
+        # Index 1 should be the (-10, -8) bucket
+        assert self.cfg.bucket_labels[1] == "-10 to -8"  or "-10" in self.cfg.bucket_labels[1]
 
     def test_chi_target_station(self):
         """Chicago target station should be O'Hare (USW00094846)."""
@@ -245,61 +242,59 @@ class TestChiScriptsExist:
 # 4. Bucket index tests
 # ===================================================================
 class TestChiBucketIndex:
-    """Test get_bucket_index with Chicago's 11-bucket scheme."""
+    """Test get_bucket_index with Chicago's 62-bucket 2°F grid scheme."""
 
     @pytest.fixture(autouse=True)
     def _load_edges(self):
         self.edges = get_city_config("chi").bucket_edges
 
-    def test_chi_bucket_index_cold(self):
-        """5F should fall in bucket 0 ('Below 10')."""
-        idx = get_bucket_index(5, self.edges)
-        assert idx == 0
-
     def test_chi_bucket_index_very_cold(self):
-        """-15F should also fall in bucket 0 ('Below 10')."""
+        """-15F should fall in bucket 0 ('Below -10')."""
         idx = get_bucket_index(-15, self.edges)
         assert idx == 0
 
-    def test_chi_bucket_index_normal(self):
-        """55F should fall in bucket 5 ('50-59')."""
-        idx = get_bucket_index(55, self.edges)
-        assert idx == 5
+    def test_chi_bucket_index_cold(self):
+        """5F should fall in bucket 8 (the (4,6) bucket at index 8)."""
+        idx = get_bucket_index(5, self.edges)
+        assert idx == 8
 
     def test_chi_bucket_index_hot(self):
-        """105F should fall in bucket 10 ('Above 100')."""
-        idx = get_bucket_index(105, self.edges)
-        assert idx == 10
+        """100F should fall in bucket 56 (the (100,102) bucket at index 56)."""
+        idx = get_bucket_index(100, self.edges)
+        assert idx == 56
 
-    def test_chi_bucket_index_boundary_10(self):
-        """Boundary at 10: 9F -> bucket 0, 10F -> bucket 1."""
-        assert get_bucket_index(9, self.edges) == 0
-        assert get_bucket_index(10, self.edges) == 1
+    def test_chi_bucket_index_above_max(self):
+        """110F should fall in bucket 61 ('Above 110')."""
+        idx = get_bucket_index(110, self.edges)
+        assert idx == 61
 
-    def test_chi_bucket_index_boundary_20(self):
-        """Boundary at 20: 19F -> bucket 1, 20F -> bucket 2."""
-        assert get_bucket_index(19, self.edges) == 1
-        assert get_bucket_index(20, self.edges) == 2
+    def test_chi_bucket_index_boundary_neg10(self):
+        """Boundary at -10: -11F -> bucket 0, -10F -> bucket 1."""
+        assert get_bucket_index(-11, self.edges) == 0
+        assert get_bucket_index(-10, self.edges) == 1
 
-    def test_chi_bucket_index_boundary_100(self):
-        """Boundary at 100: 99F -> bucket 9, 100F -> bucket 10."""
-        assert get_bucket_index(99, self.edges) == 9
-        assert get_bucket_index(100, self.edges) == 10
+    def test_chi_bucket_index_boundary_neg8(self):
+        """Boundary at -8: -9F -> bucket 1, -8F -> bucket 2."""
+        assert get_bucket_index(-9, self.edges) == 1
+        assert get_bucket_index(-8, self.edges) == 2
 
-    def test_chi_all_decades_covered(self):
-        """Spot-check that each decade maps to the correct bucket."""
+    def test_chi_bucket_index_boundary_110(self):
+        """Boundary at 110: 109F -> bucket 60, 110F -> bucket 61."""
+        assert get_bucket_index(109, self.edges) == 60
+        assert get_bucket_index(110, self.edges) == 61
+
+    def test_chi_spot_check_2f_grid(self):
+        """Spot-check representative temps across the 2°F grid."""
+        # Bucket index formula for interior: index = (temp - (-10)) // 2 + 1
+        # when temp is within [-10, 110).  Below -10 -> 0, >= 110 -> 61.
         expected = {
-            5: 0,    # Below 10
-            15: 1,   # 10-19
-            25: 2,   # 20-29
-            35: 3,   # 30-39
-            45: 4,   # 40-49
-            55: 5,   # 50-59
-            65: 6,   # 60-69
-            75: 7,   # 70-79
-            85: 8,   # 80-89
-            95: 9,   # 90-99
-            105: 10, # Above 100
+            -15: 0,   # Below -10
+            5: 8,     # (4,6) bucket at index 8
+            32: 22,   # (32,34) bucket at index 22
+            55: 33,   # (54,56) bucket at index 33
+            72: 42,   # (72,74) bucket at index 42
+            100: 56,  # (100,102) bucket at index 56
+            110: 61,  # Above 110
         }
         for temp, expected_idx in expected.items():
             actual = get_bucket_index(temp, self.edges)

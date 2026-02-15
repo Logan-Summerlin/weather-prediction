@@ -137,23 +137,33 @@ class TestCityConfigFields:
 class TestBucketEdges:
     """Tests specific to bucket configurations per city."""
 
-    def test_nyc_has_10_buckets(self):
+    def test_nyc_has_57_buckets(self):
         cfg = get_city_config("nyc")
-        assert len(cfg.bucket_edges) == 10
+        assert len(cfg.bucket_edges) == 57
 
-    def test_phl_has_10_buckets(self):
+    def test_phl_has_57_buckets(self):
         cfg = get_city_config("phl")
-        assert len(cfg.bucket_edges) == 10
+        assert len(cfg.bucket_edges) == 57
 
-    def test_chi_has_11_buckets(self):
-        """Chicago needs an extra low bucket for colder winters."""
+    def test_chi_has_62_buckets(self):
+        """Chicago needs extra low buckets for colder winters (-10 floor)."""
         cfg = get_city_config("chi")
-        assert len(cfg.bucket_edges) == 11
+        assert len(cfg.bucket_edges) == 62
+
+    def test_nyc_first_bucket(self):
+        cfg = get_city_config("nyc")
+        # NYC first bucket: "Below 0" with sentinel lower bound
+        assert cfg.bucket_edges[0] == (-999, 0.0)
+
+    def test_phl_first_bucket(self):
+        cfg = get_city_config("phl")
+        # PHL first bucket: "Below 0" with sentinel lower bound
+        assert cfg.bucket_edges[0] == (-999, 0.0)
 
     def test_chi_lower_floor(self):
         cfg = get_city_config("chi")
-        # CHI first non-sentinel boundary should be 10 (not 20 like NYC)
-        assert cfg.bucket_edges[0] == (-999, 10)
+        # CHI first bucket: "Below -10" with sentinel lower bound
+        assert cfg.bucket_edges[0] == (-999, -10.0)
 
     def test_phl_matches_nyc_buckets(self):
         nyc = get_city_config("nyc")
@@ -164,28 +174,33 @@ class TestBucketEdges:
 class TestGetBucketIndex:
     """Tests for get_bucket_index()."""
 
-    def test_nyc_below_20(self):
+    def test_nyc_below_0(self):
         edges = get_city_config("nyc").bucket_edges
-        assert get_bucket_index(15, edges) == 0
+        assert get_bucket_index(-5, edges) == 0
         assert get_bucket_index(-10, edges) == 0
 
     def test_nyc_middle_bucket(self):
         edges = get_city_config("nyc").bucket_edges
-        assert get_bucket_index(55, edges) == 4  # 50-59
+        # 55°F: floor((55-0)/2) + 1 = 28
+        assert get_bucket_index(55, edges) == 28
 
-    def test_nyc_above_100(self):
+    def test_nyc_above_110(self):
         edges = get_city_config("nyc").bucket_edges
-        assert get_bucket_index(105, edges) == 9
+        # 105°F falls in the (104,106) bucket: floor((105-0)/2) + 1 = 53
+        assert get_bucket_index(105, edges) == 53
 
     def test_boundary_lower_inclusive(self):
         edges = get_city_config("nyc").bucket_edges
-        assert get_bucket_index(20, edges) == 1  # 20-29 bucket
-        assert get_bucket_index(30, edges) == 2  # 30-39 bucket
+        # 0°F is the start of the (0,2) bucket at index 1
+        assert get_bucket_index(0, edges) == 1
+        # 2°F is the start of the (2,4) bucket at index 2
+        assert get_bucket_index(2, edges) == 2
 
     def test_chi_extra_low_bucket(self):
         edges = get_city_config("chi").bucket_edges
-        assert get_bucket_index(5, edges) == 0   # Below 10
-        assert get_bucket_index(15, edges) == 1   # 10-19
+        assert get_bucket_index(-15, edges) == 0   # Below -10
+        # 15°F: floor((15-(-10))/2) + 1 = 13
+        assert get_bucket_index(15, edges) == 13
 
     def test_all_temperatures_have_bucket(self):
         """Every temperature should map to exactly one bucket."""

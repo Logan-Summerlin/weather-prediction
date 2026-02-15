@@ -1259,7 +1259,7 @@ def generate_report(df, all_metrics, trading_df, ev_results_all,
     lines.append("")
     lines.append("| Variant | Overall | IS | OOS | LogScore | ECE | OOS ECE |")
     lines.append("|---------|---------|-----|-----|----------|-----|---------|")
-    sorted_metrics = sorted(all_metrics, key=lambda m: m.get("overall_brier", 999))
+    sorted_metrics = sorted(all_metrics, key=lambda m: m.get("oos_brier", 999))
     fmt = lambda x: f"{x:.4f}" if x is not None else "N/A"
     for m in sorted_metrics:
         v = m["variant"]
@@ -1398,7 +1398,7 @@ def generate_report(df, all_metrics, trading_df, ev_results_all,
     lines.append("## 6. Key Findings")
     lines.append("")
     best = sorted_metrics[0]
-    lines.append(f"- **Best overall Brier**: {best['variant']} ({best['overall_brier']:.4f})")
+    lines.append(f"- **Best OOS Brier**: {best['variant']} ({best.get('oos_brier', float('nan')):.4f})")
 
     # Best OOS
     oos_sorted = sorted([m for m in all_metrics if m.get("oos_brier") is not None],
@@ -1876,7 +1876,7 @@ def main():
         summary_rows.append(row)
 
     summary_df = pd.DataFrame(summary_rows)
-    summary_df = summary_df.sort_values("overall_brier").reset_index(drop=True)
+    summary_df = summary_df.sort_values("oos_brier").reset_index(drop=True)
     summary_df.to_csv(OUT_ROOT / "benchmark_summary.csv", index=False)
     print(f"  Saved benchmark_summary.csv ({len(summary_df)} rows)")
 

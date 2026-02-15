@@ -85,15 +85,12 @@ NYC_MONTHLY_TMAX_STD = {
     7: 5.5, 8: 5.5, 9: 6.5, 10: 8.0, 11: 9.5, 12: 10.5,
 }
 
-# Realistic KXHIGHNY bucket definitions
-KXHIGHNY_BUCKET_EDGES = [
-    (-999, 20), (20, 30), (30, 40), (40, 50), (50, 60),
-    (60, 70), (70, 80), (80, 90), (90, 100), (100, 999),
-]
-KXHIGHNY_BUCKET_LABELS = [
-    "Below 20", "20-29", "30-39", "40-49", "50-59",
-    "60-69", "70-79", "80-89", "90-99", "Above 100",
-]
+# Canonical KXHIGHNY bucket definitions (2°F resolution from city_config)
+from src.city_config import get_city_config
+
+_nyc_cfg = get_city_config("nyc")
+KXHIGHNY_BUCKET_EDGES = _nyc_cfg.bucket_edges
+KXHIGHNY_BUCKET_LABELS = _nyc_cfg.bucket_labels
 
 
 def _to_numpy(arr: Union[np.ndarray, pd.Series, list]) -> np.ndarray:

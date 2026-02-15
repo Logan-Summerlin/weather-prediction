@@ -1,2 +1,0 @@
-source,message
-status,[Errno 2] No such file or directory: '/workspace/weather-prediction/data/chicago/processed/features_train.csv'
