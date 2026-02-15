@@ -1,0 +1,32 @@
+[
+  {
+    "city": "nyc",
+    "benchmark": "U7_regime_conditional",
+    "evaluation_unit": "binary contract-row",
+    "row_count_per_day": 5.995890410958904,
+    "raw_reported_brier": 0.113719,
+    "daily_aggregate_brier_proxy": 0.6818466616438357,
+    "uniform_baseline_row_brier": 0.25,
+    "skill_vs_uniform": 0.5451239999999999
+  },
+  {
+    "city": "phl",
+    "benchmark": "Real_NWS_MOS",
+    "evaluation_unit": "multiclass bucket-day row",
+    "row_count_per_day": 57,
+    "raw_reported_brier": 0.014284429815551995,
+    "daily_aggregate_brier_proxy": 0.8142124994864637,
+    "uniform_baseline_row_brier": 0.017236072637734686,
+    "skill_vs_uniform": 0.17124799159413506
+  },
+  {
+    "city": "chi",
+    "benchmark": "Real_NWS_MOS",
+    "evaluation_unit": "multiclass bucket-day row",
+    "row_count_per_day": 62,
+    "raw_reported_brier": 0.01351374942777124,
+    "daily_aggregate_brier_proxy": 0.8378524645218169,
+    "uniform_baseline_row_brier": 0.01586888657648283,
+    "skill_vs_uniform": 0.14841224917454665
+  }
+]
