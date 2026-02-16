@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Audit cross-city Brier comparability across NYC/PHL/CHI outputs.
 
-This script demonstrates why raw Brier values from different evaluation units
-(contract rows vs bucket-day matrices) are not directly comparable.
+This script enforces canonical binary contract-row Brier scoring for all cities.
+If any city metadata uses a different evaluation unit, the audit fails.
 
 Outputs:
   - results/audits/cross_city_brier_scale_audit.json
@@ -21,13 +21,6 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "results" / "audits"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-
-def multiclass_uniform_row_brier(n_classes: int) -> float:
-    """Mean per-class Brier when predicting uniform 1/K distribution."""
-    k = float(n_classes)
-    return float((((1.0 - 1.0 / k) ** 2) + (k - 1.0) * (1.0 / k**2)) / k)
-
-
 def binary_uniform_row_brier() -> float:
     """Mean Brier for binary event with p=0.5 and balanced outcomes."""
     return 0.25
@@ -45,6 +38,15 @@ def main() -> None:
     phl_meta = json.loads((ROOT / "results/philadelphia/phl_real_data_benchmark_metadata.json").read_text())
     chi_meta = json.loads((ROOT / "results/chicago/chi_real_data_benchmark_metadata.json").read_text())
 
+    required_contract_keys = {"benchmark_unit", "kalshi_contract_rows", "kalshi_contract_dates", "best_test_brier", "best_model"}
+    for city, meta in (("phl", phl_meta), ("chi", chi_meta)):
+        missing = sorted(required_contract_keys - set(meta.keys()))
+        if missing:
+            raise RuntimeError(
+                f"{city.upper()} benchmark metadata missing canonical contract-row fields: {missing}. "
+                "Re-run scripts/run_real_data_benchmark.py after cross-city audit fixes."
+            )
+
     records = [
         {
             "city": "nyc",
@@ -59,36 +61,38 @@ def main() -> None:
         {
             "city": "phl",
             "benchmark": phl_meta["best_model"],
-            "evaluation_unit": "multiclass bucket-day row",
-            "row_count_per_day": int(phl_meta["n_buckets"]),
+            "evaluation_unit": str(phl_meta.get("benchmark_unit", "unknown")),
+            "row_count_per_day": float(phl_meta["kalshi_contract_rows"]) / float(phl_meta["kalshi_contract_dates"]),
             "raw_reported_brier": float(phl_meta["best_test_brier"]),
-            "daily_aggregate_brier_proxy": float(phl_meta["best_test_brier"] * phl_meta["n_buckets"]),
-            "uniform_baseline_row_brier": multiclass_uniform_row_brier(int(phl_meta["n_buckets"])),
-            "skill_vs_uniform": float(
-                1.0
-                - (
-                    phl_meta["best_test_brier"]
-                    / multiclass_uniform_row_brier(int(phl_meta["n_buckets"]))
-                )
+            "daily_aggregate_brier_proxy": float(
+                phl_meta["best_test_brier"]
+                * (float(phl_meta["kalshi_contract_rows"]) / float(phl_meta["kalshi_contract_dates"]))
             ),
+            "uniform_baseline_row_brier": binary_uniform_row_brier(),
+            "skill_vs_uniform": float(1.0 - (phl_meta["best_test_brier"] / binary_uniform_row_brier())),
         },
         {
             "city": "chi",
             "benchmark": chi_meta["best_model"],
-            "evaluation_unit": "multiclass bucket-day row",
-            "row_count_per_day": int(chi_meta["n_buckets"]),
+            "evaluation_unit": str(chi_meta.get("benchmark_unit", "unknown")),
+            "row_count_per_day": float(chi_meta["kalshi_contract_rows"]) / float(chi_meta["kalshi_contract_dates"]),
             "raw_reported_brier": float(chi_meta["best_test_brier"]),
-            "daily_aggregate_brier_proxy": float(chi_meta["best_test_brier"] * chi_meta["n_buckets"]),
-            "uniform_baseline_row_brier": multiclass_uniform_row_brier(int(chi_meta["n_buckets"])),
-            "skill_vs_uniform": float(
-                1.0
-                - (
-                    chi_meta["best_test_brier"]
-                    / multiclass_uniform_row_brier(int(chi_meta["n_buckets"]))
-                )
+            "daily_aggregate_brier_proxy": float(
+                chi_meta["best_test_brier"]
+                * (float(chi_meta["kalshi_contract_rows"]) / float(chi_meta["kalshi_contract_dates"]))
             ),
+            "uniform_baseline_row_brier": binary_uniform_row_brier(),
+            "skill_vs_uniform": float(1.0 - (chi_meta["best_test_brier"] / binary_uniform_row_brier())),
         },
     ]
+
+    bad_units = [r for r in records if r["evaluation_unit"] != "binary contract-row"]
+    if bad_units:
+        unit_txt = ", ".join(f"{r['city']}={r['evaluation_unit']}" for r in bad_units)
+        raise RuntimeError(
+            "Cross-city ranking blocked: mixed/non-canonical Brier evaluation units detected. "
+            f"Expected binary contract-row for all cities, got {unit_txt}."
+        )
 
     df = pd.DataFrame(records)
     out_json = OUT_DIR / "cross_city_brier_scale_audit.json"
@@ -116,9 +120,8 @@ def main() -> None:
         [
             "",
             "## Interpretation",
-            "- NYC row-level Brier is binary-contract scale (baseline 0.25).",
-            "- PHL/CHI row-level Brier is 57/62-class scale (uniform baselines ~0.017/0.016).",
-            "- Multiplying row-level Brier by rows/day produces a rough daily aggregate proxy showing NYC/PHL/CHI are all in the same ballpark (~0.68-0.84), not an order-of-magnitude apart.",
+            "- All cities are now scored on binary contract rows (baseline 0.25).",
+            "- Ranking is blocked if any input reverts to bucket-day/multiclass row definitions.",
         ]
     )
     out_md.write_text("\n".join(lines) + "\n")
