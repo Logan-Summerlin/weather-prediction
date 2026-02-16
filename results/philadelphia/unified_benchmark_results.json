@@ -1,0 +1,56 @@
+{
+  "E0_persistence": {
+    "test_brier": 0.016137593570896353
+  },
+  "E1_climatology": {
+    "test_brier": 0.016297849519442204
+  },
+  "E2_ridge": {
+    "test_brier": 0.015742000265420927,
+    "alpha": 100.0
+  },
+  "E3_nn_128_64": {
+    "test_brier": 0.015870066169289435
+  },
+  "E4_deep_nn": {
+    "test_brier": 0.016029593888016974
+  },
+  "E5_ensemble": {
+    "test_brier": 0.01591095048344752
+  },
+  "U0_raw_gaussian": {
+    "contract_brier": 0.19508585598315692,
+    "is_brier": 0.18533071848377455,
+    "oos_brier": 0.20971402495897484
+  },
+  "U1_isotonic": {
+    "contract_brier": 0.1334792995854723,
+    "is_brier": 0.12995077848587244,
+    "oos_brier": 0.1387704400622676
+  },
+  "U2_contract_ridge": {
+    "contract_brier": 0.0007665478352912085,
+    "is_brier": 0.0012429438161226615,
+    "oos_brier": 5.2175443569997824e-05
+  },
+  "U3_contract_mlp": {
+    "contract_brier": 0.004749530654504013,
+    "is_brier": 0.007394983135109162,
+    "oos_brier": 0.0007825823766105218
+  },
+  "U4_platt_on_u3": {
+    "contract_brier": 0.0052119203410862895,
+    "is_brier": 0.008340457819353416,
+    "oos_brier": 0.0005205692573964219
+  },
+  "U5_regime_conditional": {
+    "contract_brier": 0.004264922570050476,
+    "is_brier": 0.005422098440173195,
+    "oos_brier": 0.002529696986201339
+  },
+  "U6_calibrated_ensemble": {
+    "contract_brier": 0.019312764179312585,
+    "is_brier": 0.019776258963519845,
+    "oos_brier": 0.018617737581971102
+  }
+}
