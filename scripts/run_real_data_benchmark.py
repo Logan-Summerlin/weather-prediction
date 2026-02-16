@@ -72,6 +72,7 @@ from src.advanced_model import (
     predict_model,
 )
 from src.mos_market_proxy import MOSMarketProxy
+from src.market_proxy import MarketProxy
 from src.contract_brier import (
     load_city_kalshi_contract_rows,
     contract_probabilities_from_gaussian,
@@ -94,6 +95,12 @@ KALSHI_SETTLED_PATHS = [
     PROJECT_ROOT / "data" / "real_kalshi_2023_2024.csv",
     PROJECT_ROOT / "data" / "real_kalshi_2025.csv",
 ]
+
+# Per-city Kalshi files (from fetch_kalshi_multi_city.py)
+KALSHI_CITY_PATHS = {
+    "chi": [PROJECT_ROOT / "data" / "real_kalshi_chi_all.csv"],
+    "phl": [PROJECT_ROOT / "data" / "real_kalshi_phl_all.csv"],
+}
 
 
 # ===========================================================================
@@ -685,24 +692,70 @@ def run_city_benchmark(city_code: str) -> dict:
     # ===================================================================
     # Canonical metric for cross-city comparability: contract-row Brier
     # ===================================================================
-    kalshi_contract_rows = load_city_kalshi_contract_rows(
-        city_code=city_code,
-        valid_dates=test_dates,
-        settled_paths=KALSHI_SETTLED_PATHS,
-    )
-    contract_outcomes = kalshi_contract_rows["actual_outcome"].astype(float).values
-    for name, (mu, sigma) in model_gaussian_test_params.items():
-        mu_by_date = pd.Series(mu, index=pd.to_datetime(test_dates).normalize())
-        sigma_by_date = pd.Series(np.maximum(np.asarray(sigma, dtype=float), 0.5), index=pd.to_datetime(test_dates).normalize())
-        probs = contract_probabilities_from_gaussian(kalshi_contract_rows, mu_by_date, sigma_by_date)
-        all_results[name]["contract_brier"] = contract_brier_score(probs, contract_outcomes)
-        all_results[name]["test_brier"] = all_results[name]["contract_brier"]
+    has_kalshi_contracts = False
+    kalshi_contract_rows = None
+    settled_paths = KALSHI_CITY_PATHS.get(city_code, []) + KALSHI_SETTLED_PATHS
+    try:
+        kalshi_contract_rows = load_city_kalshi_contract_rows(
+            city_code=city_code,
+            valid_dates=test_dates,
+            settled_paths=settled_paths,
+        )
+        has_kalshi_contracts = True
+        contract_outcomes = kalshi_contract_rows["actual_outcome"].astype(float).values
+        for name, (mu, sigma) in model_gaussian_test_params.items():
+            mu_by_date = pd.Series(mu, index=pd.to_datetime(test_dates).normalize())
+            sigma_by_date = pd.Series(np.maximum(np.asarray(sigma, dtype=float), 0.5), index=pd.to_datetime(test_dates).normalize())
+            probs = contract_probabilities_from_gaussian(kalshi_contract_rows, mu_by_date, sigma_by_date)
+            all_results[name]["contract_brier"] = contract_brier_score(probs, contract_outcomes)
+            all_results[name]["test_brier"] = all_results[name]["contract_brier"]
 
-    market_probs = kalshi_contract_rows["market_prob"].clip(PROB_CLIP_MIN, PROB_CLIP_MAX).values
-    all_results["Kalshi_Settled_Market"] = {
-        "contract_brier": contract_brier_score(market_probs, contract_outcomes),
-        "test_brier": contract_brier_score(market_probs, contract_outcomes),
+        market_probs = kalshi_contract_rows["market_prob"].clip(PROB_CLIP_MIN, PROB_CLIP_MAX).values
+        all_results["Kalshi_Settled_Market"] = {
+            "contract_brier": contract_brier_score(market_probs, contract_outcomes),
+            "test_brier": contract_brier_score(market_probs, contract_outcomes),
+        }
+    except (RuntimeError, FileNotFoundError) as exc:
+        logger.warning(
+            "No settled Kalshi contracts for %s — using bucket-day Brier as test_brier. (%s)",
+            city_code, exc,
+        )
+        for name in all_results:
+            all_results[name]["test_brier"] = all_results[name]["bucket_day_brier"]
+
+    # ===================================================================
+    # BENCHMARK: Kalshi Presettlement Proxy (MarketProxy)
+    # ===================================================================
+    logger.info("-" * 50)
+    logger.info("BENCHMARK: Kalshi Presettlement Proxy (MarketProxy)")
+    all_y = pd.concat([y_train, y_val, y_test])
+    history_df = pd.DataFrame({
+        "date": pd.to_datetime(all_y.index),
+        "tmax_f": all_y.values,
+    })
+    proxy = MarketProxy(history_df)
+    proxy.fit(train_end_date=str(y_val.index.max().date()))
+
+    mu_proxy = np.zeros(len(y_test))
+    sigma_proxy = np.zeros(len(y_test))
+    for i, dt in enumerate(pd.to_datetime(test_dates)):
+        idx = all_y.index.get_loc(dt)
+        yesterday_tmax = float(all_y.iloc[idx - 1]) if idx > 0 else float(y_train.mean())
+        mu, sigma = proxy.predict_mu_sigma(dt.date(), yesterday_tmax=yesterday_tmax)
+        mu_proxy[i] = mu
+        sigma_proxy[i] = sigma
+
+    probs_proxy = gaussian_to_bucket_probs(mu_proxy, sigma_proxy, bucket_edges)
+    brier_proxy = compute_brier_score(probs_proxy, test_actual, bucket_edges)
+    seasonal_proxy = compute_seasonal_brier(probs_proxy, test_actual, test_dates, bucket_edges)
+    all_results["Kalshi_Presettlement_Proxy"] = {
+        "bucket_day_brier": brier_proxy["overall_brier"],
+        "per_bucket_brier": brier_proxy["per_bucket_brier"],
+        "test_brier": brier_proxy["overall_brier"],
     }
+    seasonal_all["Kalshi_Presettlement_Proxy"] = seasonal_proxy
+    model_gaussian_test_params["Kalshi_Presettlement_Proxy"] = (mu_proxy, sigma_proxy)
+    logger.info("Kalshi Presettlement Proxy: test Brier=%.4f", brier_proxy["overall_brier"])
 
     # ===================================================================
     # Summary
@@ -776,9 +829,9 @@ def run_city_benchmark(city_code: str) -> dict:
         "n_test": len(y_test),
         "n_buckets": len(bucket_edges),
         "benchmark_mos_brier": float(mos_brier),
-        "benchmark_unit": "binary contract-row",
-        "kalshi_contract_rows": int(len(kalshi_contract_rows)),
-        "kalshi_contract_dates": int(kalshi_contract_rows["date"].nunique()),
+        "benchmark_unit": "binary contract-row" if has_kalshi_contracts else "bucket-day",
+        "kalshi_contract_rows": int(len(kalshi_contract_rows)) if has_kalshi_contracts else 0,
+        "kalshi_contract_dates": int(kalshi_contract_rows["date"].nunique()) if has_kalshi_contracts else 0,
         "mos_coverage_pct": mos_result["mos_coverage_pct"],
         "mos_diagnostics": {
             "mae": mos_result["diagnostics"]["overall_mae"],

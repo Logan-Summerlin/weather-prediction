@@ -12,7 +12,10 @@
   "n_val": 730,
   "n_test": 366,
   "n_buckets": 57,
-  "benchmark_mos_brier": 0.014284429815551995,
+  "benchmark_mos_brier": 0.1401376426472113,
+  "benchmark_unit": "binary contract-row",
+  "kalshi_contract_rows": 252,
+  "kalshi_contract_dates": 42,
   "mos_coverage_pct": 100.0,
   "mos_diagnostics": {
     "mae": 2.4942539923954374,
@@ -20,7 +23,7 @@
     "bias": 0.5302813688212931,
     "sigma": 3.3329144692087587
   },
-  "best_model": "Real_NWS_MOS",
-  "best_test_brier": 0.014284429815551995,
-  "timestamp": "2026-02-15T23:00:32.747600"
+  "best_model": "Kalshi_Settled_Market",
+  "best_test_brier": 0.005950396984126984,
+  "timestamp": "2026-02-16T00:44:32.293902"
 }
