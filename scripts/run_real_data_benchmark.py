@@ -72,6 +72,11 @@ from src.advanced_model import (
     predict_model,
 )
 from src.mos_market_proxy import MOSMarketProxy
+from src.contract_brier import (
+    load_city_kalshi_contract_rows,
+    contract_probabilities_from_gaussian,
+    contract_brier_score,
+)
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -85,6 +90,10 @@ logger = logging.getLogger(__name__)
 PROB_CLIP_MIN = 1e-4
 PROB_CLIP_MAX = 1.0 - 1e-4
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+KALSHI_SETTLED_PATHS = [
+    PROJECT_ROOT / "data" / "real_kalshi_2023_2024.csv",
+    PROJECT_ROOT / "data" / "real_kalshi_2025.csv",
+]
 
 
 # ===========================================================================
@@ -463,6 +472,7 @@ def run_city_benchmark(city_code: str) -> dict:
     test_dates = y_test.index
 
     all_results = {}
+    model_gaussian_test_params = {}
     seasonal_all = {}
     model_preds = {}
 
@@ -481,9 +491,10 @@ def run_city_benchmark(city_code: str) -> dict:
         train_end_date="2021-12-31",
     )
     all_results["Real_NWS_MOS"] = {
-        "test_brier": mos_result["brier"]["overall_brier"],
+        "bucket_day_brier": mos_result["brier"]["overall_brier"],
         "per_bucket_brier": mos_result["brier"]["per_bucket_brier"],
     }
+    model_gaussian_test_params["Real_NWS_MOS"] = (mos_result["mu"], mos_result["sigma"])
     seasonal_all["Real_NWS_MOS"] = mos_result["seasonal"]
     logger.info("Real NWS MOS: test Brier=%.4f (coverage=%.1f%%)",
                 mos_result["brier"]["overall_brier"], mos_result["mos_coverage_pct"])
@@ -496,8 +507,9 @@ def run_city_benchmark(city_code: str) -> dict:
     p = run_persistence(y_train, y_val, y_test)
     probs_t = gaussian_to_bucket_probs(p["mu_test"], p["sigma_test"], bucket_edges)
     brier_t = compute_brier_score(probs_t, test_actual, bucket_edges)
-    all_results["Persistence"] = {"test_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
+    all_results["Persistence"] = {"bucket_day_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
     seasonal_all["Persistence"] = compute_seasonal_brier(probs_t, test_actual, test_dates, bucket_edges)
+    model_gaussian_test_params["Persistence"] = (p["mu_test"], p["sigma_test"])
     logger.info("Persistence: test Brier=%.4f", brier_t["overall_brier"])
 
     # ===================================================================
@@ -508,8 +520,9 @@ def run_city_benchmark(city_code: str) -> dict:
     c = run_climatology(y_train, y_val, y_test)
     probs_t = gaussian_to_bucket_probs(c["mu_test"], c["sigma_test"], bucket_edges)
     brier_t = compute_brier_score(probs_t, test_actual, bucket_edges)
-    all_results["Climatology"] = {"test_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
+    all_results["Climatology"] = {"bucket_day_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
     seasonal_all["Climatology"] = compute_seasonal_brier(probs_t, test_actual, test_dates, bucket_edges)
+    model_gaussian_test_params["Climatology"] = (c["mu_test"], c["sigma_test"])
     logger.info("Climatology: test Brier=%.4f", brier_t["overall_brier"])
 
     # ===================================================================
@@ -520,9 +533,10 @@ def run_city_benchmark(city_code: str) -> dict:
     r = run_ridge(X_train, y_train, X_val, y_val, X_test, bucket_edges)
     probs_t = gaussian_to_bucket_probs(r["mu_test"], r["sigma_test"], bucket_edges)
     brier_t = compute_brier_score(probs_t, test_actual, bucket_edges)
-    all_results[f"Ridge(a={r['alpha']})"] = {"test_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
+    all_results[f"Ridge(a={r['alpha']})"] = {"bucket_day_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
     seasonal_all[f"Ridge(a={r['alpha']})"] = compute_seasonal_brier(probs_t, test_actual, test_dates, bucket_edges)
     model_preds["ridge"] = (r["mu_test"], r["sigma_test"])
+    model_gaussian_test_params[f"Ridge(a={r['alpha']})"] = (r["mu_test"], r["sigma_test"])
     logger.info("Ridge(a=%s): test Brier=%.4f", r["alpha"], brier_t["overall_brier"])
 
     # ===================================================================
@@ -533,9 +547,10 @@ def run_city_benchmark(city_code: str) -> dict:
     nn_b = train_hetero_nn(X_train, y_train, X_val, y_val, X_test)
     probs_t = gaussian_to_bucket_probs(nn_b["mu_test"], nn_b["sigma_test"], bucket_edges)
     brier_t = compute_brier_score(probs_t, test_actual, bucket_edges)
-    all_results["HeteroscedasticNN"] = {"test_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
+    all_results["HeteroscedasticNN"] = {"bucket_day_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
     seasonal_all["HeteroscedasticNN"] = compute_seasonal_brier(probs_t, test_actual, test_dates, bucket_edges)
     model_preds["hetero_nn"] = (nn_b["mu_test"], nn_b["sigma_test"])
+    model_gaussian_test_params["HeteroscedasticNN"] = (nn_b["mu_test"], nn_b["sigma_test"])
     logger.info("HeteroscedasticNN: test Brier=%.4f", brier_t["overall_brier"])
 
     # ===================================================================
@@ -558,9 +573,10 @@ def run_city_benchmark(city_code: str) -> dict:
 
     probs_t = gaussian_to_bucket_probs(fa_mu_test, fa_sigma_test, bucket_edges)
     brier_t = compute_brier_score(probs_t, test_actual, bucket_edges)
-    all_results["FeatureAttentionNet"] = {"test_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
+    all_results["FeatureAttentionNet"] = {"bucket_day_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
     seasonal_all["FeatureAttentionNet"] = compute_seasonal_brier(probs_t, test_actual, test_dates, bucket_edges)
     model_preds["feat_attn"] = (fa_mu_test, fa_sigma_test)
+    model_gaussian_test_params["FeatureAttentionNet"] = (fa_mu_test, fa_sigma_test)
     logger.info("FeatureAttentionNet: test Brier=%.4f", brier_t["overall_brier"])
 
     # ===================================================================
@@ -595,9 +611,10 @@ def run_city_benchmark(city_code: str) -> dict:
 
     probs_t = gaussian_to_bucket_probs(mos_nn_mu_test, mos_nn_sigma_test, bucket_edges)
     brier_t = compute_brier_score(probs_t, test_actual, bucket_edges)
-    all_results["MOSCorrectionNet"] = {"test_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
+    all_results["MOSCorrectionNet"] = {"bucket_day_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
     seasonal_all["MOSCorrectionNet"] = compute_seasonal_brier(probs_t, test_actual, test_dates, bucket_edges)
     model_preds["mos_correction"] = (mos_nn_mu_test, mos_nn_sigma_test)
+    model_gaussian_test_params["MOSCorrectionNet"] = (mos_nn_mu_test, mos_nn_sigma_test)
     logger.info("MOSCorrectionNet: test Brier=%.4f", brier_t["overall_brier"])
 
     # ===================================================================
@@ -627,9 +644,10 @@ def run_city_benchmark(city_code: str) -> dict:
     )
     probs_t = gaussian_to_bucket_probs(rc_mu_test, rc_sigma_test, bucket_edges)
     brier_t = compute_brier_score(probs_t, test_actual, bucket_edges)
-    all_results["RegimeConditionalNet"] = {"test_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
+    all_results["RegimeConditionalNet"] = {"bucket_day_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
     seasonal_all["RegimeConditionalNet"] = compute_seasonal_brier(probs_t, test_actual, test_dates, bucket_edges)
     model_preds["regime_cond"] = (rc_mu_test, rc_sigma_test)
+    model_gaussian_test_params["RegimeConditionalNet"] = (rc_mu_test, rc_sigma_test)
     logger.info("RegimeConditionalNet: test Brier=%.4f", brier_t["overall_brier"])
 
     # ===================================================================
@@ -659,9 +677,32 @@ def run_city_benchmark(city_code: str) -> dict:
     _, _, cal_probs = calibrator.calibrate(ens_mu_test, ens_sigma_test, bucket_edges)
 
     brier_t = compute_brier_score(cal_probs, test_actual, bucket_edges)
-    all_results["CalibratedEnsemble"] = {"test_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
+    all_results["CalibratedEnsemble"] = {"bucket_day_brier": brier_t["overall_brier"], "per_bucket_brier": brier_t["per_bucket_brier"]}
     seasonal_all["CalibratedEnsemble"] = compute_seasonal_brier(cal_probs, test_actual, test_dates, bucket_edges)
+    model_gaussian_test_params["CalibratedEnsemble"] = (ens_mu_test, ens_sigma_test)
     logger.info("CalibratedEnsemble: test Brier=%.4f", brier_t["overall_brier"])
+
+    # ===================================================================
+    # Canonical metric for cross-city comparability: contract-row Brier
+    # ===================================================================
+    kalshi_contract_rows = load_city_kalshi_contract_rows(
+        city_code=city_code,
+        valid_dates=test_dates,
+        settled_paths=KALSHI_SETTLED_PATHS,
+    )
+    contract_outcomes = kalshi_contract_rows["actual_outcome"].astype(float).values
+    for name, (mu, sigma) in model_gaussian_test_params.items():
+        mu_by_date = pd.Series(mu, index=pd.to_datetime(test_dates).normalize())
+        sigma_by_date = pd.Series(np.maximum(np.asarray(sigma, dtype=float), 0.5), index=pd.to_datetime(test_dates).normalize())
+        probs = contract_probabilities_from_gaussian(kalshi_contract_rows, mu_by_date, sigma_by_date)
+        all_results[name]["contract_brier"] = contract_brier_score(probs, contract_outcomes)
+        all_results[name]["test_brier"] = all_results[name]["contract_brier"]
+
+    market_probs = kalshi_contract_rows["market_prob"].clip(PROB_CLIP_MIN, PROB_CLIP_MAX).values
+    all_results["Kalshi_Settled_Market"] = {
+        "contract_brier": contract_brier_score(market_probs, contract_outcomes),
+        "test_brier": contract_brier_score(market_probs, contract_outcomes),
+    }
 
     # ===================================================================
     # Summary
@@ -672,7 +713,12 @@ def run_city_benchmark(city_code: str) -> dict:
 
     summary_rows = []
     for name, res in all_results.items():
-        row = {"model": name, "test_brier": res["test_brier"]}
+        row = {
+            "model": name,
+            "test_brier": res["test_brier"],
+            "contract_brier": res.get("contract_brier"),
+            "bucket_day_brier": res.get("bucket_day_brier"),
+        }
         if name in seasonal_all:
             for s, v in seasonal_all[name].items():
                 row[f"brier_{s}"] = v
@@ -730,6 +776,9 @@ def run_city_benchmark(city_code: str) -> dict:
         "n_test": len(y_test),
         "n_buckets": len(bucket_edges),
         "benchmark_mos_brier": float(mos_brier),
+        "benchmark_unit": "binary contract-row",
+        "kalshi_contract_rows": int(len(kalshi_contract_rows)),
+        "kalshi_contract_dates": int(kalshi_contract_rows["date"].nunique()),
         "mos_coverage_pct": mos_result["mos_coverage_pct"],
         "mos_diagnostics": {
             "mae": mos_result["diagnostics"]["overall_mae"],
