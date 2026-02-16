@@ -141,11 +141,29 @@ The models DO beat baselines, but the improvements are modest (~2-5% over persis
 
 ---
 
+## Finding 5: Backtest Scripts Generate Entirely Synthetic Market Data (HIGH)
+
+Both backtest scripts fabricate market data rather than using real Kalshi prices:
+
+- **`scripts/run_chi_backtest.py`**: `generate_chi_market_data()` (line 85) creates synthetic market prices from actual temperatures with added noise (`rng.normal(0, 2.5)`), synthetic spreads, and Poisson-generated volumes.
+- **`scripts/run_phl_backtest.py`**: `generate_phl_market_data()` (line 85) does the same for Philadelphia.
+
+These functions:
+1. Start from the actual observed TMAX (information the model shouldn't have at forecast time)
+2. Add Gaussian noise to create "market" mu/sigma
+3. Generate fake bid/ask prices with synthetic spreads
+4. Fabricate volume via Poisson distribution
+
+All trading P&L metrics, win rates, and drawdown figures from these backtests are based on fake market data. They cannot be used to validate a trading strategy.
+
+---
+
 ## Severity Assessment
 
 | Finding | Severity | Impact |
 |---------|----------|--------|
 | Settlement prices as features | **CRITICAL** | All U2-U5 contract Brier scores are meaningless |
+| Synthetic backtest market data | **HIGH** | All trading P&L/drawdown metrics are fabricated |
 | Settlement data as benchmark | **HIGH** | Cross-model comparisons are misleading |
 | PHL data quality | **HIGH** | 97% of prices are at extremes; data is nearly useless |
 | CHI data quality | **MEDIUM** | 87% at extremes; slightly better but still problematic |
