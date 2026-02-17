@@ -15,13 +15,13 @@ Pipeline:
   6. Train MOSCorrectionNet with CRPS+MAE loss on residuals
   7. Also train FeatureAttentionNet and RegimeConditionalNet for ensemble
   8. Apply Isotonic + Platt calibration on validation bucket probabilities
-  9. Evaluate Brier score on test set using real Kalshi bucket definitions
- 10. Ensemble top models with calibration for best Brier
+  9. Evaluate Contract Brier on test set using real Kalshi contract rows
+ 10. Ensemble top models with calibration for best Contract Brier
 
 Data sources (all real, no synthetic proxies):
   - MOS forecasts: IEM MOS archive (GFS + NAM)
   - Station features: GHCN daily (preprocessed lag-1 from surrounding stations)
-  - Bucket definitions: Real Kalshi contract structure from CityConfig
+  - Contract definitions: Real Kalshi contract rows (settlement + pre-settlement)
   - Actual outcomes: Observed GHCN TMAX at target station
 
 Usage:
@@ -374,7 +374,113 @@ def combined_loss(
 
 
 # ===========================================================================
-# Brier Score Evaluation
+# Kalshi Contract-Level Evaluation
+# ===========================================================================
+
+SEASON_MAP_MONTH = {12: "DJF", 1: "DJF", 2: "DJF",
+                    3: "MAM", 4: "MAM", 5: "MAM",
+                    6: "JJA", 7: "JJA", 8: "JJA",
+                    9: "SON", 10: "SON", 11: "SON"}
+
+
+def load_kalshi_data(city_code: str) -> pd.DataFrame:
+    """Load Kalshi settlement + pre-settlement data for a city."""
+    if city_code == "chi":
+        settlement_path = PROJECT_ROOT / "data" / "real_kalshi_chi_all.csv"
+        presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_chi.csv"
+    elif city_code == "phl":
+        settlement_path = PROJECT_ROOT / "data" / "real_kalshi_phl_all.csv"
+        presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_phl.csv"
+    else:
+        raise ValueError(f"Unknown city: {city_code}")
+
+    settled = pd.read_csv(settlement_path)
+    settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
+
+    if presettlement_path.exists():
+        pre = pd.read_csv(presettlement_path)
+        pre["date"] = pd.to_datetime(pre["date"]).dt.strftime("%Y-%m-%d")
+        merged = settled.merge(
+            pre[["date", "ticker", "presettlement_prob", "bid_cents",
+                 "ask_cents", "volume", "open_interest", "snapshot_time_utc"]],
+            on=["date", "ticker"], how="inner", suffixes=("", "_pre"),
+        )
+        merged = merged.dropna(subset=["presettlement_prob"])
+        merged["market_prob"] = merged["presettlement_prob"].clip(
+            PROB_CLIP_MIN, PROB_CLIP_MAX)
+        logger.info("Loaded Kalshi %s (pre-settlement): %d rows, %d dates",
+                     city_code, len(merged), merged["date"].nunique())
+        return merged
+    logger.info("Loaded Kalshi %s (settlement only): %d rows", city_code, len(settled))
+    return settled
+
+
+def build_contract_dataset(
+    kalshi_df: pd.DataFrame,
+    mu_by_date: dict,
+    sigma_by_date: dict,
+) -> pd.DataFrame:
+    """Map model (mu, sigma) to Kalshi contract-level probabilities."""
+    df = kalshi_df.copy()
+    df["model_mu"] = df["date"].map(mu_by_date)
+    df["model_sigma"] = df["date"].map(sigma_by_date)
+    df = df.dropna(subset=["model_mu", "model_sigma"])
+    if len(df) == 0:
+        return df
+
+    mu = df["model_mu"].values
+    sigma = np.maximum(df["model_sigma"].values, 0.5)
+    th_low = df["threshold_low"].values.astype(float)
+    th_high = df["threshold_high"].values.astype(float)
+    direction = df["direction"].values
+
+    model_prob = np.full(len(df), np.nan)
+    below = (direction == "below") | (direction == "less")
+    above = direction == "above"
+    between = direction == "between"
+
+    if below.any():
+        model_prob[below] = norm.cdf(th_high[below], mu[below], sigma[below])
+    if above.any():
+        model_prob[above] = 1.0 - norm.cdf(th_low[above], mu[above], sigma[above])
+    if between.any():
+        model_prob[between] = (
+            norm.cdf(th_high[between], mu[between], sigma[between])
+            - norm.cdf(th_low[between], mu[between], sigma[between])
+        )
+
+    df["model_prob"] = np.clip(model_prob, PROB_CLIP_MIN, PROB_CLIP_MAX)
+    return df
+
+
+def contract_brier(probs, outcomes):
+    """Compute contract-level Brier score."""
+    p = np.asarray(probs, dtype=float)
+    o = np.asarray(outcomes, dtype=float)
+    valid = ~(np.isnan(p) | np.isnan(o))
+    if valid.sum() == 0:
+        return float("nan")
+    return float(np.mean((p[valid] - o[valid]) ** 2))
+
+
+def compute_contract_seasonal_brier(contract_df, prob_col="model_prob"):
+    """Compute contract Brier per meteorological season."""
+    df = contract_df.copy()
+    df["date_dt"] = pd.to_datetime(df["date"])
+    df["month"] = df["date_dt"].dt.month
+    df["season"] = df["month"].map(SEASON_MAP_MONTH)
+    probs = df[prob_col].values.astype(float)
+    outcomes = df["actual_outcome"].values.astype(float)
+    results = {}
+    for s in ["DJF", "MAM", "JJA", "SON"]:
+        mask = (df["season"] == s).values
+        if mask.any():
+            results[s] = contract_brier(probs[mask], outcomes[mask])
+    return results
+
+
+# ===========================================================================
+# Bucket Probability Helpers (kept for calibration fitting)
 # ===========================================================================
 
 def gaussian_to_bucket_probs(
@@ -392,15 +498,11 @@ def gaussian_to_bucket_probs(
         cdf_high = norm.cdf(high, loc=mu, scale=sigma) if high < 900 else np.ones(n_days)
         probs[:, b] = cdf_high - cdf_low
 
-    # Normalize rows to sum to 1
     row_sums = probs.sum(axis=1, keepdims=True)
     row_sums = np.maximum(row_sums, 1e-8)
     probs = probs / row_sums
-
-    # Clip
     probs = np.clip(probs, PROB_CLIP_MIN, PROB_CLIP_MAX)
     probs = probs / probs.sum(axis=1, keepdims=True)
-
     return probs
 
 
@@ -423,38 +525,15 @@ def compute_actual_buckets(
                 if low <= tmax < high:
                     outcomes[i, b] = 1.0
                     break
-
     return outcomes
 
 
-def compute_brier_score(
+def compute_bucket_day_brier(
     pred_probs: np.ndarray,
     actual_outcomes: np.ndarray,
 ) -> float:
-    """Compute overall Brier score across all bucket-days."""
+    """Compute bucket-day Brier score (used for calibration fitting only)."""
     return float(np.mean((pred_probs - actual_outcomes) ** 2))
-
-
-def compute_seasonal_brier(
-    pred_probs: np.ndarray,
-    actual_outcomes: np.ndarray,
-    dates: pd.DatetimeIndex,
-) -> dict[str, float]:
-    """Compute Brier score by season."""
-    months = dates.month
-    season_map = {
-        12: "DJF", 1: "DJF", 2: "DJF",
-        3: "MAM", 4: "MAM", 5: "MAM",
-        6: "JJA", 7: "JJA", 8: "JJA",
-        9: "SON", 10: "SON", 11: "SON",
-    }
-    seasons = np.array([season_map[m] for m in months])
-    result = {}
-    for s in ["DJF", "MAM", "JJA", "SON"]:
-        mask = seasons == s
-        if mask.any():
-            result[s] = compute_brier_score(pred_probs[mask], actual_outcomes[mask])
-    return result
 
 
 # ===========================================================================
@@ -986,9 +1065,9 @@ def merge_mos_with_features(
 # ===========================================================================
 
 def run_city_benchmark(city_code: str) -> dict:
-    """Run the full MOS residual correction benchmark for one city."""
+    """Run the full MOS residual correction benchmark for one city (Contract Brier)."""
     logger.info("=" * 70)
-    logger.info("MOS RESIDUAL CORRECTION BENCHMARK: %s", city_code.upper())
+    logger.info("MOS RESIDUAL CORRECTION BENCHMARK: %s (Contract Brier)", city_code.upper())
     logger.info("=" * 70)
 
     # Load data
@@ -996,6 +1075,11 @@ def run_city_benchmark(city_code: str) -> dict:
     cfg = data["cfg"]
     bucket_edges = list(cfg.bucket_edges)
     bucket_labels = list(cfg.bucket_labels)
+
+    # Load Kalshi contract data for contract-level Brier
+    kalshi = load_kalshi_data(city_code)
+    logger.info("Kalshi contract rows: %d, dates: %d",
+                len(kalshi), kalshi["date"].nunique())
 
     # Validate MOS date alignment before proceeding
     # Ensures: MOS 'date' = target/verification date, runtime = issuance date < target
@@ -1062,24 +1146,63 @@ def run_city_benchmark(city_code: str) -> dict:
     regime_test = regime_all[len(y_train) + len(y_val):]
     n_regime = regime_train.shape[1]
 
+    # Helper: compute contract brier for a model's (mu, sigma) predictions
+    def eval_contract_brier(mu_arr, sigma_arr, dates_arr):
+        """Map (mu, sigma) to Kalshi contract rows and compute contract Brier."""
+        date_mu = {}
+        date_sigma = {}
+        for i, d in enumerate(dates_arr):
+            ds = d.strftime("%Y-%m-%d")
+            date_mu[ds] = float(mu_arr[i])
+            date_sigma[ds] = float(sigma_arr[i])
+        cdf = build_contract_dataset(kalshi, date_mu, date_sigma)
+        if len(cdf) == 0:
+            return float("nan"), {}
+        outcomes = cdf["actual_outcome"].values.astype(float)
+        brier = contract_brier(cdf["model_prob"].values, outcomes)
+        seasonal = compute_contract_seasonal_brier(cdf)
+        return brier, seasonal
+
+    def eval_contract_brier_combined(mu_test, sigma_test, mu_val=None, sigma_val=None):
+        """Map predictions from both val and test to Kalshi contract rows."""
+        date_mu = {}
+        date_sigma = {}
+        for i, d in enumerate(dates_test):
+            ds = d.strftime("%Y-%m-%d")
+            date_mu[ds] = float(mu_test[i])
+            date_sigma[ds] = float(sigma_test[i])
+        if mu_val is not None and sigma_val is not None:
+            for i, d in enumerate(dates_val):
+                ds = d.strftime("%Y-%m-%d")
+                date_mu[ds] = float(mu_val[i])
+                date_sigma[ds] = float(sigma_val[i])
+        cdf = build_contract_dataset(kalshi, date_mu, date_sigma)
+        if len(cdf) == 0:
+            return float("nan"), {}
+        outcomes = cdf["actual_outcome"].values.astype(float)
+        brier = contract_brier(cdf["model_prob"].values, outcomes)
+        seasonal = compute_contract_seasonal_brier(cdf)
+        return brier, seasonal
+
     # === Baselines ===
     logger.info("\n--- Computing Baselines ---")
 
-    # 1. Persistence baseline
+    # Keep bucket-day outcomes for calibration fitting
     actual_outcomes_test = compute_actual_buckets(y_test, bucket_edges)
+    actual_outcomes_val = compute_actual_buckets(y_val, bucket_edges)
+
+    # 1. Persistence baseline
     persistence_mu = np.roll(y_test, 1)
     persistence_mu[0] = y_test[0]
     persistence_sigma = np.full_like(y_test, 8.0)
-    persistence_probs = gaussian_to_bucket_probs(persistence_mu, persistence_sigma, bucket_edges)
-    brier_persistence = compute_brier_score(persistence_probs, actual_outcomes_test)
-    logger.info("  Persistence baseline Brier: %.4f", brier_persistence)
+    brier_persistence, _ = eval_contract_brier(persistence_mu, persistence_sigma, dates_test)
+    logger.info("  Persistence baseline Contract Brier: %.4f", brier_persistence)
 
     # 2. Climatology baseline
     clim_mu = np.array([cfg.monthly_tmax_mean.get(d.month, 60.0) for d in dates_test])
     clim_sigma = np.array([cfg.monthly_tmax_std.get(d.month, 10.0) for d in dates_test])
-    clim_probs = gaussian_to_bucket_probs(clim_mu, clim_sigma, bucket_edges)
-    brier_clim = compute_brier_score(clim_probs, actual_outcomes_test)
-    logger.info("  Climatology baseline Brier: %.4f", brier_clim)
+    brier_clim, _ = eval_contract_brier(clim_mu, clim_sigma, dates_test)
+    logger.info("  Climatology baseline Contract Brier: %.4f", brier_clim)
 
     # 3. Raw MOS baseline (no correction)
     mos_sigma_train = np.std(y_train - mos_train)
@@ -1092,15 +1215,13 @@ def run_city_benchmark(city_code: str) -> dict:
             mos_sigma_monthly[m] = float(mos_sigma_train)
 
     mos_sigma_test = np.array([mos_sigma_monthly.get(d.month, mos_sigma_train) for d in dates_test])
-    mos_probs = gaussian_to_bucket_probs(mos_test, mos_sigma_test, bucket_edges)
-    brier_mos_raw = compute_brier_score(mos_probs, actual_outcomes_test)
-    logger.info("  Raw MOS baseline Brier: %.4f", brier_mos_raw)
+    brier_mos_raw, _ = eval_contract_brier(mos_test, mos_sigma_test, dates_test)
+    logger.info("  Raw MOS baseline Contract Brier: %.4f", brier_mos_raw)
 
     # 4. Ridge regression on MOS residuals
     logger.info("\n--- Training Ridge MOS Correction ---")
     best_alpha = 1.0
     best_ridge_brier = float("inf")
-    actual_outcomes_val = compute_actual_buckets(y_val, bucket_edges)
 
     for alpha in [0.01, 0.1, 1.0, 10.0, 100.0]:
         ridge = Ridge(alpha=alpha)
@@ -1109,7 +1230,7 @@ def run_city_benchmark(city_code: str) -> dict:
         ridge_mu_val = mos_val + resid_pred_val
         ridge_sigma_val = np.array([mos_sigma_monthly.get(d.month, 5.0) for d in dates_val])
         ridge_probs_val = gaussian_to_bucket_probs(ridge_mu_val, ridge_sigma_val, bucket_edges)
-        brier_val = compute_brier_score(ridge_probs_val, actual_outcomes_val)
+        brier_val = compute_bucket_day_brier(ridge_probs_val, actual_outcomes_val)
         if brier_val < best_ridge_brier:
             best_ridge_brier = brier_val
             best_alpha = alpha
@@ -1119,9 +1240,8 @@ def run_city_benchmark(city_code: str) -> dict:
     ridge_resid_test = ridge_final.predict(X_test_scaled)
     ridge_mu_test = mos_test + ridge_resid_test
     ridge_sigma_test = np.array([mos_sigma_monthly.get(d.month, 5.0) for d in dates_test])
-    ridge_probs_test = gaussian_to_bucket_probs(ridge_mu_test, ridge_sigma_test, bucket_edges)
-    brier_ridge = compute_brier_score(ridge_probs_test, actual_outcomes_test)
-    logger.info("  Ridge MOS correction Brier: %.4f (alpha=%.2f)", brier_ridge, best_alpha)
+    brier_ridge, _ = eval_contract_brier(ridge_mu_test, ridge_sigma_test, dates_test)
+    logger.info("  Ridge MOS correction Contract Brier: %.4f (alpha=%.2f)", brier_ridge, best_alpha)
 
     # === Neural Network Models ===
     results = {}
@@ -1135,12 +1255,13 @@ def run_city_benchmark(city_code: str) -> dict:
         model_type="mos_residual", lr=0.0008, max_epochs=400, patience=30,
     )
     mu1_test, sigma1_test = predict_mos_model(res1["model"], X_test_scaled, mos_test)
-    probs1_test = gaussian_to_bucket_probs(mu1_test, sigma1_test, bucket_edges)
-    brier1 = compute_brier_score(probs1_test, actual_outcomes_test)
-    logger.info("  MOSResidualNet Brier: %.4f", brier1)
+    mu1_val, sigma1_val = predict_mos_model(res1["model"], X_val_scaled, mos_val)
+    brier1, _ = eval_contract_brier_combined(mu1_test, sigma1_test, mu1_val, sigma1_val)
+    logger.info("  MOSResidualNet Contract Brier: %.4f", brier1)
     results["MOSResidualNet"] = {
-        "mu": mu1_test, "sigma": sigma1_test, "probs": probs1_test, "brier": brier1,
-        "model": res1["model"],
+        "mu_test": mu1_test, "sigma_test": sigma1_test,
+        "mu_val": mu1_val, "sigma_val": sigma1_val,
+        "brier": brier1, "model": res1["model"],
     }
 
     # 6. AttentionMOSNet
@@ -1152,12 +1273,13 @@ def run_city_benchmark(city_code: str) -> dict:
         model_type="mos_residual", lr=0.0008, max_epochs=400, patience=30,
     )
     mu2_test, sigma2_test = predict_mos_model(res2["model"], X_test_scaled, mos_test)
-    probs2_test = gaussian_to_bucket_probs(mu2_test, sigma2_test, bucket_edges)
-    brier2 = compute_brier_score(probs2_test, actual_outcomes_test)
-    logger.info("  AttentionMOSNet Brier: %.4f", brier2)
+    mu2_val, sigma2_val = predict_mos_model(res2["model"], X_val_scaled, mos_val)
+    brier2, _ = eval_contract_brier_combined(mu2_test, sigma2_test, mu2_val, sigma2_val)
+    logger.info("  AttentionMOSNet Contract Brier: %.4f", brier2)
     results["AttentionMOSNet"] = {
-        "mu": mu2_test, "sigma": sigma2_test, "probs": probs2_test, "brier": brier2,
-        "model": res2["model"],
+        "mu_test": mu2_test, "sigma_test": sigma2_test,
+        "mu_val": mu2_val, "sigma_val": sigma2_val,
+        "brier": brier2, "model": res2["model"],
     }
 
     # 7. RegimeMOSNet
@@ -1173,95 +1295,95 @@ def run_city_benchmark(city_code: str) -> dict:
         res3["model"], X_test_scaled, mos_test,
         model_type="regime_mos", regime=regime_test,
     )
-    probs3_test = gaussian_to_bucket_probs(mu3_test, sigma3_test, bucket_edges)
-    brier3 = compute_brier_score(probs3_test, actual_outcomes_test)
-    logger.info("  RegimeMOSNet Brier: %.4f", brier3)
+    mu3_val, sigma3_val = predict_mos_model(
+        res3["model"], X_val_scaled, mos_val,
+        model_type="regime_mos", regime=regime_val,
+    )
+    brier3, _ = eval_contract_brier_combined(mu3_test, sigma3_test, mu3_val, sigma3_val)
+    logger.info("  RegimeMOSNet Contract Brier: %.4f", brier3)
     results["RegimeMOSNet"] = {
-        "mu": mu3_test, "sigma": sigma3_test, "probs": probs3_test, "brier": brier3,
-        "model": res3["model"],
+        "mu_test": mu3_test, "sigma_test": sigma3_test,
+        "mu_val": mu3_val, "sigma_val": sigma3_val,
+        "brier": brier3, "model": res3["model"],
     }
 
     # === Calibration ===
     logger.info("\n--- Applying Isotonic+Platt Calibration ---")
 
     for name, res in results.items():
-        # Get val predictions for calibration fitting
-        model = res["model"]
-        if name == "RegimeMOSNet":
-            mu_val, sigma_val = predict_mos_model(
-                model, X_val_scaled, mos_val,
-                model_type="regime_mos", regime=regime_val,
-            )
-        else:
-            mu_val, sigma_val = predict_mos_model(model, X_val_scaled, mos_val)
+        # Get val bucket probs for calibration fitting
+        probs_val = gaussian_to_bucket_probs(res["mu_val"], res["sigma_val"], bucket_edges)
+        probs_test = gaussian_to_bucket_probs(res["mu_test"], res["sigma_test"], bucket_edges)
 
-        probs_val = gaussian_to_bucket_probs(mu_val, sigma_val, bucket_edges)
-
-        # Fit calibrator on validation set
+        # Fit calibrator on validation set (bucket-day level)
         calibrator = IsotonicPlattCalibrator()
         calibrator.fit(probs_val, actual_outcomes_val)
 
-        # Apply to test set
-        cal_probs = calibrator.calibrate(res["probs"])
-        brier_cal = compute_brier_score(cal_probs, actual_outcomes_test)
-        logger.info("  %s + calibration Brier: %.4f (was %.4f)", name, brier_cal, res["brier"])
-        results[name]["cal_probs"] = cal_probs
+        # Apply to test set — compute calibrated (mu, sigma) by finding
+        # the Gaussian that best fits the calibrated bucket probs
+        cal_probs = calibrator.calibrate(probs_test)
+        cal_brier_bucket = compute_bucket_day_brier(cal_probs, actual_outcomes_test)
+
+        # For contract Brier of calibrated model, we need calibrated mu/sigma
+        # Approximate: fit Gaussian to calibrated bucket probs via weighted mean/std
+        bucket_mids = np.array([(lo + hi) / 2 for lo, hi in bucket_edges])
+        bucket_mids[0] = bucket_edges[0][1] - 5  # Below bucket center
+        bucket_mids[-1] = bucket_edges[-1][0] + 5  # Above bucket center
+        cal_mu = np.sum(cal_probs * bucket_mids[None, :], axis=1)
+        cal_sigma = np.sqrt(np.sum(cal_probs * (bucket_mids[None, :] - cal_mu[:, None])**2, axis=1))
+        cal_sigma = np.maximum(cal_sigma, 1.0)
+
+        brier_cal, _ = eval_contract_brier_combined(cal_mu, cal_sigma, res["mu_val"], res["sigma_val"])
+        logger.info("  %s + calibration Contract Brier: %.4f (was %.4f)", name, brier_cal, res["brier"])
+        results[name]["cal_mu"] = cal_mu
+        results[name]["cal_sigma"] = cal_sigma
         results[name]["brier_cal"] = brier_cal
 
     # === Ensemble ===
     logger.info("\n--- Building Calibrated Ensemble ---")
 
-    # Simple average ensemble of all calibrated models
-    ensemble_probs = np.mean(
-        [results[name]["cal_probs"] for name in results], axis=0
-    )
-    ensemble_probs = np.clip(ensemble_probs, PROB_CLIP_MIN, PROB_CLIP_MAX)
-    ensemble_probs = ensemble_probs / ensemble_probs.sum(axis=1, keepdims=True)
-    brier_ensemble = compute_brier_score(ensemble_probs, actual_outcomes_test)
-    logger.info("  Ensemble (equal weight) Brier: %.4f", brier_ensemble)
+    # Simple average ensemble of calibrated mu/sigma
+    ens_mu = np.mean([results[name]["cal_mu"] for name in results], axis=0)
+    ens_sigma = np.mean([results[name]["cal_sigma"] for name in results], axis=0)
+    brier_ensemble, _ = eval_contract_brier(ens_mu, ens_sigma, dates_test)
+    logger.info("  Ensemble (equal weight) Contract Brier: %.4f", brier_ensemble)
 
-    # Weighted ensemble (weight by inverse val Brier)
+    # Weighted ensemble (weight by inverse contract Brier)
     weights = {}
     for name in results:
-        if name == "RegimeMOSNet":
-            mu_val, sigma_val = predict_mos_model(
-                results[name]["model"], X_val_scaled, mos_val,
-                model_type="regime_mos", regime=regime_val,
-            )
-        else:
-            mu_val, sigma_val = predict_mos_model(
-                results[name]["model"], X_val_scaled, mos_val,
-            )
-        probs_val = gaussian_to_bucket_probs(mu_val, sigma_val, bucket_edges)
-        brier_val = compute_brier_score(probs_val, actual_outcomes_val)
-        weights[name] = 1.0 / max(brier_val, 1e-4)
+        weights[name] = 1.0 / max(results[name]["brier"], 1e-4)
 
     total_weight = sum(weights.values())
-    weighted_probs = np.zeros_like(ensemble_probs)
+    weighted_mu = np.zeros_like(ens_mu)
+    weighted_sigma = np.zeros_like(ens_sigma)
     for name in results:
         w = weights[name] / total_weight
-        weighted_probs += w * results[name]["cal_probs"]
+        weighted_mu += w * results[name]["cal_mu"]
+        weighted_sigma += w * results[name]["cal_sigma"]
+    brier_weighted, _ = eval_contract_brier(weighted_mu, weighted_sigma, dates_test)
+    logger.info("  Ensemble (weighted) Contract Brier: %.4f", brier_weighted)
 
-    weighted_probs = np.clip(weighted_probs, PROB_CLIP_MIN, PROB_CLIP_MAX)
-    weighted_probs = weighted_probs / weighted_probs.sum(axis=1, keepdims=True)
-    brier_weighted = compute_brier_score(weighted_probs, actual_outcomes_test)
-    logger.info("  Ensemble (weighted) Brier: %.4f", brier_weighted)
-
-    # === Also calibrate Ridge as a baseline ===
-    ridge_probs_val = gaussian_to_bucket_probs(
-        mos_val + ridge_final.predict(X_val_scaled),
-        np.array([mos_sigma_monthly.get(d.month, 5.0) for d in dates_val]),
-        bucket_edges,
-    )
+    # === Also calibrate Ridge ===
+    ridge_mu_val = mos_val + ridge_final.predict(X_val_scaled)
+    ridge_sigma_val = np.array([mos_sigma_monthly.get(d.month, 5.0) for d in dates_val])
+    ridge_probs_val = gaussian_to_bucket_probs(ridge_mu_val, ridge_sigma_val, bucket_edges)
+    ridge_probs_test = gaussian_to_bucket_probs(ridge_mu_test, ridge_sigma_test, bucket_edges)
     ridge_cal = IsotonicPlattCalibrator()
     ridge_cal.fit(ridge_probs_val, actual_outcomes_val)
     ridge_cal_probs = ridge_cal.calibrate(ridge_probs_test)
-    brier_ridge_cal = compute_brier_score(ridge_cal_probs, actual_outcomes_test)
-    logger.info("  Ridge + calibration Brier: %.4f", brier_ridge_cal)
+    # Approximate calibrated Gaussian from calibrated bucket probs
+    bucket_mids = np.array([(lo + hi) / 2 for lo, hi in bucket_edges])
+    bucket_mids[0] = bucket_edges[0][1] - 5
+    bucket_mids[-1] = bucket_edges[-1][0] + 5
+    ridge_cal_mu = np.sum(ridge_cal_probs * bucket_mids[None, :], axis=1)
+    ridge_cal_sigma = np.sqrt(np.sum(ridge_cal_probs * (bucket_mids[None, :] - ridge_cal_mu[:, None])**2, axis=1))
+    ridge_cal_sigma = np.maximum(ridge_cal_sigma, 1.0)
+    brier_ridge_cal, _ = eval_contract_brier(ridge_cal_mu, ridge_cal_sigma, dates_test)
+    logger.info("  Ridge + calibration Contract Brier: %.4f", brier_ridge_cal)
 
     # === Summary ===
     logger.info("\n" + "=" * 70)
-    logger.info("RESULTS SUMMARY: %s", city_code.upper())
+    logger.info("RESULTS SUMMARY (Contract Brier): %s", city_code.upper())
     logger.info("=" * 70)
 
     all_results = {
@@ -1277,33 +1399,38 @@ def run_city_benchmark(city_code: str) -> dict:
     all_results["Ensemble (equal)"] = brier_ensemble
     all_results["Ensemble (weighted)"] = brier_weighted
 
-    # Sort by Brier
+    # Sort by Contract Brier
     sorted_results = sorted(all_results.items(), key=lambda x: x[1])
-    logger.info("%-35s  %s", "Model", "Brier Score")
-    logger.info("-" * 50)
+    logger.info("%-35s  %s", "Model", "Contract Brier")
+    logger.info("-" * 55)
     for name, brier in sorted_results:
         marker = " <-- BEST" if brier == sorted_results[0][1] else ""
         logger.info("%-35s  %.4f%s", name, brier, marker)
 
     best_name, best_brier = sorted_results[0]
-    logger.info("\nBest model: %s (Brier: %.4f)", best_name, best_brier)
+    logger.info("\nBest model: %s (Contract Brier: %.4f)", best_name, best_brier)
 
     # Seasonal breakdown for best model
     if "Ensemble" in best_name:
-        best_probs = weighted_probs if "weighted" in best_name.lower() else ensemble_probs
+        best_mu = weighted_mu if "weighted" in best_name.lower() else ens_mu
+        best_sigma = weighted_sigma if "weighted" in best_name.lower() else ens_sigma
     elif "Cal" in best_name:
         base_name = best_name.replace(" + Cal", "")
         if base_name in results:
-            best_probs = results[base_name]["cal_probs"]
+            best_mu = results[base_name]["cal_mu"]
+            best_sigma = results[base_name]["cal_sigma"]
         else:
-            best_probs = ridge_cal_probs
+            best_mu = ridge_cal_mu
+            best_sigma = ridge_cal_sigma
     elif best_name in results:
-        best_probs = results[best_name]["probs"]
+        best_mu = results[best_name]["mu_test"]
+        best_sigma = results[best_name]["sigma_test"]
     else:
-        best_probs = weighted_probs
+        best_mu = weighted_mu
+        best_sigma = weighted_sigma
 
-    seasonal = compute_seasonal_brier(best_probs, actual_outcomes_test, dates_test)
-    logger.info("\nSeasonal Brier for %s:", best_name)
+    _, seasonal = eval_contract_brier(best_mu, best_sigma, dates_test)
+    logger.info("\nSeasonal Contract Brier for %s:", best_name)
     for season, sbrier in sorted(seasonal.items()):
         logger.info("  %s: %.4f", season, sbrier)
 
@@ -1313,6 +1440,7 @@ def run_city_benchmark(city_code: str) -> dict:
     out_path = os.path.join(results_dir, "mos_residual_benchmark.json")
     save_results = {
         "city": city_code,
+        "scoring": "contract_brier",
         "date_run": datetime.now().isoformat(),
         "test_date_range": [str(dates_test.min().date()), str(dates_test.max().date())],
         "n_test_days": len(y_test),
@@ -1320,7 +1448,7 @@ def run_city_benchmark(city_code: str) -> dict:
         "bucket_labels": bucket_labels,
         "results": {k: float(v) for k, v in all_results.items()},
         "best_model": best_name,
-        "best_brier": float(best_brier),
+        "best_contract_brier": float(best_brier),
         "seasonal_brier": {k: float(v) for k, v in seasonal.items()},
     }
     with open(out_path, "w") as f:
@@ -1343,8 +1471,8 @@ def _plot_results(sorted_results, city_code, results_dir):
     bars = ax.barh(range(len(names)), scores, color=colors, edgecolor="white")
     ax.set_yticks(range(len(names)))
     ax.set_yticklabels(names, fontsize=9)
-    ax.set_xlabel("Brier Score (lower is better)")
-    ax.set_title(f"MOS Residual Correction Benchmark — {city_code.upper()}")
+    ax.set_xlabel("Contract Brier Score (lower is better)")
+    ax.set_title(f"MOS Residual Correction Benchmark — {city_code.upper()} (Contract Brier)")
     ax.invert_yaxis()
 
     for bar, score in zip(bars, scores):
@@ -1391,7 +1519,7 @@ def main():
         logger.info("=" * 70)
         for city, result in all_results.items():
             logger.info("  %s: Best=%s (Brier=%.4f)",
-                        city.upper(), result["best_model"], result["best_brier"])
+                        city.upper(), result["best_model"], result["best_contract_brier"])
 
 
 if __name__ == "__main__":

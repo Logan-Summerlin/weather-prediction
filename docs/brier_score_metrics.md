@@ -4,7 +4,7 @@ This project uses two distinct Brier score aggregations. Both use the same core 
 
 ## Bucket-Day Brier
 
-**Used by:** Honest Benchmark (`run_honest_benchmark.py`), E-series base models.
+**Used by:** _(Deprecated — all benchmarks now use Contract Brier.)_ Formerly used by Honest Benchmark and E-series base models.
 
 Averages over **all** (day × bucket) pairs, including every bucket in the grid.
 
@@ -19,7 +19,7 @@ Because ~50 of 62 buckets on any given day have near-zero predicted probability 
 
 ## Contract Brier
 
-**Used by:** Unified Benchmark (`run_chi_phl_unified_benchmark.py`), U-series synthesis models.
+**Used by:** All benchmarks — Honest Benchmark, E-series, CHI/PHL baselines, MOS Residual, Unified Benchmark, U-series synthesis models.
 
 Averages only over (day × bucket) pairs **where Kalshi listed a tradeable contract** — typically the 10–15 buckets near the forecast temperature where there is genuine uncertainty.
 
@@ -49,4 +49,4 @@ Averages only over (day × bucket) pairs **where Kalshi listed a tradeable contr
 
 ## Key takeaway
 
-The two metrics are **not comparable** to each other. A 0.015 bucket-day Brier and a 0.11 contract Brier can describe the exact same model on the exact same data. Always check which metric is being reported before comparing model results across benchmarks.
+As of the latest update, all benchmarks have been standardized to use **Contract Brier** as the primary metric. This ensures all model scores are directly comparable across benchmark scripts. The bucket-day Brier computation is retained only internally for Ridge alpha search and calibration fitting, but is never reported as a final result.

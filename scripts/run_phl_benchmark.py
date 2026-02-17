@@ -13,9 +13,9 @@ Models benchmarked:
   - Flat feedforward NN     (heteroscedastic Gaussian output: mu, sigma)
 
 All models produce (or are converted to) distributional Gaussian output
-(mu, sigma) which is mapped to KXHIGHPHL contract bucket probabilities
-via scipy.stats.norm.cdf.  Brier score is computed per bucket-day and
-averaged.
+(mu, sigma) which is mapped to Kalshi contract-level probabilities
+via scipy.stats.norm.cdf.  Contract Brier score is computed over real
+Kalshi contract rows only (not all bucket-days).
 
 Results are saved to results/philadelphia/.
 
@@ -54,6 +54,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.city_config import get_city_config, ensure_city_dirs
+from src.contract_brier import contract_brier_score
 import config_philadelphia as city_config
 
 # ---------------------------------------------------------------------------
@@ -176,18 +177,112 @@ def gaussian_to_bucket_probs(
     return probs
 
 
+# ===========================================================================
+# Kalshi Contract-Level Evaluation
+# ===========================================================================
+
+SEASON_MAP_MONTH = {12: "DJF", 1: "DJF", 2: "DJF",
+                    3: "MAM", 4: "MAM", 5: "MAM",
+                    6: "JJA", 7: "JJA", 8: "JJA",
+                    9: "SON", 10: "SON", 11: "SON"}
+
+
+def load_kalshi_data_phl() -> pd.DataFrame:
+    """Load Kalshi settlement + pre-settlement data for Philadelphia."""
+    settlement_path = PROJECT_ROOT / "data" / "real_kalshi_phl_all.csv"
+    presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_phl.csv"
+
+    settled = pd.read_csv(settlement_path)
+    settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
+
+    if presettlement_path.exists():
+        pre = pd.read_csv(presettlement_path)
+        pre["date"] = pd.to_datetime(pre["date"]).dt.strftime("%Y-%m-%d")
+        merged = settled.merge(
+            pre[["date", "ticker", "presettlement_prob", "bid_cents",
+                 "ask_cents", "volume", "open_interest", "snapshot_time_utc"]],
+            on=["date", "ticker"], how="inner", suffixes=("", "_pre"),
+        )
+        merged = merged.dropna(subset=["presettlement_prob"])
+        merged["market_prob"] = merged["presettlement_prob"].clip(
+            PROB_CLIP_MIN, PROB_CLIP_MAX)
+        logger.info("Loaded Kalshi PHL (pre-settlement): %d rows, %d dates",
+                     len(merged), merged["date"].nunique())
+        return merged
+    logger.info("Loaded Kalshi PHL (settlement only): %d rows", len(settled))
+    return settled
+
+
+def build_contract_dataset(
+    kalshi_df: pd.DataFrame,
+    mu_by_date: dict,
+    sigma_by_date: dict,
+) -> pd.DataFrame:
+    """Map model (mu, sigma) to Kalshi contract-level probabilities."""
+    df = kalshi_df.copy()
+    df["model_mu"] = df["date"].map(mu_by_date)
+    df["model_sigma"] = df["date"].map(sigma_by_date)
+    df = df.dropna(subset=["model_mu", "model_sigma"])
+    if len(df) == 0:
+        return df
+
+    mu = df["model_mu"].values
+    sigma = np.maximum(df["model_sigma"].values, 0.5)
+    th_low = df["threshold_low"].values.astype(float)
+    th_high = df["threshold_high"].values.astype(float)
+    direction = df["direction"].values
+
+    model_prob = np.full(len(df), np.nan)
+    below = (direction == "below") | (direction == "less")
+    above = direction == "above"
+    between = direction == "between"
+
+    if below.any():
+        model_prob[below] = norm.cdf(th_high[below], mu[below], sigma[below])
+    if above.any():
+        model_prob[above] = 1.0 - norm.cdf(th_low[above], mu[above], sigma[above])
+    if between.any():
+        model_prob[between] = (
+            norm.cdf(th_high[between], mu[between], sigma[between])
+            - norm.cdf(th_low[between], mu[between], sigma[between])
+        )
+
+    df["model_prob"] = np.clip(model_prob, PROB_CLIP_MIN, PROB_CLIP_MAX)
+    return df
+
+
+def contract_brier(probs, outcomes):
+    """Compute contract-level Brier score."""
+    p = np.asarray(probs, dtype=float)
+    o = np.asarray(outcomes, dtype=float)
+    valid = ~(np.isnan(p) | np.isnan(o))
+    if valid.sum() == 0:
+        return float("nan")
+    return float(np.mean((p[valid] - o[valid]) ** 2))
+
+
+def compute_contract_seasonal_brier(contract_df, prob_col="model_prob"):
+    """Compute contract Brier per meteorological season."""
+    df = contract_df.copy()
+    df["date_dt"] = pd.to_datetime(df["date"])
+    df["month"] = df["date_dt"].dt.month
+    df["season"] = df["month"].map(SEASON_MAP_MONTH)
+    probs = df[prob_col].values.astype(float)
+    outcomes = df["actual_outcome"].values.astype(float)
+    results = {}
+    for s in ["DJF", "MAM", "JJA", "SON"]:
+        mask = (df["season"] == s).values
+        if mask.any():
+            results[s] = contract_brier(probs[mask], outcomes[mask])
+    return results
+
+
 def compute_brier_score(
     bucket_probs: np.ndarray,
     actual_tmax: np.ndarray,
     bucket_edges: list[tuple[float, float]],
 ) -> dict:
-    """Compute Brier score across all bucket-days.
-
-    For each day and each bucket, the Brier score component is
-    (predicted_prob - actual_outcome)^2, where actual_outcome is 1 if
-    the observed TMAX falls in that bucket and 0 otherwise.
-
-    The overall Brier score is the mean across all (day, bucket) pairs.
+    """Compute bucket-day Brier score (kept for Ridge alpha search only).
 
     Parameters
     ----------
@@ -201,13 +296,11 @@ def compute_brier_score(
     Returns
     -------
     dict
-        Dictionary with keys: overall_brier, per_bucket_brier (list),
-        n_days, n_buckets.
+        Dictionary with keys: overall_brier, n_days, n_buckets.
     """
     n_days, n_buckets = bucket_probs.shape
     assert len(actual_tmax) == n_days
 
-    # Build outcome matrix: 1 if actual falls in bucket, 0 otherwise
     outcomes = np.zeros((n_days, n_buckets))
     for d in range(n_days):
         t = actual_tmax[d]
@@ -215,7 +308,6 @@ def compute_brier_score(
             continue
         for b, (lo, hi) in enumerate(bucket_edges):
             if b == n_buckets - 1:
-                # Last bucket: inclusive on both ends
                 if lo <= t <= hi:
                     outcomes[d, b] = 1.0
                     break
@@ -224,14 +316,11 @@ def compute_brier_score(
                     outcomes[d, b] = 1.0
                     break
 
-    # Brier score: mean of (prob - outcome)^2 across all (day, bucket)
     brier_components = (bucket_probs - outcomes) ** 2
     overall_brier = float(np.mean(brier_components))
-    per_bucket_brier = [float(np.mean(brier_components[:, b])) for b in range(n_buckets)]
 
     return {
         "overall_brier": overall_brier,
-        "per_bucket_brier": per_bucket_brier,
         "n_days": n_days,
         "n_buckets": n_buckets,
     }
@@ -702,28 +791,10 @@ def compute_seasonal_brier(
     dates: pd.DatetimeIndex,
     bucket_edges: list[tuple[float, float]],
 ) -> dict[str, float]:
-    """Compute Brier score per meteorological season.
-
-    Parameters
-    ----------
-    bucket_probs : np.ndarray
-        Shape (n_days, n_buckets).
-    actual_tmax : np.ndarray
-        Shape (n_days,).
-    dates : pd.DatetimeIndex
-        Dates corresponding to each row.
-    bucket_edges : list of (low, high) tuples
-        Bucket definitions.
-
-    Returns
-    -------
-    dict[str, float]
-        Season -> Brier score mapping.
-    """
+    """Compute bucket-day Brier score per season (kept for backward compat)."""
     months = dates.month
     seasons = np.array([SEASON_MAP[m] for m in months])
     results = {}
-
     for season in ["DJF", "MAM", "JJA", "SON"]:
         mask = seasons == season
         if not np.any(mask):
@@ -732,7 +803,6 @@ def compute_seasonal_brier(
             bucket_probs[mask], actual_tmax[mask], bucket_edges
         )
         results[season] = score["overall_brier"]
-
     return results
 
 
@@ -767,8 +837,8 @@ def plot_brier_comparison(
 
     ax.set_xticks(range(len(models)))
     ax.set_xticklabels(models, rotation=30, ha="right", fontsize=9)
-    ax.set_ylabel("Brier Score (lower is better)")
-    ax.set_title("Philadelphia Model Benchmark: Test-Set Brier Scores")
+    ax.set_ylabel("Contract Brier Score (lower is better)")
+    ax.set_title("Philadelphia Model Benchmark: Contract Brier Scores")
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
 
@@ -808,8 +878,8 @@ def plot_seasonal_brier(
 
     ax.set_xticks(x + width * (n_models - 1) / 2)
     ax.set_xticklabels(seasons)
-    ax.set_ylabel("Brier Score")
-    ax.set_title("Philadelphia Benchmark: Seasonal Brier Scores (Test Set)")
+    ax.set_ylabel("Contract Brier Score")
+    ax.set_title("Philadelphia Benchmark: Seasonal Contract Brier Scores")
     ax.legend(fontsize=8, loc="upper right")
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
@@ -825,9 +895,9 @@ def plot_seasonal_brier(
 # ===========================================================================
 
 def main():
-    """Run the full Philadelphia model benchmark."""
+    """Run the full Philadelphia model benchmark with contract-level Brier."""
     logger.info("=" * 70)
-    logger.info("Philadelphia Model Benchmark (KXHIGHPHL)")
+    logger.info("Philadelphia Model Benchmark (KXHIGHPHL) — Contract Brier")
     logger.info("=" * 70)
 
     # --- Setup ---
@@ -841,15 +911,40 @@ def main():
     bucket_edges = phl.bucket_edges
     bucket_labels = phl.bucket_labels
 
-    logger.info("Bucket definitions: %s", bucket_labels)
     logger.info("Results directory: %s", results_dir)
 
     # --- Load data ---
     X_train, X_val, X_test, y_train, y_val, y_test = load_processed_phl_data(processed_dir)
 
+    # Load Kalshi contract data for contract-level Brier
+    kalshi = load_kalshi_data_phl()
+    logger.info("Kalshi contract rows: %d, dates: %d",
+                len(kalshi), kalshi["date"].nunique())
+
     test_actual = y_test.values
     test_dates = y_test.index
     val_actual = y_val.values
+
+    # Helper: compute contract brier for a model's (mu, sigma) predictions
+    def eval_contract_brier(mu_test, sigma_test, mu_val=None, sigma_val=None):
+        date_mu = {}
+        date_sigma = {}
+        for i, d in enumerate(test_dates):
+            ds = d.strftime("%Y-%m-%d")
+            date_mu[ds] = mu_test[i]
+            date_sigma[ds] = sigma_test[i]
+        if mu_val is not None and sigma_val is not None:
+            for i, d in enumerate(y_val.index):
+                ds = d.strftime("%Y-%m-%d")
+                date_mu[ds] = mu_val[i]
+                date_sigma[ds] = sigma_val[i]
+        cdf = build_contract_dataset(kalshi, date_mu, date_sigma)
+        if len(cdf) == 0:
+            return float("nan"), {}
+        outcomes = cdf["actual_outcome"].values.astype(float)
+        brier = contract_brier(cdf["model_prob"].values, outcomes)
+        seasonal = compute_contract_seasonal_brier(cdf)
+        return brier, seasonal
 
     all_results = {}
     seasonal_all = {}
@@ -862,31 +957,14 @@ def main():
     logger.info("-" * 50)
 
     persist = run_persistence_baseline(y_train, y_val, y_test)
+    persist_brier, persist_seasonal = eval_contract_brier(
+        persist["mu_test"], persist["sigma_test"],
+        persist["mu_val"], persist["sigma_val"])
 
-    persist_test_probs = gaussian_to_bucket_probs(
-        persist["mu_test"], persist["sigma_test"], bucket_edges
-    )
-    persist_brier = compute_brier_score(persist_test_probs, test_actual, bucket_edges)
+    logger.info("Persistence: contract Brier=%.4f, sigma=%.2f",
+                persist_brier, persist["sigma_estimate"])
 
-    persist_val_probs = gaussian_to_bucket_probs(
-        persist["mu_val"], persist["sigma_val"], bucket_edges
-    )
-    persist_val_brier = compute_brier_score(persist_val_probs, val_actual, bucket_edges)
-
-    persist_seasonal = compute_seasonal_brier(
-        persist_test_probs, test_actual, test_dates, bucket_edges
-    )
-
-    logger.info("Persistence: val Brier=%.4f, test Brier=%.4f, sigma=%.2f",
-                persist_val_brier["overall_brier"],
-                persist_brier["overall_brier"],
-                persist["sigma_estimate"])
-
-    all_results["Persistence"] = {
-        "val_brier": persist_val_brier["overall_brier"],
-        "test_brier": persist_brier["overall_brier"],
-        "per_bucket_brier": persist_brier["per_bucket_brier"],
-    }
+    all_results["Persistence"] = {"test_brier": persist_brier}
     seasonal_all["Persistence"] = persist_seasonal
 
     # ===================================================================
@@ -897,30 +975,13 @@ def main():
     logger.info("-" * 50)
 
     clim = run_climatology_baseline(y_train, y_val, y_test)
+    clim_brier, clim_seasonal = eval_contract_brier(
+        clim["mu_test"], clim["sigma_test"],
+        clim["mu_val"], clim["sigma_val"])
 
-    clim_test_probs = gaussian_to_bucket_probs(
-        clim["mu_test"], clim["sigma_test"], bucket_edges
-    )
-    clim_brier = compute_brier_score(clim_test_probs, test_actual, bucket_edges)
+    logger.info("Climatology: contract Brier=%.4f", clim_brier)
 
-    clim_val_probs = gaussian_to_bucket_probs(
-        clim["mu_val"], clim["sigma_val"], bucket_edges
-    )
-    clim_val_brier = compute_brier_score(clim_val_probs, val_actual, bucket_edges)
-
-    clim_seasonal = compute_seasonal_brier(
-        clim_test_probs, test_actual, test_dates, bucket_edges
-    )
-
-    logger.info("Climatology: val Brier=%.4f, test Brier=%.4f",
-                clim_val_brier["overall_brier"],
-                clim_brier["overall_brier"])
-
-    all_results["Climatology"] = {
-        "val_brier": clim_val_brier["overall_brier"],
-        "test_brier": clim_brier["overall_brier"],
-        "per_bucket_brier": clim_brier["per_bucket_brier"],
-    }
+    all_results["Climatology"] = {"test_brier": clim_brier}
     seasonal_all["Climatology"] = clim_seasonal
 
     # ===================================================================
@@ -930,7 +991,6 @@ def main():
     logger.info("Model 3: Ridge Regression")
     logger.info("-" * 50)
 
-    # Try multiple alpha values, pick best on val Brier
     best_ridge_result = None
     best_ridge_alpha = None
     best_ridge_val_brier = float("inf")
@@ -950,22 +1010,15 @@ def main():
 
     logger.info("Best Ridge alpha=%.1f", best_ridge_alpha)
 
-    ridge_test_probs = gaussian_to_bucket_probs(
-        best_ridge_result["mu_test"], best_ridge_result["sigma_test"], bucket_edges
-    )
-    ridge_brier = compute_brier_score(ridge_test_probs, test_actual, bucket_edges)
+    ridge_brier, ridge_seasonal = eval_contract_brier(
+        best_ridge_result["mu_test"], best_ridge_result["sigma_test"],
+        best_ridge_result["mu_val"], best_ridge_result["sigma_val"])
 
-    ridge_seasonal = compute_seasonal_brier(
-        ridge_test_probs, test_actual, test_dates, bucket_edges
-    )
-
-    logger.info("Ridge (alpha=%.1f): val Brier=%.4f, test Brier=%.4f",
-                best_ridge_alpha, best_ridge_val_brier, ridge_brier["overall_brier"])
+    logger.info("Ridge (alpha=%.1f): contract Brier=%.4f",
+                best_ridge_alpha, ridge_brier)
 
     all_results[f"Ridge (a={best_ridge_alpha})"] = {
-        "val_brier": best_ridge_val_brier,
-        "test_brier": ridge_brier["overall_brier"],
-        "per_bucket_brier": ridge_brier["per_bucket_brier"],
+        "test_brier": ridge_brier,
         "val_mae": best_ridge_result["val_mae"],
         "test_mae": best_ridge_result["test_mae"],
         "alpha": best_ridge_alpha,
@@ -989,27 +1042,14 @@ def main():
         batch_size=city_config.BATCH_SIZE,
     )
 
-    nn_test_probs = gaussian_to_bucket_probs(
-        nn_res["mu_test"], nn_res["sigma_test"], bucket_edges
-    )
-    nn_brier = compute_brier_score(nn_test_probs, test_actual, bucket_edges)
+    nn_brier, nn_seasonal = eval_contract_brier(
+        nn_res["mu_test"], nn_res["sigma_test"],
+        nn_res["mu_val"], nn_res["sigma_val"])
 
-    nn_val_probs = gaussian_to_bucket_probs(
-        nn_res["mu_val"], nn_res["sigma_val"], bucket_edges
-    )
-    nn_val_brier = compute_brier_score(nn_val_probs, val_actual, bucket_edges)
-
-    nn_seasonal = compute_seasonal_brier(
-        nn_test_probs, test_actual, test_dates, bucket_edges
-    )
-
-    logger.info("HeteroscedasticNN: val Brier=%.4f, test Brier=%.4f",
-                nn_val_brier["overall_brier"], nn_brier["overall_brier"])
+    logger.info("HeteroscedasticNN: contract Brier=%.4f", nn_brier)
 
     all_results["HeteroscedasticNN"] = {
-        "val_brier": nn_val_brier["overall_brier"],
-        "test_brier": nn_brier["overall_brier"],
-        "per_bucket_brier": nn_brier["per_bucket_brier"],
+        "test_brier": nn_brier,
         "val_mae": nn_res["val_mae"],
         "test_mae": nn_res["test_mae"],
         "best_epoch": nn_res["best_epoch"],
@@ -1026,41 +1066,37 @@ def main():
     # Summary
     # ===================================================================
     logger.info("=" * 70)
-    logger.info("BENCHMARK SUMMARY")
+    logger.info("BENCHMARK SUMMARY (Contract Brier)")
     logger.info("=" * 70)
 
     summary_rows = []
     for model_name, res in all_results.items():
         row = {
             "model": model_name,
-            "val_brier": res["val_brier"],
-            "test_brier": res["test_brier"],
+            "contract_brier": res["test_brier"],
         }
         if "val_mae" in res:
             row["val_mae"] = res["val_mae"]
         if "test_mae" in res:
             row["test_mae"] = res["test_mae"]
 
-        # Add seasonal scores
         if model_name in seasonal_all:
             for season, score in seasonal_all[model_name].items():
-                row[f"test_brier_{season}"] = score
+                row[f"brier_{season}"] = score
 
         summary_rows.append(row)
 
-    summary_df = pd.DataFrame(summary_rows).sort_values("test_brier")
+    summary_df = pd.DataFrame(summary_rows).sort_values("contract_brier")
 
     logger.info("\n%s", summary_df.to_string(index=False))
 
     # --- Save results ---
-    # Summary CSV
     summary_path = os.path.join(results_dir, "phl_benchmark_summary.csv")
     summary_df.to_csv(summary_path, index=False)
     logger.info("Saved summary to %s", summary_path)
 
     # Detailed results JSON
     detail_path = os.path.join(results_dir, "phl_benchmark_detail.json")
-    # Convert numpy types for JSON serialization
     serializable_results = {}
     for model_name, res in all_results.items():
         ser_res = {}
@@ -1069,8 +1105,6 @@ def main():
                 ser_res[k] = float(v)
             elif isinstance(v, np.integer):
                 ser_res[k] = int(v)
-            elif isinstance(v, list):
-                ser_res[k] = [float(x) if isinstance(x, np.floating) else x for x in v]
             else:
                 ser_res[k] = v
         serializable_results[model_name] = ser_res
@@ -1078,21 +1112,6 @@ def main():
     with open(detail_path, "w") as f:
         json.dump(serializable_results, f, indent=2, default=str)
     logger.info("Saved detailed results to %s", detail_path)
-
-    # Per-bucket Brier breakdown
-    per_bucket_rows = []
-    for model_name, res in all_results.items():
-        for b, (label, brier_val) in enumerate(zip(bucket_labels, res["per_bucket_brier"])):
-            per_bucket_rows.append({
-                "model": model_name,
-                "bucket_idx": b,
-                "bucket_label": label,
-                "brier_score": brier_val,
-            })
-    per_bucket_df = pd.DataFrame(per_bucket_rows)
-    per_bucket_path = os.path.join(results_dir, "phl_per_bucket_brier.csv")
-    per_bucket_df.to_csv(per_bucket_path, index=False)
-    logger.info("Saved per-bucket Brier scores to %s", per_bucket_path)
 
     # Training history for NN
     if nn_res.get("history"):
@@ -1115,6 +1134,7 @@ def main():
     metadata = {
         "city": "Philadelphia",
         "kalshi_ticker": "KXHIGHPHL",
+        "scoring": "contract_brier",
         "target_station": city_config.TARGET_STATION,
         "n_surrounding_stations": len(city_config.SURROUNDING_STATIONS),
         "date_range": f"{city_config.START_DATE} to {city_config.END_DATE}",
@@ -1123,9 +1143,8 @@ def main():
         "n_val": len(y_val),
         "n_test": len(y_test),
         "n_buckets": len(bucket_edges),
-        "bucket_labels": bucket_labels,
         "best_model": summary_df.iloc[0]["model"],
-        "best_test_brier": float(summary_df.iloc[0]["test_brier"]),
+        "best_contract_brier": float(summary_df.iloc[0]["contract_brier"]),
     }
     metadata_path = os.path.join(results_dir, "phl_benchmark_metadata.json")
     with open(metadata_path, "w") as f:
@@ -1134,8 +1153,8 @@ def main():
 
     logger.info("=" * 70)
     logger.info("Philadelphia Benchmark Complete")
-    logger.info("Best model: %s (test Brier: %.4f)",
-                metadata["best_model"], metadata["best_test_brier"])
+    logger.info("Best model: %s (contract Brier: %.4f)",
+                metadata["best_model"], metadata["best_contract_brier"])
     logger.info("=" * 70)
 
     return all_results

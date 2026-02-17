@@ -1,6 +1,7 @@
 {
   "city": "chi",
-  "date_run": "2026-02-15T23:24:53.599302",
+  "scoring": "contract_brier",
+  "date_run": "2026-02-17T09:08:51.197106",
   "test_date_range": [
     "2019-01-01",
     "2024-12-31"
@@ -72,26 +73,26 @@
     "Above 110"
   ],
   "results": {
-    "Persistence": 0.014943942664967772,
-    "Climatology": 0.015205036039154133,
-    "Raw MOS": 0.014142202301557034,
-    "Ridge MOS": 0.014206693934489865,
-    "Ridge MOS + Cal": 0.014723712392962876,
-    "MOSResidualNet": 0.01341663622142162,
-    "MOSResidualNet + Cal": 0.014269772912818158,
-    "AttentionMOSNet": 0.013434510846170603,
-    "AttentionMOSNet + Cal": 0.014267477536780978,
-    "RegimeMOSNet": 0.013427411522918571,
-    "RegimeMOSNet + Cal": 0.014207596327080975,
-    "Ensemble (equal)": 0.01419639405147981,
-    "Ensemble (weighted)": 0.014196411743470893
+    "Persistence": 0.19200501561538777,
+    "Climatology": 0.20552690383663974,
+    "Raw MOS": 0.16059590259445033,
+    "Ridge MOS": 0.1634197904568418,
+    "Ridge MOS + Cal": 0.20948972127833745,
+    "MOSResidualNet": 0.14742118220931152,
+    "MOSResidualNet + Cal": 0.20730009893342044,
+    "AttentionMOSNet": 0.14829364825526947,
+    "AttentionMOSNet + Cal": 0.20762700012607285,
+    "RegimeMOSNet": 0.14828667985432964,
+    "RegimeMOSNet + Cal": 0.20784230177169785,
+    "Ensemble (equal)": 0.20761379918945427,
+    "Ensemble (weighted)": 0.20761320966594002
   },
   "best_model": "MOSResidualNet",
-  "best_brier": 0.01341663622142162,
+  "best_contract_brier": 0.14742118220931152,
   "seasonal_brier": {
-    "DJF": 0.013539730212853686,
-    "MAM": 0.01390684884813346,
-    "JJA": 0.0129986422695768,
-    "SON": 0.013221431730793827
+    "DJF": 0.1405467817178979,
+    "MAM": 0.15157005941482835,
+    "JJA": 0.14576816117709454,
+    "SON": 0.15214040473996843
   }
 }

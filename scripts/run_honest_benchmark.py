@@ -7,7 +7,8 @@ model cheating investigation. Specifically:
 
 1. NO Kalshi market_prob used as features (removes settlement leakage)
 2. NO settlement-price benchmarks presented as forecasting baselines
-3. Only bucket-day Brier computed from Gaussian (mu, sigma) predictions
+3. Contract-level Brier computed from Gaussian (mu, sigma) predictions
+   evaluated only on real Kalshi contract rows (not all bucket-days)
 4. Strict chronological splits with no information leakage
 
 Models benchmarked:
@@ -18,8 +19,8 @@ Models benchmarked:
   E4: Deep Heteroscedastic NN [256, 128, 64]
   E5: Ensemble of 3 NNs
 
-All models output (mu, sigma) → Gaussian CDF → bucket probabilities.
-Brier score is computed per (day, bucket) and averaged.
+All models output (mu, sigma) → Gaussian CDF → contract probabilities.
+Contract Brier score is computed over real Kalshi contract rows only.
 
 Usage:
     python scripts/run_honest_benchmark.py
@@ -49,6 +50,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.city_config import get_city_config, ensure_city_dirs
+from src.contract_brier import (
+    contract_brier_score,
+    contract_probabilities_from_gaussian,
+    load_city_kalshi_contract_rows,
+)
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -113,7 +119,132 @@ def load_processed_data(processed_dir: str, city_code: str):
 
 
 # ============================================================================
-# Bucket Probability Helpers (no leakage)
+# Kalshi Contract Data Loading
+# ============================================================================
+
+def load_kalshi_data(city_code: str) -> pd.DataFrame:
+    """Load Kalshi settlement data for contract-level Brier evaluation.
+
+    Merges pre-settlement prices with settlement outcomes.
+    """
+    if city_code == "chi":
+        settlement_path = PROJECT_ROOT / "data" / "real_kalshi_chi_all.csv"
+        presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_chi.csv"
+    elif city_code == "phl":
+        settlement_path = PROJECT_ROOT / "data" / "real_kalshi_phl_all.csv"
+        presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_phl.csv"
+    else:
+        raise ValueError(f"Unknown city: {city_code}")
+
+    settled = pd.read_csv(settlement_path)
+    settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
+
+    if presettlement_path.exists():
+        pre = pd.read_csv(presettlement_path)
+        pre["date"] = pd.to_datetime(pre["date"]).dt.strftime("%Y-%m-%d")
+        merged = settled.merge(
+            pre[["date", "ticker", "presettlement_prob", "bid_cents",
+                 "ask_cents", "volume", "open_interest", "snapshot_time_utc"]],
+            on=["date", "ticker"],
+            how="inner",
+            suffixes=("", "_pre"),
+        )
+        merged = merged.dropna(subset=["presettlement_prob"])
+        merged["market_prob"] = merged["presettlement_prob"].clip(
+            PROB_CLIP_MIN, PROB_CLIP_MAX)
+        logger.info("Loaded Kalshi %s (pre-settlement): %d rows, %d dates",
+                     city_code, len(merged), merged["date"].nunique())
+        return merged
+    else:
+        logger.info("Loaded Kalshi %s (settlement only): %d rows, %d dates",
+                     city_code, len(settled), settled["date"].nunique())
+        return settled
+
+
+def build_contract_dataset(kalshi_df, mu_by_date, sigma_by_date, bucket_edges):
+    """Build contract-level dataset from Kalshi rows and model (mu, sigma).
+
+    For each Kalshi contract row, compute the Gaussian probability
+    that the observed TMAX falls within the contract's bucket.
+
+    Parameters
+    ----------
+    kalshi_df : pd.DataFrame
+        Kalshi data with columns: date, ticker, direction, threshold_low,
+        threshold_high, actual_outcome, actual_tmax.
+    mu_by_date : dict
+        date_str -> predicted mu.
+    sigma_by_date : dict
+        date_str -> predicted sigma.
+    bucket_edges : list
+        Bucket edge tuples (for reference; contract rows define their own).
+
+    Returns
+    -------
+    pd.DataFrame with model_prob added, filtered to dates with predictions.
+    """
+    df = kalshi_df.copy()
+    df["model_mu"] = df["date"].map(mu_by_date)
+    df["model_sigma"] = df["date"].map(sigma_by_date)
+    df = df.dropna(subset=["model_mu", "model_sigma"])
+    if len(df) == 0:
+        return df
+
+    mu = df["model_mu"].values
+    sigma = np.maximum(df["model_sigma"].values, 0.5)
+    th_low = df["threshold_low"].values.astype(float)
+    th_high = df["threshold_high"].values.astype(float)
+    direction = df["direction"].values
+
+    model_prob = np.full(len(df), np.nan)
+    below = (direction == "below") | (direction == "less")
+    above = direction == "above"
+    between = direction == "between"
+
+    if below.any():
+        model_prob[below] = norm.cdf(th_high[below], mu[below], sigma[below])
+    if above.any():
+        model_prob[above] = 1.0 - norm.cdf(th_low[above], mu[above], sigma[above])
+    if between.any():
+        model_prob[between] = (
+            norm.cdf(th_high[between], mu[between], sigma[between])
+            - norm.cdf(th_low[between], mu[between], sigma[between])
+        )
+
+    model_prob = np.clip(model_prob, PROB_CLIP_MIN, PROB_CLIP_MAX)
+    df["model_prob"] = model_prob
+    return df
+
+
+def contract_brier(probs, outcomes):
+    """Compute contract-level Brier score."""
+    p = np.asarray(probs, dtype=float)
+    o = np.asarray(outcomes, dtype=float)
+    valid = ~(np.isnan(p) | np.isnan(o))
+    if valid.sum() == 0:
+        return float("nan")
+    return float(np.mean((p[valid] - o[valid]) ** 2))
+
+
+def compute_contract_seasonal_brier(contract_df, prob_col="model_prob"):
+    """Compute contract Brier per meteorological season."""
+    df = contract_df.copy()
+    df["date_dt"] = pd.to_datetime(df["date"])
+    df["month"] = df["date_dt"].dt.month
+    df["season"] = df["month"].map(SEASON_MAP)
+
+    probs = df[prob_col].values.astype(float)
+    outcomes = df["actual_outcome"].values.astype(float)
+    results = {}
+    for s in ["DJF", "MAM", "JJA", "SON"]:
+        mask = (df["season"] == s).values
+        if mask.any():
+            results[s] = contract_brier(probs[mask], outcomes[mask])
+    return results
+
+
+# ============================================================================
+# Bucket Probability Helpers (kept for Ridge alpha search on val set)
 # ============================================================================
 
 def gaussian_to_bucket_probs(mu, sigma, bucket_edges):
@@ -133,11 +264,7 @@ def gaussian_to_bucket_probs(mu, sigma, bucket_edges):
 
 
 def compute_brier_score(bucket_probs, actual_tmax, bucket_edges):
-    """Compute overall bucket-day Brier score.
-
-    For each (day, bucket), Brier = (predicted_prob - outcome)^2.
-    Returns mean across all (day, bucket) pairs.
-    """
+    """Compute overall bucket-day Brier score (used only for Ridge alpha search)."""
     n_days, n_buckets = bucket_probs.shape
     outcomes = np.zeros((n_days, n_buckets))
     for d in range(n_days):
@@ -154,19 +281,6 @@ def compute_brier_score(bucket_probs, actual_tmax, bucket_edges):
                     outcomes[d, b] = 1.0
                     break
     return float(np.mean((bucket_probs - outcomes) ** 2))
-
-
-def compute_seasonal_brier(bucket_probs, actual_tmax, dates, bucket_edges):
-    """Compute Brier per meteorological season."""
-    months = dates.month
-    seasons = np.array([SEASON_MAP[m] for m in months])
-    results = {}
-    for s in ["DJF", "MAM", "JJA", "SON"]:
-        mask = seasons == s
-        if mask.any():
-            results[s] = compute_brier_score(
-                bucket_probs[mask], actual_tmax[mask], bucket_edges)
-    return results
 
 
 def compute_mae(actual, predicted):
@@ -360,7 +474,7 @@ def train_ensemble_nn(X_train, y_train, X_val, y_val, X_test, y_test, n_models=3
 # ============================================================================
 
 def plot_honest_comparison(results, save_path, city_name):
-    """Bar chart of honest bucket-day Brier scores."""
+    """Bar chart of honest contract Brier scores."""
     models = list(results.keys())
     briers = [results[m]["test_brier"] for m in models]
 
@@ -374,13 +488,13 @@ def plot_honest_comparison(results, save_path, city_name):
     fig, ax = plt.subplots(figsize=(12, 7))
     bars = ax.bar(range(len(models)), briers, color=colors, edgecolor="black", linewidth=0.5)
     for bar, val in zip(bars, briers):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.00005,
-                f"{val:.6f}", ha="center", va="bottom", fontsize=9, fontweight="bold")
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.0005,
+                f"{val:.4f}", ha="center", va="bottom", fontsize=9, fontweight="bold")
     ax.set_xticks(range(len(models)))
     ax.set_xticklabels(models, rotation=30, ha="right", fontsize=10)
-    ax.set_ylabel("Bucket-Day Brier Score (lower is better)")
+    ax.set_ylabel("Contract Brier Score (lower is better)")
     ax.set_title(f"{city_name} HONEST Benchmark: No Market Data Leakage\n"
-                 f"Gray = Baselines | Blue = Trained Models")
+                 f"Gray = Baselines | Blue = Trained Models | Contract-Level Scoring")
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
@@ -394,7 +508,7 @@ def plot_honest_comparison(results, save_path, city_name):
 # ============================================================================
 
 def run_city_benchmark(city_code: str):
-    """Run honest benchmark for one city."""
+    """Run honest benchmark for one city using contract-level Brier."""
     city = get_city_config(city_code)
     ensure_city_dirs(city)
     bucket_edges = city.bucket_edges
@@ -402,7 +516,7 @@ def run_city_benchmark(city_code: str):
 
     print("\n" + "=" * 70)
     print(f"  {city.city_name} ({city.kalshi_ticker}) HONEST Benchmark")
-    print(f"  NO market data leakage. Bucket-day Brier only.")
+    print(f"  NO market data leakage. Contract-level Brier scoring.")
     print("=" * 70)
 
     processed_dir = os.path.join(city.data_dir, "processed")
@@ -412,106 +526,130 @@ def run_city_benchmark(city_code: str):
     X_train, X_val, X_test, y_train, y_val, y_test = load_processed_data(
         processed_dir, city_code)
 
+    # Load Kalshi contract data for contract-level Brier scoring
+    kalshi = load_kalshi_data(city_code)
+    print(f"  Kalshi contract rows: {len(kalshi)}, dates: {kalshi['date'].nunique()}")
+
     test_actual = y_test.values
     test_dates = y_test.index
     val_actual = y_val.values
+
+    # Helper: compute contract brier for a model's (mu, sigma) predictions
+    def eval_contract_brier(mu_test, sigma_test, mu_val=None, sigma_val=None):
+        """Map (mu, sigma) to contract rows and compute contract Brier."""
+        # Build date -> mu/sigma mappings for test set
+        date_mu = {}
+        date_sigma = {}
+        for i, d in enumerate(test_dates):
+            ds = d.strftime("%Y-%m-%d")
+            date_mu[ds] = mu_test[i]
+            date_sigma[ds] = sigma_test[i]
+        # Also include val dates for more Kalshi overlap
+        if mu_val is not None and sigma_val is not None:
+            val_dates = y_val.index
+            for i, d in enumerate(val_dates):
+                ds = d.strftime("%Y-%m-%d")
+                date_mu[ds] = mu_val[i]
+                date_sigma[ds] = sigma_val[i]
+
+        cdf = build_contract_dataset(kalshi, date_mu, date_sigma, bucket_edges)
+        if len(cdf) == 0:
+            return float("nan"), {}, cdf
+        outcomes = cdf["actual_outcome"].values.astype(float)
+        brier = contract_brier(cdf["model_prob"].values, outcomes)
+        seasonal = compute_contract_seasonal_brier(cdf)
+        return brier, seasonal, cdf
 
     results = {}
 
     # --- E0: Persistence ---
     print("\n--- E0: Persistence Baseline ---")
     e0 = run_persistence(y_train, y_val, y_test)
-    e0_probs = gaussian_to_bucket_probs(e0["mu_test"], e0["sigma_test"], bucket_edges)
-    e0_brier = compute_brier_score(e0_probs, test_actual, bucket_edges)
+    e0_brier, e0_seasonal, _ = eval_contract_brier(
+        e0["mu_test"], e0["sigma_test"], e0["mu_val"], e0["sigma_val"])
     e0_mae = compute_mae(test_actual, e0["mu_test"])
-    e0_seasonal = compute_seasonal_brier(e0_probs, test_actual, test_dates, bucket_edges)
     results["E0_Persistence"] = {
         "test_brier": e0_brier, "test_mae": e0_mae,
         "sigma": e0["sigma"], "seasonal": e0_seasonal,
     }
-    print(f"  Brier: {e0_brier:.6f}  |  MAE: {e0_mae:.2f}F  |  sigma: {e0['sigma']:.2f}")
+    print(f"  Contract Brier: {e0_brier:.4f}  |  MAE: {e0_mae:.2f}F  |  sigma: {e0['sigma']:.2f}")
 
     # --- E1: Climatology ---
     print("\n--- E1: Climatology Baseline ---")
     e1 = run_climatology(y_train, y_val, y_test)
-    e1_probs = gaussian_to_bucket_probs(e1["mu_test"], e1["sigma_test"], bucket_edges)
-    e1_brier = compute_brier_score(e1_probs, test_actual, bucket_edges)
+    e1_brier, e1_seasonal, _ = eval_contract_brier(
+        e1["mu_test"], e1["sigma_test"], e1["mu_val"], e1["sigma_val"])
     e1_mae = compute_mae(test_actual, e1["mu_test"])
-    e1_seasonal = compute_seasonal_brier(e1_probs, test_actual, test_dates, bucket_edges)
     results["E1_Climatology"] = {
         "test_brier": e1_brier, "test_mae": e1_mae, "seasonal": e1_seasonal,
     }
-    print(f"  Brier: {e1_brier:.6f}  |  MAE: {e1_mae:.2f}F")
+    print(f"  Contract Brier: {e1_brier:.4f}  |  MAE: {e1_mae:.2f}F")
 
     # --- E2: Ridge ---
     print("\n--- E2: Ridge Regression ---")
     e2 = run_ridge(X_train, y_train, X_val, y_val, X_test, y_test, bucket_edges)
-    e2_probs = gaussian_to_bucket_probs(e2["mu_test"], e2["sigma_test"], bucket_edges)
-    e2_brier = compute_brier_score(e2_probs, test_actual, bucket_edges)
+    e2_brier, e2_seasonal, _ = eval_contract_brier(
+        e2["mu_test"], e2["sigma_test"], e2["mu_val"], e2["sigma_val"])
     e2_mae = compute_mae(test_actual, e2["mu_test"])
-    e2_seasonal = compute_seasonal_brier(e2_probs, test_actual, test_dates, bucket_edges)
     results[f"E2_Ridge(a={e2['alpha']})"] = {
         "test_brier": e2_brier, "test_mae": e2_mae,
         "alpha": e2["alpha"], "sigma": e2["sigma"],
         "seasonal": e2_seasonal,
     }
-    print(f"  Brier: {e2_brier:.6f}  |  MAE: {e2_mae:.2f}F  |  alpha: {e2['alpha']}")
+    print(f"  Contract Brier: {e2_brier:.4f}  |  MAE: {e2_mae:.2f}F  |  alpha: {e2['alpha']}")
 
     # --- E3: Heteroscedastic NN [128, 64] ---
     print("\n--- E3: Heteroscedastic NN [128, 64] ---")
     e3 = train_nn(X_train, y_train, X_val, y_val, X_test, y_test,
                   hidden_sizes=[128, 64], dropout=0.1, lr=0.001)
-    e3_probs = gaussian_to_bucket_probs(e3["mu_test"], e3["sigma_test"], bucket_edges)
-    e3_brier = compute_brier_score(e3_probs, test_actual, bucket_edges)
+    e3_brier, e3_seasonal, _ = eval_contract_brier(
+        e3["mu_test"], e3["sigma_test"], e3["mu_val"], e3["sigma_val"])
     e3_mae = compute_mae(test_actual, e3["mu_test"])
-    e3_seasonal = compute_seasonal_brier(e3_probs, test_actual, test_dates, bucket_edges)
     results["E3_HeteroNN_128_64"] = {
         "test_brier": e3_brier, "test_mae": e3_mae,
         "best_epoch": e3["best_epoch"], "seasonal": e3_seasonal,
     }
-    print(f"  Brier: {e3_brier:.6f}  |  MAE: {e3_mae:.2f}F  |  best_epoch: {e3['best_epoch']}")
+    print(f"  Contract Brier: {e3_brier:.4f}  |  MAE: {e3_mae:.2f}F  |  best_epoch: {e3['best_epoch']}")
 
     # --- E4: Deep NN [256, 128, 64] ---
     print("\n--- E4: Deep NN [256, 128, 64] ---")
     e4 = train_nn(X_train, y_train, X_val, y_val, X_test, y_test,
                   hidden_sizes=[256, 128, 64], dropout=0.12, lr=0.0005)
-    e4_probs = gaussian_to_bucket_probs(e4["mu_test"], e4["sigma_test"], bucket_edges)
-    e4_brier = compute_brier_score(e4_probs, test_actual, bucket_edges)
+    e4_brier, e4_seasonal, _ = eval_contract_brier(
+        e4["mu_test"], e4["sigma_test"], e4["mu_val"], e4["sigma_val"])
     e4_mae = compute_mae(test_actual, e4["mu_test"])
-    e4_seasonal = compute_seasonal_brier(e4_probs, test_actual, test_dates, bucket_edges)
     results["E4_DeepNN_256_128_64"] = {
         "test_brier": e4_brier, "test_mae": e4_mae,
         "best_epoch": e4["best_epoch"], "seasonal": e4_seasonal,
     }
-    print(f"  Brier: {e4_brier:.6f}  |  MAE: {e4_mae:.2f}F  |  best_epoch: {e4['best_epoch']}")
+    print(f"  Contract Brier: {e4_brier:.4f}  |  MAE: {e4_mae:.2f}F  |  best_epoch: {e4['best_epoch']}")
 
     # --- E5: Ensemble NN ---
     print("\n--- E5: Ensemble NN (3 members) ---")
     e5 = train_ensemble_nn(X_train, y_train, X_val, y_val, X_test, y_test, n_models=3)
-    e5_probs = gaussian_to_bucket_probs(e5["mu_test"], e5["sigma_test"], bucket_edges)
-    e5_brier = compute_brier_score(e5_probs, test_actual, bucket_edges)
+    e5_brier, e5_seasonal, _ = eval_contract_brier(
+        e5["mu_test"], e5["sigma_test"], e5["mu_val"], e5["sigma_val"])
     e5_mae = compute_mae(test_actual, e5["mu_test"])
-    e5_seasonal = compute_seasonal_brier(e5_probs, test_actual, test_dates, bucket_edges)
     results["E5_EnsembleNN"] = {
         "test_brier": e5_brier, "test_mae": e5_mae, "seasonal": e5_seasonal,
     }
-    print(f"  Brier: {e5_brier:.6f}  |  MAE: {e5_mae:.2f}F")
+    print(f"  Contract Brier: {e5_brier:.4f}  |  MAE: {e5_mae:.2f}F")
 
     # ---- Summary ----
     print("\n" + "=" * 70)
-    print(f"  {city.city_name} HONEST BENCHMARK SUMMARY")
+    print(f"  {city.city_name} HONEST BENCHMARK SUMMARY (Contract Brier)")
     print("=" * 70)
-    print(f"  {'Model':<28} {'Brier':>12} {'MAE (F)':>10} {'DJF':>10} {'MAM':>10} {'JJA':>10} {'SON':>10}")
-    print("  " + "-" * 92)
+    print(f"  {'Model':<28} {'Brier':>10} {'MAE (F)':>10} {'DJF':>10} {'MAM':>10} {'JJA':>10} {'SON':>10}")
+    print("  " + "-" * 90)
 
     sorted_models = sorted(results.items(), key=lambda x: x[1]["test_brier"])
     for name, res in sorted_models:
         seasonal = res.get("seasonal", {})
-        print(f"  {name:<28} {res['test_brier']:>12.6f} {res['test_mae']:>10.2f}"
-              f" {seasonal.get('DJF', float('nan')):>10.6f}"
-              f" {seasonal.get('MAM', float('nan')):>10.6f}"
-              f" {seasonal.get('JJA', float('nan')):>10.6f}"
-              f" {seasonal.get('SON', float('nan')):>10.6f}")
+        print(f"  {name:<28} {res['test_brier']:>10.4f} {res['test_mae']:>10.2f}"
+              f" {seasonal.get('DJF', float('nan')):>10.4f}"
+              f" {seasonal.get('MAM', float('nan')):>10.4f}"
+              f" {seasonal.get('JJA', float('nan')):>10.4f}"
+              f" {seasonal.get('SON', float('nan')):>10.4f}")
 
     # Improvement over baselines
     persist_brier = results["E0_Persistence"]["test_brier"]
@@ -540,7 +678,7 @@ def run_city_benchmark(city_code: str):
                 k: float(v) for k, v in res["seasonal"].items()
             }
 
-    results_path = os.path.join(results_dir, f"honest_benchmark_results.json")
+    results_path = os.path.join(results_dir, "honest_benchmark_results.json")
     with open(results_path, "w") as f:
         json.dump(json_results, f, indent=2)
     print(f"\n  Results saved to {results_path}")
@@ -548,19 +686,19 @@ def run_city_benchmark(city_code: str):
     # Summary CSV
     summary_rows = []
     for name, res in sorted_models:
-        row = {"model": name, "test_brier": res["test_brier"], "test_mae": res["test_mae"]}
+        row = {"model": name, "contract_brier": res["test_brier"], "test_mae": res["test_mae"]}
         for s in ["DJF", "MAM", "JJA", "SON"]:
             row[f"brier_{s}"] = res.get("seasonal", {}).get(s)
         summary_rows.append(row)
     summary_df = pd.DataFrame(summary_rows)
-    summary_path = os.path.join(results_dir, f"honest_benchmark_summary.csv")
+    summary_path = os.path.join(results_dir, "honest_benchmark_summary.csv")
     summary_df.to_csv(summary_path, index=False)
     print(f"  Summary saved to {summary_path}")
 
     # Plot
     plot_honest_comparison(
         {name: res for name, res in sorted_models},
-        os.path.join(results_dir, f"honest_benchmark_comparison.png"),
+        os.path.join(results_dir, "honest_benchmark_comparison.png"),
         city.city_name,
     )
 
