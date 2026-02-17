@@ -32,6 +32,9 @@ Multi-city daily max-temperature probabilistic forecasting for Kalshi temperatur
 3. Trade logic requires calibrated probabilities and cost-aware EV.
 4. Persist audit artifacts for each run (mass checks, reliability metrics, trading diagnostics).
 5. Trigger kill-switch on critical data/schema/calibration failures.
+6. While subagents are working, enter 3-minute sleep/wake cycles to monitor progress without burning context.
+7. Always use actual data as the foundation for analysis — never use made-up, template, or "proxy" data.
+8. Our models aim to beat Kalshi prediction markets; always compare model predictions against Kalshi market prices from ~24 hours before settlement as the primary benchmark.
 
 ## Repo Hygiene State (2026-02-15)
 - Legacy phase-1 experiments in `ARCHIVE/legacy_experiments/`.

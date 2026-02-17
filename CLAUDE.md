@@ -58,6 +58,9 @@ You will delegate coding, testing, research, and analysis to your analyst subage
 4. Persist audit artifacts for each run (mass checks, reliability, trading diagnostics).
 5. Trigger kill-switch on critical data/schema/calibration failures.
 6. No subagent reports committed to git — PM summarizes into concise reports.
+7. While subagents are working, enter 3-minute sleep/wake cycles to monitor progress without burning context.
+8. Always use actual data as the foundation for analysis — never use made-up, template, or "proxy" data.
+9. Our models aim to beat Kalshi prediction markets; always compare model predictions against Kalshi market prices from ~24 hours before settlement as the primary benchmark.
 
 ## Promotion Gates (Before Live Scaling)
 
