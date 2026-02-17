@@ -110,19 +110,64 @@ def load_processed_data(processed_dir: str, city_code: str):
 
 
 def load_kalshi_data(city_code: str) -> pd.DataFrame:
-    """Load real Kalshi settlement data for a city."""
+    """Load Kalshi data: merge pre-settlement prices with settlement outcomes.
+
+    Pre-settlement data provides market prices ~24 hours before close.
+    Settlement data provides ground truth (actual_outcome, actual_tmax)
+    and verified bucket definitions.
+    """
     if city_code == "chi":
-        path = PROJECT_ROOT / "data" / "real_kalshi_chi_all.csv"
+        settlement_path = PROJECT_ROOT / "data" / "real_kalshi_chi_all.csv"
+        presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_chi.csv"
     elif city_code == "phl":
-        path = PROJECT_ROOT / "data" / "real_kalshi_phl_all.csv"
+        settlement_path = PROJECT_ROOT / "data" / "real_kalshi_phl_all.csv"
+        presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_phl.csv"
     else:
         raise ValueError(f"Unknown city: {city_code}")
-    df = pd.read_csv(path)
-    df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
-    logger.info("Loaded Kalshi %s: %d rows, %d dates (%s to %s)",
-                city_code, len(df), df["date"].nunique(),
-                df["date"].min(), df["date"].max())
-    return df
+
+    settled = pd.read_csv(settlement_path)
+    settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
+
+    if presettlement_path.exists():
+        pre = pd.read_csv(presettlement_path)
+        pre["date"] = pd.to_datetime(pre["date"]).dt.strftime("%Y-%m-%d")
+
+        merged = settled.merge(
+            pre[["date", "ticker", "presettlement_prob", "bid_cents",
+                 "ask_cents", "volume", "open_interest", "snapshot_time_utc"]],
+            on=["date", "ticker"],
+            how="inner",
+            suffixes=("", "_pre"),
+        )
+        n_before = len(merged)
+        merged = merged.dropna(subset=["presettlement_prob"])
+        n_dropped = n_before - len(merged)
+
+        # CRITICAL: Replace settlement market_prob with pre-settlement prices
+        merged["market_prob"] = merged["presettlement_prob"].clip(
+            PROB_CLIP_MIN, PROB_CLIP_MAX)
+
+        logger.info("Loaded Kalshi %s (pre-settlement): %d rows, %d dates "
+                     "(dropped %d missing presettlement_prob)",
+                     city_code, len(merged), merged["date"].nunique(), n_dropped)
+
+        extreme = ((merged["presettlement_prob"] <= 0.02) |
+                   (merged["presettlement_prob"] >= 0.98)).mean()
+        if extreme > 0.5:
+            logger.warning("  WARNING: %.1f%% extreme — may be settlement data!",
+                           extreme * 100)
+        else:
+            logger.info("  Extreme presettlement_prob: %.1f%%", extreme * 100)
+
+        return merged
+    else:
+        logger.warning("No presettlement data at %s — using settlement only!",
+                        presettlement_path)
+        df = settled
+        logger.info("Loaded Kalshi %s: %d rows, %d dates (%s to %s)",
+                    city_code, len(df), df["date"].nunique(),
+                    df["date"].min(), df["date"].max())
+        return df
 
 
 # ============================================================================
@@ -738,6 +783,207 @@ def apply_u6_ensemble(u1_probs, u4_probs, u5_probs):
     return np.clip((u1_probs + u4_probs + u5_probs) / 3.0, PROB_CLIP_MIN, PROB_CLIP_MAX)
 
 
+def build_extended_features(df):
+    """Build extended feature matrix with market microstructure features."""
+    X_base = build_contract_features(df)
+    market = df["market_prob"].values.astype(float)
+    prob = df["model_prob"].values.astype(float)
+
+    bid = df["bid_cents"].values.astype(float) if "bid_cents" in df.columns else np.full(len(df), np.nan)
+    ask = df["ask_cents"].values.astype(float) if "ask_cents" in df.columns else np.full(len(df), np.nan)
+    bid_filled = np.where(np.isnan(bid), market * 100, bid)
+    ask_filled = np.where(np.isnan(ask), market * 100, ask)
+    spread = np.clip((ask_filled - bid_filled) / 100.0, 0.0, 1.0)
+
+    oi_raw = df["open_interest"].values.astype(float) if "open_interest" in df.columns else np.zeros(len(df))
+    oi = np.log1p(np.nan_to_num(oi_raw, nan=0.0))
+    oi_norm = np.clip(oi / (np.nanpercentile(oi, 95) + 1e-6), 0, 1)
+
+    rank = pd.Series(prob).groupby(df["date"].values).rank(method="average")
+    rank_norm = rank.values / rank.groupby(df["date"].values).transform("max").values
+    cum_prob = pd.Series(prob).groupby(df["date"].values).cumsum().values
+
+    log_odds_model = np.log(np.clip(prob, 1e-4, 1 - 1e-4) / (1 - np.clip(prob, 1e-4, 1 - 1e-4)))
+    log_odds_market = np.log(np.clip(market, 1e-4, 1 - 1e-4) / (1 - np.clip(market, 1e-4, 1 - 1e-4)))
+    logit_diff = log_odds_model - log_odds_market
+
+    return np.column_stack([
+        X_base, spread, oi_norm, rank_norm, cum_prob,
+        log_odds_model, log_odds_market, logit_diff,
+        prob ** 2, market ** 2,
+    ])
+
+
+def apply_u7_extended_mlp(contract_df, cal_frac=0.6):
+    """U7: Extended-feature contract-level MLP."""
+    X = build_extended_features(contract_df)
+    y = contract_df["actual_outcome"].values.astype(float)
+    n = len(contract_df)
+    n_cal = int(n * cal_frac)
+    if n_cal < 100:
+        return contract_df["model_prob"].values.copy()
+
+    X_cal, y_cal = X[:n_cal], y[:n_cal]
+    n_train = int(n_cal * 0.55)
+    n_val = int(n_cal * 0.20)
+    X_tr, y_tr = X_cal[:n_train], y_cal[:n_train]
+    X_va, y_va = X_cal[n_train:n_train + n_val], y_cal[n_train:n_train + n_val]
+    X_iso, y_iso = X_cal[n_train + n_val:], y_cal[n_train + n_val:]
+
+    mu_x = X_tr.mean(axis=0)
+    sd_x = np.where(X_tr.std(axis=0) < 1e-6, 1.0, X_tr.std(axis=0))
+
+    configs = [
+        ((128, 64), 0.001, 0.001),
+        ((128, 64, 32), 0.001, 0.0005),
+        ((256, 128), 0.0001, 0.001),
+        ((256, 128, 64), 0.0001, 0.0005),
+        ((128, 64), 0.0001, 0.0005),
+        ((64, 32, 16), 0.01, 0.001),
+    ]
+    best_clf, best_score = None, float("inf")
+    for hidden, alpha, lr in configs:
+        try:
+            clf = MLPClassifier(hidden_layer_sizes=hidden, activation="relu",
+                                alpha=alpha, learning_rate_init=lr, max_iter=1500,
+                                random_state=42, early_stopping=True,
+                                validation_fraction=0.15, n_iter_no_change=40)
+            clf.fit((X_tr - mu_x) / sd_x, y_tr)
+            pred = np.clip(clf.predict_proba((X_va - mu_x) / sd_x)[:, 1],
+                           PROB_CLIP_MIN, PROB_CLIP_MAX)
+            brier = float(np.mean((pred - y_va) ** 2))
+            ece = _ece(pred, y_va)
+            score = brier + 0.12 * ece
+            if score < best_score:
+                best_score = score
+                best_clf = clf
+        except Exception as e:
+            logger.warning("U7 config %s failed: %s", hidden, e)
+
+    if best_clf is None:
+        return contract_df["model_prob"].values.copy()
+
+    iso_raw = np.clip(best_clf.predict_proba((X_iso - mu_x) / sd_x)[:, 1],
+                      PROB_CLIP_MIN, PROB_CLIP_MAX)
+    iso = IsotonicRegression(y_min=PROB_CLIP_MIN, y_max=PROB_CLIP_MAX,
+                             out_of_bounds="clip")
+    iso.fit(iso_raw, y_iso)
+
+    X_all_z = (X - mu_x) / sd_x
+    raw = np.clip(best_clf.predict_proba(X_all_z)[:, 1], PROB_CLIP_MIN, PROB_CLIP_MAX)
+    calibrated = np.clip(
+        np.interp(np.clip(raw, iso.X_thresholds_.min(), iso.X_thresholds_.max()),
+                  iso.X_thresholds_, iso.y_thresholds_),
+        PROB_CLIP_MIN, PROB_CLIP_MAX)
+    return _per_day_renorm(calibrated, contract_df["date"].values)
+
+
+def apply_u8_cv_ensemble(contract_df, n_folds=3, cal_frac=0.6):
+    """U8: Cross-validated ensemble of MLPs with different seeds."""
+    X = build_extended_features(contract_df)
+    y = contract_df["actual_outcome"].values.astype(float)
+    n = len(contract_df)
+    n_cal = int(n * cal_frac)
+    if n_cal < 150:
+        return contract_df["model_prob"].values.copy()
+
+    fold_preds = []
+    for fold in range(n_folds):
+        seed = 42 + fold * 7
+        X_cal, y_cal = X[:n_cal], y[:n_cal]
+        n_train = int(n_cal * 0.55)
+        n_val = int(n_cal * 0.20)
+        X_tr, y_tr = X_cal[:n_train], y_cal[:n_train]
+        X_va, y_va = X_cal[n_train:n_train + n_val], y_cal[n_train:n_train + n_val]
+        X_iso, y_iso = X_cal[n_train + n_val:], y_cal[n_train + n_val:]
+
+        mu_x = X_tr.mean(axis=0)
+        sd_x = np.where(X_tr.std(axis=0) < 1e-6, 1.0, X_tr.std(axis=0))
+
+        configs = [
+            ((128, 64), 0.001, 0.001),
+            ((128, 64, 32), 0.001, 0.0005),
+            ((256, 128), 0.0001, 0.001),
+        ]
+        best_clf, best_score = None, float("inf")
+        for hidden, alpha, lr in configs:
+            try:
+                clf = MLPClassifier(hidden_layer_sizes=hidden, activation="relu",
+                                    alpha=alpha, learning_rate_init=lr, max_iter=1200,
+                                    random_state=seed, early_stopping=True,
+                                    validation_fraction=0.15, n_iter_no_change=30)
+                clf.fit((X_tr - mu_x) / sd_x, y_tr)
+                pred = np.clip(clf.predict_proba((X_va - mu_x) / sd_x)[:, 1],
+                               PROB_CLIP_MIN, PROB_CLIP_MAX)
+                brier = float(np.mean((pred - y_va) ** 2))
+                if brier < best_score:
+                    best_score = brier
+                    best_clf = clf
+            except Exception:
+                pass
+
+        if best_clf is None:
+            continue
+
+        iso_raw = np.clip(best_clf.predict_proba((X_iso - mu_x) / sd_x)[:, 1],
+                          PROB_CLIP_MIN, PROB_CLIP_MAX)
+        iso = IsotonicRegression(y_min=PROB_CLIP_MIN, y_max=PROB_CLIP_MAX,
+                                 out_of_bounds="clip")
+        iso.fit(iso_raw, y_iso)
+
+        X_all_z = (X - mu_x) / sd_x
+        raw = np.clip(best_clf.predict_proba(X_all_z)[:, 1], PROB_CLIP_MIN, PROB_CLIP_MAX)
+        calibrated = np.clip(
+            np.interp(np.clip(raw, iso.X_thresholds_.min(), iso.X_thresholds_.max()),
+                      iso.X_thresholds_, iso.y_thresholds_),
+            PROB_CLIP_MIN, PROB_CLIP_MAX)
+        fold_preds.append(calibrated)
+
+    if not fold_preds:
+        return contract_df["model_prob"].values.copy()
+
+    ensemble = np.mean(fold_preds, axis=0)
+    return _per_day_renorm(
+        np.clip(ensemble, PROB_CLIP_MIN, PROB_CLIP_MAX),
+        contract_df["date"].values)
+
+
+def apply_u9_kitchen_sink(contract_df, u2_probs, u5_probs, u7_probs, u8_probs,
+                           cal_frac=0.6):
+    """U9: Kitchen-sink weighted ensemble of all calibrated variants."""
+    y = contract_df["actual_outcome"].values.astype(float)
+    n = len(contract_df)
+    n_cal = int(n * cal_frac)
+    if n_cal < 50:
+        return np.mean([u2_probs, u5_probs, u7_probs, u8_probs], axis=0)
+
+    cal_outcomes = y[:n_cal]
+    variants = {"u2": u2_probs, "u5": u5_probs, "u7": u7_probs, "u8": u8_probs}
+
+    cal_briers = {}
+    for name, probs in variants.items():
+        cal_briers[name] = float(np.mean((probs[:n_cal] - cal_outcomes) ** 2))
+
+    inv_briers = {k: 1.0 / (v + 1e-6) for k, v in cal_briers.items()}
+    total = sum(inv_briers.values())
+    weights = {k: v / total for k, v in inv_briers.items()}
+
+    blended = sum(w * variants[k] for k, w in weights.items())
+
+    n_iso_train = int(n_cal * 0.7)
+    blend_iso_val = blended[n_iso_train:n_cal]
+    y_iso_val = cal_outcomes[n_iso_train:]
+
+    iso = IsotonicRegression(y_min=PROB_CLIP_MIN, y_max=PROB_CLIP_MAX,
+                             out_of_bounds="clip")
+    iso.fit(blend_iso_val, y_iso_val)
+    calibrated = np.clip(
+        np.interp(np.clip(blended, iso.X_thresholds_.min(), iso.X_thresholds_.max()),
+                  iso.X_thresholds_, iso.y_thresholds_),
+        PROB_CLIP_MIN, PROB_CLIP_MAX)
+    return _per_day_renorm(calibrated, contract_df["date"].values)
+
+
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -961,6 +1207,27 @@ def run_city_benchmark(city_code: str):
     results["U6_calibrated_ensemble"] = {"contract_brier": u6_brier}
     print(f"  U6 contract Brier: {u6_brier:.4f}")
 
+    # ---- U7: Extended-feature MLP ----
+    print("\n--- U7: Extended-feature contract MLP ---")
+    u7_probs = apply_u7_extended_mlp(cdf)
+    u7_brier = contract_brier(u7_probs, outcomes)
+    results["U7_extended_mlp"] = {"contract_brier": u7_brier}
+    print(f"  U7 contract Brier: {u7_brier:.4f}")
+
+    # ---- U8: Cross-validated ensemble ----
+    print("\n--- U8: Cross-validated MLP ensemble ---")
+    u8_probs = apply_u8_cv_ensemble(cdf)
+    u8_brier = contract_brier(u8_probs, outcomes)
+    results["U8_cv_ensemble"] = {"contract_brier": u8_brier}
+    print(f"  U8 contract Brier: {u8_brier:.4f}")
+
+    # ---- U9: Kitchen sink ----
+    print("\n--- U9: Kitchen-sink weighted ensemble ---")
+    u9_probs = apply_u9_kitchen_sink(cdf, u2_probs, u5_probs, u7_probs, u8_probs)
+    u9_brier = contract_brier(u9_probs, outcomes)
+    results["U9_kitchen_sink"] = {"contract_brier": u9_brier}
+    print(f"  U9 contract Brier: {u9_brier:.4f}")
+
     # ---- IS/OOS Split for Contract Brier ----
     # For CHI: data starts 2022, use 2025+ as OOS
     # For PHL: data starts 2024-11, use last 30% as OOS
@@ -978,6 +1245,13 @@ def run_city_benchmark(city_code: str):
     print(f"\n  IS/OOS split: IS={is_mask.sum()} rows, OOS={oos_mask.sum()} rows")
 
     # Report OOS Brier for all unified variants
+    # Add presettlement market baseline
+    market_probs = np.clip(cdf["market_prob"].values.astype(float),
+                           PROB_CLIP_MIN, PROB_CLIP_MAX)
+    mkt_brier = contract_brier(market_probs, outcomes)
+    results["Kalshi_PreSettlement"] = {"contract_brier": mkt_brier}
+    print(f"\n  Kalshi Pre-Settlement baseline Brier: {mkt_brier:.4f}")
+
     all_u_probs = {
         "U0_raw_gaussian": u0_probs,
         "U1_isotonic": u1_probs,
@@ -986,6 +1260,9 @@ def run_city_benchmark(city_code: str):
         "U4_platt_on_u3": u4_probs,
         "U5_regime_conditional": u5_probs,
         "U6_calibrated_ensemble": u6_probs,
+        "U7_extended_mlp": u7_probs,
+        "U8_cv_ensemble": u8_probs,
+        "U9_kitchen_sink": u9_probs,
     }
 
     print(f"\n  {'Model':<30} {'Overall':>10} {'IS':>10} {'OOS':>10}")
@@ -1021,16 +1298,30 @@ def run_city_benchmark(city_code: str):
         json.dump(results, f, indent=2, default=str)
     print(f"\n  Results saved to {results_path}")
 
-    # Save predictions CSV in NYC-compatible format
-    pred_df = cdf[["date", "ticker", "direction", "threshold_low",
-                    "threshold_high", "actual_outcome", "actual_tmax", "market_prob",
-                    "model_mu", "model_sigma", "model_prob"]].copy()
+    # Sanity check: no contract-level Brier < 0.03
+    for name, res in results.items():
+        if "contract_brier" not in res:
+            continue
+        brier = res["contract_brier"]
+        if isinstance(brier, (int, float)) and brier < 0.03:
+            logger.error("SANITY CHECK: %s Brier=%.4f < 0.03!", name, brier)
+
+    # Save predictions CSV
+    cols = ["date", "ticker", "direction", "threshold_low",
+            "threshold_high", "actual_outcome", "actual_tmax",
+            "market_prob", "model_mu", "model_sigma", "model_prob"]
+    if "presettlement_prob" in cdf.columns:
+        cols.append("presettlement_prob")
+    pred_df = cdf[[c for c in cols if c in cdf.columns]].copy()
     if "bucket" in cdf.columns:
         pred_df.insert(2, "bucket", cdf["bucket"])
     pred_df["u3_mlp_prob"] = u3_probs
     pred_df["u4_platt_prob"] = u4_probs
     pred_df["u5_regime_prob"] = u5_probs
     pred_df["u6_ensemble_prob"] = u6_probs
+    pred_df["u7_extended_prob"] = u7_probs
+    pred_df["u8_cv_prob"] = u8_probs
+    pred_df["u9_kitchen_prob"] = u9_probs
     pred_df["period"] = np.where(oos_mask, "OOS", "IS")
     pred_df["season"] = cdf["season"].values
     pred_path = os.path.join(city.results_dir, "unified_predictions.csv")
