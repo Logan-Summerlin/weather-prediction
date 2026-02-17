@@ -1065,6 +1065,13 @@ def run_calibration_sweep(
     os.makedirs(output_dir, exist_ok=True)
 
     df = predictions_df.sort_values("date").reset_index(drop=True)
+    # Drop rows with NaN in actual_tmax or mu/sigma to avoid NaN propagation
+    n_before = len(df)
+    df = df.dropna(subset=["actual_tmax", "mu", "sigma"]).reset_index(drop=True)
+    n_after = len(df)
+    if n_before != n_after:
+        logger.info("  Calibration sweep: dropped %d NaN rows (%d -> %d)",
+                     n_before - n_after, n_before, n_after)
     dates = pd.to_datetime(df["date"]).values
     mu = df["mu"].values
     sigma = df["sigma"].values
@@ -1296,7 +1303,14 @@ def main() -> None:
                 base_df["date"].min(),
                 base_df["date"].max())
 
-    # ---- Step 2: Build synthesis features ----
+    # ---- Step 2: Drop rows with NaN actual_tmax, build synthesis features ----
+    n_before = len(base_df)
+    base_df = base_df.dropna(subset=["actual_tmax"]).reset_index(drop=True)
+    n_after = len(base_df)
+    if n_before != n_after:
+        logger.info("  Dropped %d rows with NaN actual_tmax (%d -> %d)",
+                     n_before - n_after, n_before, n_after)
+
     logger.info("Step 2: Building synthesis features ...")
     features = _build_synthesis_features(base_df, cfg)
     logger.info("  Feature matrix shape: %s", features.shape)

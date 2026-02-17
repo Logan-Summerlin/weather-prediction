@@ -1,0 +1,276 @@
+{
+  "CHI": {
+    "city": "CHI",
+    "n_profitable": 0,
+    "n_total": 128,
+    "best_overall": {
+      "model": "u9_kitchen_prob",
+      "ev_threshold": 0.03,
+      "kelly_fraction": 0.1,
+      "sharpe": -0.468932475241425,
+      "pnl": -43.190000000000964,
+      "return_pct": -4.319000000000097,
+      "win_rate": 0.415625,
+      "n_trades": 320,
+      "max_drawdown_pct": -11.13844680917854,
+      "seasonal": {
+        "DJF": {
+          "n_trades": 163,
+          "pnl": -127.36600000000006,
+          "win_rate": 0.294478527607362
+        },
+        "MAM": {
+          "n_trades": 72,
+          "pnl": 39.90999999999995,
+          "win_rate": 0.5694444444444444
+        },
+        "JJA": {
+          "n_trades": 60,
+          "pnl": 44.09199999999996,
+          "win_rate": 0.5666666666666667
+        },
+        "SON": {
+          "n_trades": 25,
+          "pnl": 0.17399999999998883,
+          "win_rate": 0.4
+        }
+      }
+    },
+    "best_pnl": {
+      "model": "u9_kitchen_prob",
+      "ev_threshold": 0.03,
+      "kelly_fraction": 0.1,
+      "pnl": -43.190000000000964,
+      "return_pct": -4.319000000000097,
+      "sharpe": -0.468932475241425
+    },
+    "best_conservative": {
+      "model": "u9_kitchen_prob",
+      "ev_threshold": 0.03,
+      "kelly_fraction": 0.1,
+      "sharpe": -0.468932475241425,
+      "pnl": -43.190000000000964,
+      "return_pct": -4.319000000000097,
+      "max_drawdown_pct": -11.13844680917854
+    },
+    "per_model_best": {
+      "model_prob": {
+        "ev_threshold": 0.05,
+        "kelly_fraction": 0.1,
+        "sharpe": -8.275790322649966,
+        "pnl": -983.657800000001,
+        "return_pct": -98.3657800000001,
+        "win_rate": 0.39552238805970147,
+        "n_trades": 1340,
+        "max_drawdown_pct": -98.45780127951454
+      },
+      "u3_mlp_prob": {
+        "ev_threshold": 0.03,
+        "kelly_fraction": 0.1,
+        "sharpe": -1.4194925661500828,
+        "pnl": -152.1460000000004,
+        "return_pct": -15.214600000000042,
+        "win_rate": 0.4171597633136095,
+        "n_trades": 338,
+        "max_drawdown_pct": -18.31498290559514
+      },
+      "u4_platt_prob": {
+        "ev_threshold": 0.03,
+        "kelly_fraction": 0.1,
+        "sharpe": -1.7187512767884692,
+        "pnl": -176.95800000000054,
+        "return_pct": -17.69580000000005,
+        "win_rate": 0.46206896551724136,
+        "n_trades": 290,
+        "max_drawdown_pct": -19.37783105538802
+      },
+      "u5_regime_prob": {
+        "ev_threshold": 0.02,
+        "kelly_fraction": 0.1,
+        "sharpe": -1.6665894942828032,
+        "pnl": -205.5512000000017,
+        "return_pct": -20.555120000000173,
+        "win_rate": 0.4124087591240876,
+        "n_trades": 548,
+        "max_drawdown_pct": -23.200827695732013
+      },
+      "u6_ensemble_prob": {
+        "ev_threshold": 0.05,
+        "kelly_fraction": 0.1,
+        "sharpe": -2.379565611687828,
+        "pnl": -226.80800000000124,
+        "return_pct": -22.680800000000122,
+        "win_rate": 0.33658536585365856,
+        "n_trades": 410,
+        "max_drawdown_pct": -24.579693958211372
+      },
+      "u7_extended_prob": {
+        "ev_threshold": 0.04,
+        "kelly_fraction": 0.1,
+        "sharpe": -1.476290988779088,
+        "pnl": -105.44600000000094,
+        "return_pct": -10.544600000000095,
+        "win_rate": 0.308411214953271,
+        "n_trades": 214,
+        "max_drawdown_pct": -11.803153546008913
+      },
+      "u8_cv_prob": {
+        "ev_threshold": 0.04,
+        "kelly_fraction": 0.1,
+        "sharpe": -0.9422904640278885,
+        "pnl": -64.26400000000058,
+        "return_pct": -6.426400000000059,
+        "win_rate": 0.32642487046632124,
+        "n_trades": 193,
+        "max_drawdown_pct": -9.9085952659654
+      },
+      "u9_kitchen_prob": {
+        "ev_threshold": 0.03,
+        "kelly_fraction": 0.1,
+        "sharpe": -0.468932475241425,
+        "pnl": -43.190000000000964,
+        "return_pct": -4.319000000000097,
+        "win_rate": 0.415625,
+        "n_trades": 320,
+        "max_drawdown_pct": -11.13844680917854
+      }
+    }
+  },
+  "PHL": {
+    "city": "PHL",
+    "n_profitable": 32,
+    "n_total": 128,
+    "best_overall": {
+      "model": "u9_kitchen_prob",
+      "ev_threshold": 0.05,
+      "kelly_fraction": 0.1,
+      "sharpe": 1.2113641072338837,
+      "pnl": 46.86599999999976,
+      "return_pct": 4.6865999999999755,
+      "win_rate": 0.42857142857142855,
+      "n_trades": 119,
+      "max_drawdown_pct": -3.0039567536093994,
+      "seasonal": {
+        "DJF": {
+          "n_trades": 69,
+          "pnl": -0.760000000000022,
+          "win_rate": 0.36231884057971014
+        },
+        "MAM": {
+          "n_trades": 0,
+          "pnl": 0.0,
+          "win_rate": 0.0
+        },
+        "JJA": {
+          "n_trades": 9,
+          "pnl": 3.839999999999992,
+          "win_rate": 0.6666666666666666
+        },
+        "SON": {
+          "n_trades": 41,
+          "pnl": 43.78599999999999,
+          "win_rate": 0.4878048780487805
+        }
+      }
+    },
+    "best_pnl": {
+      "model": "u9_kitchen_prob",
+      "ev_threshold": 0.05,
+      "kelly_fraction": 0.1,
+      "pnl": 46.86599999999976,
+      "return_pct": 4.6865999999999755,
+      "sharpe": 1.2113641072338837
+    },
+    "best_conservative": {
+      "model": "u9_kitchen_prob",
+      "ev_threshold": 0.05,
+      "kelly_fraction": 0.1,
+      "sharpe": 1.2113641072338837,
+      "pnl": 46.86599999999976,
+      "return_pct": 4.6865999999999755,
+      "max_drawdown_pct": -3.0039567536093994
+    },
+    "per_model_best": {
+      "model_prob": {
+        "ev_threshold": 0.03,
+        "kelly_fraction": 0.1,
+        "sharpe": -7.703466245433312,
+        "pnl": -436.11800000000153,
+        "return_pct": -43.61180000000015,
+        "win_rate": 0.39502332814930013,
+        "n_trades": 643,
+        "max_drawdown_pct": -44.232950763979964
+      },
+      "u3_mlp_prob": {
+        "ev_threshold": 0.03,
+        "kelly_fraction": 0.1,
+        "sharpe": -2.5668758210320353,
+        "pnl": -151.3640000000005,
+        "return_pct": -15.13640000000005,
+        "win_rate": 0.3323262839879154,
+        "n_trades": 331,
+        "max_drawdown_pct": -17.723576598110235
+      },
+      "u4_platt_prob": {
+        "ev_threshold": 0.05,
+        "kelly_fraction": 0.1,
+        "sharpe": -3.2763394602119122,
+        "pnl": -162.55400000000088,
+        "return_pct": -16.25540000000009,
+        "win_rate": 0.373015873015873,
+        "n_trades": 252,
+        "max_drawdown_pct": -18.210589325331142
+      },
+      "u5_regime_prob": {
+        "ev_threshold": 0.05,
+        "kelly_fraction": 0.1,
+        "sharpe": -0.2417325483961775,
+        "pnl": -11.080000000000155,
+        "return_pct": -1.1080000000000154,
+        "win_rate": 0.3476190476190476,
+        "n_trades": 210,
+        "max_drawdown_pct": -5.200935962125456
+      },
+      "u6_ensemble_prob": {
+        "ev_threshold": 0.05,
+        "kelly_fraction": 0.1,
+        "sharpe": -2.9616779783272222,
+        "pnl": -148.67000000000053,
+        "return_pct": -14.867000000000052,
+        "win_rate": 0.392,
+        "n_trades": 250,
+        "max_drawdown_pct": -15.469288429075153
+      },
+      "u7_extended_prob": {
+        "ev_threshold": 0.05,
+        "kelly_fraction": 0.1,
+        "sharpe": 0.9543673280576039,
+        "pnl": 36.33200000000011,
+        "return_pct": 3.6332000000000106,
+        "win_rate": 0.40336134453781514,
+        "n_trades": 119,
+        "max_drawdown_pct": -2.699929946521973
+      },
+      "u8_cv_prob": {
+        "ev_threshold": 0.05,
+        "kelly_fraction": 0.1,
+        "sharpe": 0.24836556202648852,
+        "pnl": 7.425999999999931,
+        "return_pct": 0.742599999999993,
+        "win_rate": 0.3898305084745763,
+        "n_trades": 59,
+        "max_drawdown_pct": -3.095598561933492
+      },
+      "u9_kitchen_prob": {
+        "ev_threshold": 0.05,
+        "kelly_fraction": 0.1,
+        "sharpe": 1.2113641072338837,
+        "pnl": 46.86599999999976,
+        "return_pct": 4.6865999999999755,
+        "win_rate": 0.42857142857142855,
+        "n_trades": 119,
+        "max_drawdown_pct": -3.0039567536093994
+      }
+    }
+  }
+}

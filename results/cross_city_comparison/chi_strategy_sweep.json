@@ -1,0 +1,7 @@
+{
+  "city": "CHI",
+  "ticker": "KXHIGHCHI",
+  "n_oos_days": 317,
+  "n_buckets": 62,
+  "n_configs_tested": 75
+}
