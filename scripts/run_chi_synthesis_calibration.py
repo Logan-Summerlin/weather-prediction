@@ -1296,6 +1296,14 @@ def main() -> None:
                 base_df["date"].min(),
                 base_df["date"].max())
 
+
+    # Drop rows with missing actual_tmax — cannot train or evaluate without targets
+    n_before = len(base_df)
+    base_df = base_df.dropna(subset=["actual_tmax"]).reset_index(drop=True)
+    n_dropped = n_before - len(base_df)
+    if n_dropped > 0:
+        logger.info("  Dropped %d rows with NaN actual_tmax (%d remaining)",
+                     n_dropped, len(base_df))
     # ---- Step 2: Build synthesis features ----
     logger.info("Step 2: Building synthesis features ...")
     features = _build_synthesis_features(base_df, cfg)

@@ -1,0 +1,27 @@
+{
+  "city": "Chicago",
+  "ticker": "KXHIGHCHI",
+  "n_total_days": 1055,
+  "n_test_days": 159,
+  "n_buckets": 62,
+  "methods": {
+    "1_raw_uncalibrated": {
+      "brier": 0.01909389714569624,
+      "ece": 0.01670652909790031
+    },
+    "2_isotonic": {
+      "brier": 0.015675317985984788,
+      "ece": 0.0014032352954405527
+    },
+    "3_platt_scaling": {
+      "brier": 0.016780592350411985,
+      "ece": 0.00866408418470364
+    },
+    "4_seasonal_regime": {
+      "brier": 0.016480751448534812,
+      "ece": 0.007850571890075618
+    }
+  },
+  "best_method": "2_isotonic",
+  "best_brier": 0.015675317985984788
+}

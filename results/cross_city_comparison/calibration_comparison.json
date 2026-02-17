@@ -1,0 +1,56 @@
+{
+  "CHI": {
+    "city": "Chicago",
+    "ticker": "KXHIGHCHI",
+    "n_total_days": 1055,
+    "n_test_days": 159,
+    "n_buckets": 62,
+    "methods": {
+      "1_raw_uncalibrated": {
+        "brier": 0.01909389714569624,
+        "ece": 0.01670652909790031
+      },
+      "2_isotonic": {
+        "brier": 0.015675317985984788,
+        "ece": 0.0014032352954405527
+      },
+      "3_platt_scaling": {
+        "brier": 0.016780592350411985,
+        "ece": 0.00866408418470364
+      },
+      "4_seasonal_regime": {
+        "brier": 0.016480751448534812,
+        "ece": 0.007850571890075618
+      }
+    },
+    "best_method": "2_isotonic",
+    "best_brier": 0.015675317985984788
+  },
+  "PHL": {
+    "city": "Philadelphia",
+    "ticker": "KXHIGHPHL",
+    "n_total_days": 364,
+    "n_test_days": 56,
+    "n_buckets": 57,
+    "methods": {
+      "1_raw_uncalibrated": {
+        "brier": 0.020802160397198458,
+        "ece": 0.016020293185628507
+      },
+      "2_isotonic": {
+        "brier": 0.0193579279031864,
+        "ece": 0.013272015559095428
+      },
+      "3_platt_scaling": {
+        "brier": 0.018938626156055755,
+        "ece": 0.010751471815218513
+      },
+      "4_seasonal_regime": {
+        "brier": 0.019132765042756503,
+        "ece": 0.01371819483654131
+      }
+    },
+    "best_method": "3_platt_scaling",
+    "best_brier": 0.018938626156055755
+  }
+}

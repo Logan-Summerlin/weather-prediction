@@ -1,0 +1,26 @@
+{
+  "NYC": {
+    "ticker": "KXHIGHNY",
+    "best_model": "U7_regime_conditional",
+    "best_contract_brier": 0.113719,
+    "best_oos_brier": 0.104744,
+    "kalshi_presettlement_brier": 0.127061,
+    "edge_vs_market": 0.013342000000000007
+  },
+  "CHI": {
+    "ticker": "KXHIGHCHI",
+    "best_model": "U8_cv_ensemble",
+    "best_contract_brier": 0.10867714282994935,
+    "best_oos_brier": 0.10374126639555661,
+    "kalshi_presettlement_brier": 0.12530385352760737,
+    "edge_vs_market": 0.016626710697658018
+  },
+  "PHL": {
+    "ticker": "KXHIGHPHL",
+    "best_model": "U2_contract_ridge",
+    "best_contract_brier": 0.10578164750961976,
+    "best_oos_brier": 0.11261931788852264,
+    "kalshi_presettlement_brier": 0.10992065054368202,
+    "edge_vs_market": 0.004139003034062269
+  }
+}

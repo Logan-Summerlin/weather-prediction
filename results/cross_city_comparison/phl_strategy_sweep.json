@@ -1,0 +1,7 @@
+{
+  "city": "PHL",
+  "ticker": "KXHIGHPHL",
+  "n_oos_days": 110,
+  "n_buckets": 57,
+  "n_configs_tested": 75
+}

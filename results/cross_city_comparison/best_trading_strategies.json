@@ -1,0 +1,82 @@
+{
+  "CHI": {
+    "ticker": "KXHIGHCHI",
+    "n_oos_days": 317,
+    "n_configs_tested": 75,
+    "best_sharpe_strategy": {
+      "ev_threshold": 0.03,
+      "kelly_fraction": 0.1,
+      "max_contracts": 15,
+      "sharpe": 4.411488859683186,
+      "pnl": 197.19552136092125,
+      "return_pct": 19.719552136092126,
+      "win_rate": 0.6085219707057257,
+      "n_trades": 751,
+      "max_drawdown_pct": -6.983091869131275
+    },
+    "best_pnl_strategy": {
+      "ev_threshold": 0.01,
+      "kelly_fraction": 0.1,
+      "max_contracts": 15,
+      "sharpe": 3.7958580033868485,
+      "pnl": 208.51371334482133,
+      "return_pct": 20.85137133448213,
+      "win_rate": 0.6973293768545994,
+      "n_trades": 1011,
+      "max_drawdown_pct": -5.294276070150664
+    },
+    "best_conservative_strategy": {
+      "ev_threshold": 0.03,
+      "kelly_fraction": 0.1,
+      "max_contracts": 15,
+      "sharpe": 4.411488859683186,
+      "pnl": 197.19552136092125,
+      "return_pct": 19.719552136092126,
+      "win_rate": 0.6085219707057257,
+      "n_trades": 751,
+      "max_drawdown_pct": -6.983091869131275
+    },
+    "n_profitable_configs": 75,
+    "n_total_configs": 75
+  },
+  "PHL": {
+    "ticker": "KXHIGHPHL",
+    "n_oos_days": 110,
+    "n_configs_tested": 75,
+    "best_sharpe_strategy": {
+      "ev_threshold": 0.01,
+      "kelly_fraction": 0.15,
+      "max_contracts": 15,
+      "sharpe": -1.7238451273143658,
+      "pnl": -35.831734621293776,
+      "return_pct": -3.583173462129378,
+      "win_rate": 0.6705202312138728,
+      "n_trades": 346,
+      "max_drawdown_pct": -7.552675514116623
+    },
+    "best_pnl_strategy": {
+      "ev_threshold": 0.01,
+      "kelly_fraction": 0.1,
+      "max_contracts": 5,
+      "sharpe": -1.7238451273143776,
+      "pnl": -11.943911540431827,
+      "return_pct": -1.1943911540431829,
+      "win_rate": 0.6705202312138728,
+      "n_trades": 346,
+      "max_drawdown_pct": -2.588607534129796
+    },
+    "best_conservative_strategy": {
+      "ev_threshold": 0.01,
+      "kelly_fraction": 0.15,
+      "max_contracts": 15,
+      "sharpe": -1.7238451273143658,
+      "pnl": -35.831734621293776,
+      "return_pct": -3.583173462129378,
+      "win_rate": 0.6705202312138728,
+      "n_trades": 346,
+      "max_drawdown_pct": -7.552675514116623
+    },
+    "n_profitable_configs": 0,
+    "n_total_configs": 75
+  }
+}
