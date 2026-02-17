@@ -1,16 +1,21 @@
 {
-  "city": "Philadelphia",
-  "kalshi_ticker": "KXHIGHPHL",
-  "target_station": "USW00013739",
-  "n_surrounding_stations": 50,
+  "city": "Chicago",
+  "kalshi_ticker": "KXHIGHCHI",
+  "target_station": "USW00094846",
+  "n_surrounding_stations": 55,
   "date_range": "1985-01-01 to 2024-12-31",
-  "n_features": 200,
+  "n_features": 209,
   "n_train": 10226,
   "n_val": 2191,
   "n_test": 2192,
-  "n_buckets": 57,
+  "n_buckets": 62,
   "bucket_labels": [
-    "Below 0",
+    "Below -10",
+    "-10--8",
+    "-8--6",
+    "-6--4",
+    "-4--2",
+    "-2-0",
     "0-2",
     "2-4",
     "4-6",
@@ -69,5 +74,5 @@
     "Above 110"
   ],
   "best_model": "Ridge (a=100.0)",
-  "best_test_brier": 0.015738155401497426
+  "best_test_brier": 0.014530888584198123
 }
