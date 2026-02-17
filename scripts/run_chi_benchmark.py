@@ -125,6 +125,21 @@ def load_processed_chi_data(processed_dir: str) -> tuple:
     for s in (y_train, y_val, y_test):
         s.name = "CHI_TMAX"
 
+    # Drop columns that are entirely NaN, then fill remaining NaN with 0
+    all_nan_cols = X_train.columns[X_train.isna().all()].tolist()
+    if all_nan_cols:
+        logger.info("Dropping %d all-NaN columns: %s", len(all_nan_cols), all_nan_cols)
+        X_train = X_train.drop(columns=all_nan_cols)
+        X_val = X_val.drop(columns=all_nan_cols)
+        X_test = X_test.drop(columns=all_nan_cols)
+
+    remaining_nans = X_train.isna().sum().sum()
+    if remaining_nans > 0:
+        logger.info("Filling %d remaining NaN values with 0", remaining_nans)
+        X_train = X_train.fillna(0)
+        X_val = X_val.fillna(0)
+        X_test = X_test.fillna(0)
+
     logger.info("Loaded CHI processed data from %s", processed_dir)
     logger.info("  X_train: %s, X_val: %s, X_test: %s",
                 X_train.shape, X_val.shape, X_test.shape)

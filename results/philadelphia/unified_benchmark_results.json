@@ -10,63 +10,63 @@
     "alpha": 100.0
   },
   "E3_nn_128_64": {
-    "test_brier": 0.015862480728584417
+    "test_brier": 0.015844028107346524
   },
   "E4_deep_nn": {
-    "test_brier": 0.01603507077394532
+    "test_brier": 0.016010504496270842
   },
   "E5_ensemble": {
-    "test_brier": 0.01592701633716756
+    "test_brier": 0.015941237103147352
   },
   "U0_raw_gaussian": {
-    "contract_brier": 0.1958271336118425,
-    "is_brier": 0.1878675501217828,
-    "oos_brier": 0.20776277895776146
+    "contract_brier": 0.19592283412249423,
+    "is_brier": 0.18736580025489474,
+    "oos_brier": 0.20875437506734826
   },
   "U1_isotonic": {
-    "contract_brier": 0.1340314163745664,
-    "is_brier": 0.1312244892834183,
-    "oos_brier": 0.13824049167525707
+    "contract_brier": 0.13404430442032345,
+    "is_brier": 0.13120372987324427,
+    "oos_brier": 0.13830383513759306
   },
   "U2_contract_ridge": {
-    "contract_brier": 0.10615192161808316,
-    "is_brier": 0.10154063795421006,
-    "oos_brier": 0.11306668624994533
+    "contract_brier": 0.10578164750961976,
+    "is_brier": 0.1012217760756889,
+    "oos_brier": 0.11261931788852264
   },
   "U3_contract_mlp": {
-    "contract_brier": 0.11269222457328185,
-    "is_brier": 0.11133758987191733,
-    "oos_brier": 0.11472354183868315
+    "contract_brier": 0.11431463817703119,
+    "is_brier": 0.11300643271830375,
+    "oos_brier": 0.11627633333538534
   },
   "U4_platt_on_u3": {
-    "contract_brier": 0.11371740146386598,
-    "is_brier": 0.1120368238995808,
-    "oos_brier": 0.11623748028566197
+    "contract_brier": 0.11546490619893783,
+    "is_brier": 0.11379827472533229,
+    "oos_brier": 0.1179640724199021
   },
   "U5_regime_conditional": {
-    "contract_brier": 0.1107316049072749,
-    "is_brier": 0.11246904994857904,
-    "oos_brier": 0.10812625151825278
+    "contract_brier": 0.11188134844294192,
+    "is_brier": 0.1118437616356665,
+    "oos_brier": 0.11193771104054327
   },
   "U6_calibrated_ensemble": {
-    "contract_brier": 0.11490076280798026,
-    "is_brier": 0.11366867408631018,
-    "oos_brier": 0.11674831852932245
+    "contract_brier": 0.11514623806806747,
+    "is_brier": 0.11299307398676918,
+    "oos_brier": 0.11837497520965813
   },
   "U7_extended_mlp": {
-    "contract_brier": 0.11120027150333439,
-    "is_brier": 0.11154653343970285,
-    "oos_brier": 0.11068104085835823
+    "contract_brier": 0.11075542449156542,
+    "is_brier": 0.11181331249904593,
+    "oos_brier": 0.1091690882104325
   },
   "U8_cv_ensemble": {
-    "contract_brier": 0.11012257267220747,
-    "is_brier": 0.11045795200063852,
-    "oos_brier": 0.10961966083950861
+    "contract_brier": 0.10910983060774655,
+    "is_brier": 0.10936201860959845,
+    "oos_brier": 0.10873166678116457
   },
   "U9_kitchen_sink": {
-    "contract_brier": 0.10601204888355323,
-    "is_brier": 0.10564787052076684,
-    "oos_brier": 0.10655814577245508
+    "contract_brier": 0.10596208206547042,
+    "is_brier": 0.10579341159984681,
+    "oos_brier": 0.10621500872432499
   },
   "Kalshi_PreSettlement": {
     "contract_brier": 0.10992065054368202

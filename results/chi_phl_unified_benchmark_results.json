@@ -11,63 +11,63 @@
       "alpha": 100.0
     },
     "E3_nn_128_64": {
-      "test_brier": 0.014621528045117061
+      "test_brier": 0.014663063730902362
     },
     "E4_deep_nn": {
-      "test_brier": 0.014597171322780015
+      "test_brier": 0.014661828708617701
     },
     "E5_ensemble": {
-      "test_brier": 0.014578369826973348
+      "test_brier": 0.014610607868229205
     },
     "U0_raw_gaussian": {
-      "contract_brier": 0.18828949043307774,
-      "is_brier": 0.17704210984533306,
-      "oos_brier": 0.20728248981733122
+      "contract_brier": 0.18851225934821525,
+      "is_brier": 0.17734230408115623,
+      "oos_brier": 0.20737451370640364
     },
     "U1_isotonic": {
-      "contract_brier": 0.14410014371129232,
-      "is_brier": 0.14547876023616654,
-      "oos_brier": 0.14177212941464906
+      "contract_brier": 0.14397894256518187,
+      "is_brier": 0.14556943740613526,
+      "oos_brier": 0.14129313787499462
     },
     "U2_contract_ridge": {
-      "contract_brier": 0.11810109151345531,
-      "is_brier": 0.1264337619344933,
-      "oos_brier": 0.1040300459983417
+      "contract_brier": 0.1181449687837333,
+      "is_brier": 0.1262267237230841,
+      "oos_brier": 0.10449763415419042
     },
     "U3_contract_mlp": {
-      "contract_brier": 0.11448860682705492,
-      "is_brier": 0.11801883507611925,
-      "oos_brier": 0.10852725231987204
+      "contract_brier": 0.11432519752624733,
+      "is_brier": 0.11900299090543157,
+      "oos_brier": 0.10642599592304755
     },
     "U4_platt_on_u3": {
-      "contract_brier": 0.11523585306901632,
-      "is_brier": 0.11883738933508856,
-      "oos_brier": 0.10915408358053556
+      "contract_brier": 0.11544898706443543,
+      "is_brier": 0.12040546523498565,
+      "oos_brier": 0.10707918165890835
     },
     "U5_regime_conditional": {
-      "contract_brier": 0.11475858014850862,
-      "is_brier": 0.11627934427142039,
-      "oos_brier": 0.11219052691827204
+      "contract_brier": 0.1146911788179348,
+      "is_brier": 0.11688908956398032,
+      "oos_brier": 0.11097965531069501
     },
     "U6_calibrated_ensemble": {
-      "contract_brier": 0.11638909910564459,
-      "is_brier": 0.11909938957061518,
-      "oos_brier": 0.11181234056789013
+      "contract_brier": 0.11713337452256525,
+      "is_brier": 0.12055157143377479,
+      "oos_brier": 0.11136120283126504
     },
     "U7_extended_mlp": {
-      "contract_brier": 0.10913273710448786,
-      "is_brier": 0.11149284315343819,
-      "oos_brier": 0.10514732091048716
+      "contract_brier": 0.10961924725839402,
+      "is_brier": 0.11246467994747952,
+      "oos_brier": 0.10481427948033005
     },
     "U8_cv_ensemble": {
-      "contract_brier": 0.1094323745446263,
-      "is_brier": 0.11241844546273407,
-      "oos_brier": 0.10438991664373917
+      "contract_brier": 0.10867714282994935,
+      "is_brier": 0.11160009773920514,
+      "oos_brier": 0.10374126639555661
     },
     "U9_kitchen_sink": {
-      "contract_brier": 0.10992691021359875,
-      "is_brier": 0.11296168509706636,
-      "oos_brier": 0.10480220788460909
+      "contract_brier": 0.10970706236722808,
+      "is_brier": 0.11272696324387342,
+      "oos_brier": 0.10460747717553211
     },
     "Kalshi_PreSettlement": {
       "contract_brier": 0.12530385352760737
@@ -85,63 +85,63 @@
       "alpha": 100.0
     },
     "E3_nn_128_64": {
-      "test_brier": 0.015862480728584417
+      "test_brier": 0.015844028107346524
     },
     "E4_deep_nn": {
-      "test_brier": 0.01603507077394532
+      "test_brier": 0.016010504496270842
     },
     "E5_ensemble": {
-      "test_brier": 0.01592701633716756
+      "test_brier": 0.015941237103147352
     },
     "U0_raw_gaussian": {
-      "contract_brier": 0.1958271336118425,
-      "is_brier": 0.1878675501217828,
-      "oos_brier": 0.20776277895776146
+      "contract_brier": 0.19592283412249423,
+      "is_brier": 0.18736580025489474,
+      "oos_brier": 0.20875437506734826
     },
     "U1_isotonic": {
-      "contract_brier": 0.1340314163745664,
-      "is_brier": 0.1312244892834183,
-      "oos_brier": 0.13824049167525707
+      "contract_brier": 0.13404430442032345,
+      "is_brier": 0.13120372987324427,
+      "oos_brier": 0.13830383513759306
     },
     "U2_contract_ridge": {
-      "contract_brier": 0.10615192161808316,
-      "is_brier": 0.10154063795421006,
-      "oos_brier": 0.11306668624994533
+      "contract_brier": 0.10578164750961976,
+      "is_brier": 0.1012217760756889,
+      "oos_brier": 0.11261931788852264
     },
     "U3_contract_mlp": {
-      "contract_brier": 0.11269222457328185,
-      "is_brier": 0.11133758987191733,
-      "oos_brier": 0.11472354183868315
+      "contract_brier": 0.11431463817703119,
+      "is_brier": 0.11300643271830375,
+      "oos_brier": 0.11627633333538534
     },
     "U4_platt_on_u3": {
-      "contract_brier": 0.11371740146386598,
-      "is_brier": 0.1120368238995808,
-      "oos_brier": 0.11623748028566197
+      "contract_brier": 0.11546490619893783,
+      "is_brier": 0.11379827472533229,
+      "oos_brier": 0.1179640724199021
     },
     "U5_regime_conditional": {
-      "contract_brier": 0.1107316049072749,
-      "is_brier": 0.11246904994857904,
-      "oos_brier": 0.10812625151825278
+      "contract_brier": 0.11188134844294192,
+      "is_brier": 0.1118437616356665,
+      "oos_brier": 0.11193771104054327
     },
     "U6_calibrated_ensemble": {
-      "contract_brier": 0.11490076280798026,
-      "is_brier": 0.11366867408631018,
-      "oos_brier": 0.11674831852932245
+      "contract_brier": 0.11514623806806747,
+      "is_brier": 0.11299307398676918,
+      "oos_brier": 0.11837497520965813
     },
     "U7_extended_mlp": {
-      "contract_brier": 0.11120027150333439,
-      "is_brier": 0.11154653343970285,
-      "oos_brier": 0.11068104085835823
+      "contract_brier": 0.11075542449156542,
+      "is_brier": 0.11181331249904593,
+      "oos_brier": 0.1091690882104325
     },
     "U8_cv_ensemble": {
-      "contract_brier": 0.11012257267220747,
-      "is_brier": 0.11045795200063852,
-      "oos_brier": 0.10961966083950861
+      "contract_brier": 0.10910983060774655,
+      "is_brier": 0.10936201860959845,
+      "oos_brier": 0.10873166678116457
     },
     "U9_kitchen_sink": {
-      "contract_brier": 0.10601204888355323,
-      "is_brier": 0.10564787052076684,
-      "oos_brier": 0.10655814577245508
+      "contract_brier": 0.10596208206547042,
+      "is_brier": 0.10579341159984681,
+      "oos_brier": 0.10621500872432499
     },
     "Kalshi_PreSettlement": {
       "contract_brier": 0.10992065054368202
