@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-02-17T06:07:33.432219",
+  "city": "Chicago",
+  "city_code": "chi",
+  "kalshi_ticker": "KXHIGHCHI",
+  "target_station": "USW00094846",
+  "target_station_name": "O'Hare International",
+  "overall_status": "PASS",
+  "gates_passed": 10,
+  "gates_total": 10,
+  "pass_rate": "10/10 (100%)",
+  "thresholds": {
+    "brier_threshold": 0.16,
+    "seasonal_brier_threshold": 0.22,
+    "ece_threshold": 0.05,
+    "min_oos_days": 100,
+    "max_drawdown_threshold": -0.3,
+    "min_predictions_rows": 100
+  },
+  "gates": [
+    {
+      "name": "overall_brier",
+      "description": "Best model Brier below city threshold",
+      "passed": true,
+      "value": 0.10913273710448786,
+      "threshold": 0.16,
+      "details": "U7_extended_mlp contract_brier=0.1091 (threshold: 0.16)"
+    },
+    {
+      "name": "beats_kalshi",
+      "description": "Best model Brier beats Kalshi market",
+      "passed": true,
+      "value": 0.10913273710448786,
+      "threshold": 0.12530385352760737,
+      "details": "U7_extended_mlp=0.1091 vs Kalshi=0.1253 (edge=0.0162)"
+    },
+    {
+      "name": "seasonal_brier",
+      "description": "No season exceeds Brier threshold",
+      "passed": true,
+      "value": 0.11370302929734595,
+      "threshold": 0.22,
+      "details": "Worst: JJA=0.1137 (threshold: 0.22) [DJF=0.1046, JJA=0.1137, MAM=0.1103, SON=0.1086]"
+    },
+    {
+      "name": "sufficient_oos",
+      "description": "Sufficient OOS evaluation days",
+      "passed": true,
+      "value": 409,
+      "threshold": 100,
+      "details": "OOS dates: 409 (minimum: 100)"
+    },
+    {
+      "name": "calibration_ece",
+      "description": "Expected Calibration Error within tolerance",
+      "passed": true,
+      "value": 0.011499462835549056,
+      "threshold": 0.05,
+      "details": "ECE=0.0115 using U7_extended_mlp (threshold: 0.05, n=6520)"
+    },
+    {
+      "name": "positive_pnl",
+      "description": "Best variant trading P&L > 0",
+      "passed": true,
+      "value": 2405.9500000000016,
+      "threshold": 0.0,
+      "details": "U7_extended total_pnl=$2405.95 (Sharpe=6.07, n_trades=2042)"
+    },
+    {
+      "name": "acceptable_drawdown",
+      "description": "Max drawdown within limits",
+      "passed": true,
+      "value": -0.0308435314062662,
+      "threshold": -0.3,
+      "details": "U7_extended max_drawdown=-3.08% (limit: -30%)"
+    },
+    {
+      "name": "data_pipeline",
+      "description": "Data pipeline complete \u2014 processed files exist",
+      "passed": true,
+      "value": 7,
+      "threshold": 7,
+      "details": "All 7 required files present in /home/user/weather-prediction/data/chicago/processed"
+    },
+    {
+      "name": "predictions_available",
+      "description": "Unified predictions file exists with data",
+      "passed": true,
+      "value": 6520,
+      "threshold": 100,
+      "details": "6520 rows (minimum: 100) in /home/user/weather-prediction/results/chicago/unified_predictions.csv"
+    },
+    {
+      "name": "test_infrastructure",
+      "description": "Pipeline test file exists",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Found: /home/user/weather-prediction/tests/test_chi_pipeline.py"
+    }
+  ]
+}

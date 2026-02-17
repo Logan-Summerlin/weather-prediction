@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-02-17T06:07:33.807842",
+  "city": "Philadelphia",
+  "city_code": "phl",
+  "kalshi_ticker": "KXHIGHPHL",
+  "target_station": "USW00013739",
+  "target_station_name": "Philadelphia International Airport",
+  "overall_status": "PASS",
+  "gates_passed": 10,
+  "gates_total": 10,
+  "pass_rate": "10/10 (100%)",
+  "thresholds": {
+    "brier_threshold": 0.14,
+    "seasonal_brier_threshold": 0.22,
+    "ece_threshold": 0.05,
+    "min_oos_days": 100,
+    "max_drawdown_threshold": -0.3,
+    "min_predictions_rows": 100
+  },
+  "gates": [
+    {
+      "name": "overall_brier",
+      "description": "Best model Brier below city threshold",
+      "passed": true,
+      "value": 0.10601204888355323,
+      "threshold": 0.14,
+      "details": "U9_kitchen_sink contract_brier=0.1060 (threshold: 0.14)"
+    },
+    {
+      "name": "beats_kalshi",
+      "description": "Best model Brier beats Kalshi market",
+      "passed": true,
+      "value": 0.10601204888355323,
+      "threshold": 0.10992065054368202,
+      "details": "U9_kitchen_sink=0.1060 vs Kalshi=0.1099 (edge=0.0039)"
+    },
+    {
+      "name": "seasonal_brier",
+      "description": "No season exceeds Brier threshold",
+      "passed": true,
+      "value": 0.10935833525098108,
+      "threshold": 0.22,
+      "details": "Worst: MAM=0.1094 (threshold: 0.22) [DJF=0.1038, JJA=0.1034, MAM=0.1094, SON=0.1088]"
+    },
+    {
+      "name": "sufficient_oos",
+      "description": "Sufficient OOS evaluation days",
+      "passed": true,
+      "value": 178,
+      "threshold": 100,
+      "details": "OOS dates: 178 (minimum: 100)"
+    },
+    {
+      "name": "calibration_ece",
+      "description": "Expected Calibration Error within tolerance",
+      "passed": true,
+      "value": 0.021764890943850687,
+      "threshold": 0.05,
+      "details": "ECE=0.0218 using U9_kitchen_sink (threshold: 0.05, n=2667)"
+    },
+    {
+      "name": "positive_pnl",
+      "description": "Best variant trading P&L > 0",
+      "passed": true,
+      "value": 339.6000000000031,
+      "threshold": 0.0,
+      "details": "U9_kitchen total_pnl=$339.60 (Sharpe=2.76, n_trades=496)"
+    },
+    {
+      "name": "acceptable_drawdown",
+      "description": "Max drawdown within limits",
+      "passed": true,
+      "value": -0.1085609364241445,
+      "threshold": -0.3,
+      "details": "U9_kitchen max_drawdown=-10.86% (limit: -30%)"
+    },
+    {
+      "name": "data_pipeline",
+      "description": "Data pipeline complete \u2014 processed files exist",
+      "passed": true,
+      "value": 7,
+      "threshold": 7,
+      "details": "All 7 required files present in /home/user/weather-prediction/data/philadelphia/processed"
+    },
+    {
+      "name": "predictions_available",
+      "description": "Unified predictions file exists with data",
+      "passed": true,
+      "value": 2667,
+      "threshold": 100,
+      "details": "2667 rows (minimum: 100) in /home/user/weather-prediction/results/philadelphia/unified_predictions.csv"
+    },
+    {
+      "name": "test_infrastructure",
+      "description": "Pipeline test file exists",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Found: /home/user/weather-prediction/tests/test_phl_pipeline.py"
+    }
+  ]
+}
