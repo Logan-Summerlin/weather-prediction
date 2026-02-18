@@ -118,7 +118,7 @@ Also update multi-city runners when needed:
 
 ## Phase A — Data setup
 
-1. Build station list (target + 40–70 nearby stations) using climate/terrain reasoning.
+1. Build station list (target + 40-55 nearby stations) using climate/terrain reasoning.
 2. Download/parse station histories into `data/<city>/raw/*.csv`.
 3. Run preprocessing to produce:
    - `features_train.csv`, `features_val.csv`, `features_test.csv`
