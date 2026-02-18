@@ -287,6 +287,55 @@ _CHI_CONFIG = CityConfig(
 )
 
 
+
+_AUS_CONFIG = CityConfig(
+    city_name="Austin",
+    city_code="aus",
+    kalshi_ticker="KXHIGHAUS",
+    target_station="USW00013904",
+    target_station_name="Austin-Bergstrom International Airport",
+    target_lat=30.1944,
+    target_lon=-97.6700,
+    timezone="America/Chicago",
+    igra_station_id="USM00072254",
+    igra_station_name="Del Rio DRT",
+    nwp_lat=30.1944,
+    nwp_lon=-97.6700,
+    bucket_edges=_NYC_PHL_BUCKET_EDGES.copy(),
+    bucket_labels=_NYC_PHL_BUCKET_LABELS.copy(),
+    monthly_tmax_mean={
+        1: 62.0,
+        2: 67.0,
+        3: 74.0,
+        4: 80.0,
+        5: 87.0,
+        6: 93.0,
+        7: 96.0,
+        8: 97.0,
+        9: 90.0,
+        10: 82.0,
+        11: 71.0,
+        12: 63.0,
+    },
+    monthly_tmax_std={
+        1: 9.0,
+        2: 9.0,
+        3: 9.5,
+        4: 8.5,
+        5: 7.5,
+        6: 6.0,
+        7: 4.5,
+        8: 4.5,
+        9: 6.0,
+        10: 8.0,
+        11: 8.5,
+        12: 9.0,
+    },
+    data_dir=os.path.join(PROJECT_ROOT, "data", "austin"),
+    models_dir=os.path.join(PROJECT_ROOT, "models", "austin"),
+    results_dir=os.path.join(PROJECT_ROOT, "results", "austin"),
+)
+
 # ---------------------------------------------------------------------------
 # City registry
 # ---------------------------------------------------------------------------
@@ -294,6 +343,7 @@ _CITY_REGISTRY: Dict[str, CityConfig] = {
     "nyc": _NYC_CONFIG,
     "phl": _PHL_CONFIG,
     "chi": _CHI_CONFIG,
+    "aus": _AUS_CONFIG,
 }
 
 
@@ -304,7 +354,7 @@ def get_city_config(city_code: str) -> CityConfig:
     """Return the CityConfig for a given city code.
 
     Args:
-        city_code: Lowercase city identifier (e.g., "nyc", "phl", "chi").
+        city_code: Lowercase city identifier (e.g., "nyc", "phl", "chi", "aus").
 
     Returns:
         The corresponding CityConfig instance.

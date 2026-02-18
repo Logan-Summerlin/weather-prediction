@@ -36,10 +36,12 @@ PROB_CLIP_MAX = 1 - 1e-4
 CITY_TO_MOS = {
     "phl": Path("data/philadelphia/mos/combined_mos_kphl.csv"),
     "chi": Path("data/chicago/mos/combined_mos_kord.csv"),
+    "aus": Path("data/austin/mos/combined_mos_kaus.csv"),
 }
 CITY_TICKER_PATTERNS = {
     "phl": ("HIGHPHL", "KXHIGHPHL"),
     "chi": ("HIGHCHI", "KXHIGHCHI"),
+    "aus": ("HIGHAUS", "KXHIGHAUS"),
 }
 
 
@@ -301,7 +303,7 @@ def _contract_probs(frame: pd.DataFrame, mu_by_date: pd.Series, sigma_by_date: p
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--city", choices=["phl", "chi"], required=True)
+    ap.add_argument("--city", choices=["phl", "chi", "aus"], required=True)
     args = ap.parse_args()
 
     cfg = get_city_config(args.city)
