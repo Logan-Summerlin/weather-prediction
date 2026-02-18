@@ -288,6 +288,55 @@ _CHI_CONFIG = CityConfig(
 
 
 
+_ATL_CONFIG = CityConfig(
+    city_name="Atlanta",
+    city_code="atl",
+    kalshi_ticker="KXHIGHATL",
+    target_station="USW00013874",
+    target_station_name="Hartsfield-Jackson Atlanta International Airport",
+    target_lat=33.6301,
+    target_lon=-84.4418,
+    timezone="America/New_York",
+    igra_station_id="USM00072215",
+    igra_station_name="Peachtree City FFC",
+    nwp_lat=33.6301,
+    nwp_lon=-84.4418,
+    bucket_edges=_NYC_PHL_BUCKET_EDGES.copy(),
+    bucket_labels=_NYC_PHL_BUCKET_LABELS.copy(),
+    monthly_tmax_mean={
+        1: 52.0,
+        2: 57.0,
+        3: 64.0,
+        4: 73.0,
+        5: 81.0,
+        6: 88.0,
+        7: 91.0,
+        8: 90.0,
+        9: 84.0,
+        10: 74.0,
+        11: 63.0,
+        12: 54.0,
+    },
+    monthly_tmax_std={
+        1: 10.0,
+        2: 10.0,
+        3: 9.5,
+        4: 8.5,
+        5: 7.5,
+        6: 6.0,
+        7: 5.0,
+        8: 5.0,
+        9: 6.5,
+        10: 8.0,
+        11: 9.0,
+        12: 10.0,
+    },
+    data_dir=os.path.join(PROJECT_ROOT, "data", "atlanta"),
+    models_dir=os.path.join(PROJECT_ROOT, "models", "atlanta"),
+    results_dir=os.path.join(PROJECT_ROOT, "results", "atlanta"),
+)
+
+
 _AUS_CONFIG = CityConfig(
     city_name="Austin",
     city_code="aus",
@@ -343,6 +392,7 @@ _CITY_REGISTRY: Dict[str, CityConfig] = {
     "nyc": _NYC_CONFIG,
     "phl": _PHL_CONFIG,
     "chi": _CHI_CONFIG,
+    "atl": _ATL_CONFIG,
     "aus": _AUS_CONFIG,
 }
 
@@ -354,7 +404,7 @@ def get_city_config(city_code: str) -> CityConfig:
     """Return the CityConfig for a given city code.
 
     Args:
-        city_code: Lowercase city identifier (e.g., "nyc", "phl", "chi", "aus").
+        city_code: Lowercase city identifier (e.g., "nyc", "phl", "chi", "atl", "aus").
 
     Returns:
         The corresponding CityConfig instance.
