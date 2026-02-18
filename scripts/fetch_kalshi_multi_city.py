@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fetch real Kalshi settled market data for Chicago and Philadelphia.
+Fetch real Kalshi settled market data for Chicago, Philadelphia, and Austin.
 
 Uses the Kalshi public API to download all settled contracts for:
   - KXHIGHCHI (Chicago high temperature)
@@ -18,6 +18,7 @@ Usage:
     python scripts/fetch_kalshi_multi_city.py
     python scripts/fetch_kalshi_multi_city.py --city chi
     python scripts/fetch_kalshi_multi_city.py --city phl
+    python scripts/fetch_kalshi_multi_city.py --city aus
 """
 
 import argparse
@@ -60,6 +61,14 @@ CITY_CONFIG = {
         "data_subdir": "philadelphia",
         "ghcn_col": "TMAX",
         "label": "Philadelphia",
+    },
+    "aus": {
+        "series_ticker": "KXHIGHAUS",
+        "ticker_patterns": ["HIGHAUS", "KXHIGHAUS"],
+        "target_station": "USW00013904",
+        "data_subdir": "austin",
+        "ghcn_col": "TMAX",
+        "label": "Austin",
     },
 }
 
@@ -381,10 +390,10 @@ def fetch_city(city_code):
 def main():
     parser = argparse.ArgumentParser(description="Fetch Kalshi data for CHI/PHL")
     parser.add_argument("--city", type=str, default="both",
-                        choices=["chi", "phl", "both"])
+                        choices=["chi", "phl", "aus", "all"])
     args = parser.parse_args()
 
-    cities = ["chi", "phl"] if args.city == "both" else [args.city]
+    cities = ["chi", "phl", "aus"] if args.city == "all" else [args.city]
 
     results = {}
     for city_code in cities:

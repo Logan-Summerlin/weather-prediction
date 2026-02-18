@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch Kalshi pre-settlement market prices for CHI and PHL weather markets.
+"""Fetch Kalshi pre-settlement market prices for CHI, PHL, and AUS weather markets.
 
 Uses the existing settlement CSV files to know which dates/tickers to query,
 then fetches 1-hour candlestick data near market close for each market to
@@ -71,6 +71,12 @@ CITY_CONFIGS = {
         "output_csv": DATA_DIR / "kalshi_presettlement_phl.csv",
         "checkpoint_csv": DATA_DIR / "kalshi_presettlement_phl_checkpoint.csv",
         "series_tickers": ["KXHIGHPHIL"],
+    },
+    "aus": {
+        "settlement_csv": DATA_DIR / "real_kalshi_aus_all.csv",
+        "output_csv": DATA_DIR / "kalshi_presettlement_aus.csv",
+        "checkpoint_csv": DATA_DIR / "kalshi_presettlement_aus_checkpoint.csv",
+        "series_tickers": ["KXHIGHAUS", "HIGHAUS"],
     },
 }
 
@@ -519,7 +525,7 @@ def main():
         description="Fetch Kalshi pre-settlement prices for CHI and PHL"
     )
     parser.add_argument(
-        "--city", type=str, choices=["chi", "phl"], default=None,
+        "--city", type=str, choices=["chi", "phl", "aus"], default=None,
         help="Fetch only one city (default: both)",
     )
     parser.add_argument(
@@ -532,7 +538,7 @@ def main():
     )
     args = parser.parse_args()
 
-    cities = [args.city] if args.city else ["phl", "chi"]
+    cities = [args.city] if args.city else ["phl", "chi", "aus"]
     client = RateLimitedClient(min_interval=MIN_REQUEST_INTERVAL)
 
     for city in cities:
