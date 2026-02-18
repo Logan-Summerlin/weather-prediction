@@ -19,6 +19,7 @@ CITY_TICKER_PATTERNS = {
     "chi": ("HIGHCHI", "KXHIGHCHI"),
     "phl": ("HIGHPHIL", "KXHIGHPHIL"),
     "aus": ("HIGHAUS", "KXHIGHAUS"),
+    "atl": ("HIGHTATL", "KXHIGHTATL"),
 }
 
 

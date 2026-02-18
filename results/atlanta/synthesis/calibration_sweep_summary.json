@@ -1,0 +1,27 @@
+{
+  "city": "Atlanta",
+  "ticker": "KXHIGHTATL",
+  "n_total_days": 18024,
+  "n_test_days": 2705,
+  "n_buckets": 57,
+  "methods": {
+    "1_raw_uncalibrated": {
+      "brier": 0.019794095527973874,
+      "ece": 0.013716608249315516
+    },
+    "2_isotonic": {
+      "brier": 0.016367471986956164,
+      "ece": 0.0004585704113040103
+    },
+    "3_platt_scaling": {
+      "brier": 0.01801014519092795,
+      "ece": 0.009363943763728214
+    },
+    "4_seasonal_regime": {
+      "brier": 0.017278559438896106,
+      "ece": 0.006950633661094238
+    }
+  },
+  "best_method": "2_isotonic",
+  "best_brier": 0.016367471986956164
+}

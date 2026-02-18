@@ -4,7 +4,7 @@ Atlanta Synthesis Model Training and Calibration Sweep.
 
 Trains U-series synthesis models combining base model predictions with
 seasonal context, then applies calibration methods to produce well-calibrated
-bucket probabilities for KXHIGHATL.
+bucket probabilities for KXHIGHTATL.
 
 Calibration methods evaluated:
   1. Raw (uncalibrated) Gaussian -> bucket probs
@@ -1240,7 +1240,7 @@ def run_calibration_sweep(
     # ---- Build summary ----
     summary = {
         "city": "Atlanta",
-        "ticker": "KXHIGHATL",
+        "ticker": "KXHIGHTATL",
         "n_total_days": n,
         "n_test_days": n_test,
         "n_buckets": len(bucket_edges),

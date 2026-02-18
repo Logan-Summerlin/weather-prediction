@@ -70,6 +70,14 @@ CITY_CONFIG = {
         "ghcn_col": "TMAX",
         "label": "Austin",
     },
+    "atl": {
+        "series_ticker": "KXHIGHTATL",
+        "ticker_patterns": ["HIGHTATL", "KXHIGHTATL"],
+        "target_station": "USW00013874",
+        "data_subdir": "atlanta",
+        "ghcn_col": "TMAX",
+        "label": "Atlanta",
+    },
 }
 
 
@@ -390,7 +398,7 @@ def fetch_city(city_code):
 def main():
     parser = argparse.ArgumentParser(description="Fetch Kalshi data for CHI/PHL")
     parser.add_argument("--city", type=str, default="both",
-                        choices=["chi", "phl", "aus", "all"])
+                        choices=["chi", "phl", "aus", "atl", "all"])
     args = parser.parse_args()
 
     cities = ["chi", "phl", "aus"] if args.city == "all" else [args.city]

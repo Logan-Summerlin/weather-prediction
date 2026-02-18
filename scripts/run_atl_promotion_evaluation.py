@@ -2,7 +2,7 @@
 """
 Atlanta Model Promotion Readiness Evaluation.
 
-Evaluates whether the Atlanta (KXHIGHATL) model pipeline meets
+Evaluates whether the Atlanta (KXHIGHTATL) model pipeline meets
 the promotion gates required for production deployment:
 
 1. Forecast Quality: OOS Brier score beats NWS baseline
@@ -412,7 +412,7 @@ def generate_report(all_gates: list[PromotionGate], output_path: str) -> dict:
     report = {
         "timestamp": datetime.now().isoformat(),
         "city": "atlanta",
-        "kalshi_ticker": "KXHIGHATL",
+        "kalshi_ticker": "KXHIGHTATL",
         "target_station": "USW00013874",
         "target_station_name": "Hartsfield-Jackson Atlanta International Airport",
         "overall_status": "PASS" if passed == total else "FAIL",
@@ -463,7 +463,7 @@ def plot_gate_summary(all_gates: list[PromotionGate], save_path: str) -> None:
     ax.set_xlim(-0.1, 1.5)
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["FAIL", "PASS"])
-    ax.set_title("Atlanta (KXHIGHATL) Promotion Gate Summary")
+    ax.set_title("Atlanta (KXHIGHTATL) Promotion Gate Summary")
 
     # Annotate each bar with status label
     for bar, label, gate in zip(bars, labels, all_gates):
@@ -490,7 +490,7 @@ def print_report(report: dict) -> None:
         The promotion report dictionary.
     """
     print("\n" + "=" * 70)
-    print("ATLANTA (KXHIGHATL) PROMOTION READINESS EVALUATION")
+    print("ATLANTA (KXHIGHTATL) PROMOTION READINESS EVALUATION")
     print("=" * 70)
     print(f"Timestamp: {report['timestamp']}")
     print(f"Target Station: {report['target_station_name']} ({report['target_station']})")
@@ -529,7 +529,7 @@ def main() -> dict:
         The promotion report dictionary.
     """
     logger.info("=" * 70)
-    logger.info("Atlanta (KXHIGHATL) Promotion Readiness Evaluation")
+    logger.info("Atlanta (KXHIGHTATL) Promotion Readiness Evaluation")
     logger.info("=" * 70)
 
     # --- Load city config ---
