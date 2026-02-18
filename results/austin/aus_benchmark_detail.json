@@ -1,20 +1,20 @@
 {
   "Persistence": {
-    "test_brier": 0.17721065982155687
+    "test_brier": 0.18725148189774113
   },
   "Climatology": {
-    "test_brier": 0.195751406866992
+    "test_brier": 0.2022349202339234
   },
-  "Ridge (a=0.1)": {
-    "test_brier": 0.16815389671440517,
-    "val_mae": 3.8913149699463405,
-    "test_mae": 4.022500536987609,
-    "alpha": 0.1
+  "Ridge (a=100.0)": {
+    "test_brier": 0.17803759616244633,
+    "val_mae": 4.253942595466847,
+    "test_mae": 4.260489240768056,
+    "alpha": 100.0
   },
   "HeteroscedasticNN": {
-    "test_brier": 0.1721188783979511,
-    "val_mae": 3.7493605450369474,
-    "test_mae": 4.087241099926817,
-    "best_epoch": 142
+    "test_brier": 0.21817910995714632,
+    "val_mae": 5.68079063074806,
+    "test_mae": 6.529580782543267,
+    "best_epoch": 92
   }
 }
