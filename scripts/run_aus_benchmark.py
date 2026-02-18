@@ -202,30 +202,96 @@ SEASON_MAP_MONTH = {12: "DJF", 1: "DJF", 2: "DJF",
                     9: "SON", 10: "SON", 11: "SON"}
 
 
-def load_kalshi_data_chi() -> pd.DataFrame:
-    """Load Kalshi settlement + pre-settlement data for Austin."""
+def load_kalshi_data_aus(
+    dates: pd.DatetimeIndex,
+    actual_tmax: np.ndarray,
+    bucket_edges: list,
+) -> pd.DataFrame:
+    """Load or generate Kalshi-format contract data for Austin.
+
+    If real Kalshi settlement data exists, loads it. Otherwise, generates
+    synthetic contract rows from the actual TMAX observations and bucket
+    definitions, which is needed for initial city pipeline runs before
+    real Kalshi market data becomes available.
+
+    Parameters
+    ----------
+    dates : pd.DatetimeIndex
+        Dates for which to generate contract rows.
+    actual_tmax : np.ndarray
+        Observed TMAX values for those dates.
+    bucket_edges : list
+        Kalshi bucket edge definitions.
+
+    Returns
+    -------
+    pd.DataFrame
+        Contract-format DataFrame with columns: date, ticker,
+        threshold_low, threshold_high, direction, actual_outcome,
+        actual_tmax.
+    """
     settlement_path = PROJECT_ROOT / "data" / "real_kalshi_aus_all.csv"
-    presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_aus.csv"
 
-    settled = pd.read_csv(settlement_path)
-    settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
+    if settlement_path.exists():
+        settled = pd.read_csv(settlement_path)
+        settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
+        presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_aus.csv"
+        if presettlement_path.exists():
+            pre = pd.read_csv(presettlement_path)
+            pre["date"] = pd.to_datetime(pre["date"]).dt.strftime("%Y-%m-%d")
+            merged = settled.merge(
+                pre[["date", "ticker", "presettlement_prob", "bid_cents",
+                     "ask_cents", "volume", "open_interest", "snapshot_time_utc"]],
+                on=["date", "ticker"], how="inner", suffixes=("", "_pre"),
+            )
+            merged = merged.dropna(subset=["presettlement_prob"])
+            merged["market_prob"] = merged["presettlement_prob"].clip(
+                PROB_CLIP_MIN, PROB_CLIP_MAX)
+            logger.info("Loaded real Kalshi AUS data: %d rows, %d dates",
+                         len(merged), merged["date"].nunique())
+            return merged
+        logger.info("Loaded Kalshi AUS (settlement only): %d rows", len(settled))
+        return settled
 
-    if presettlement_path.exists():
-        pre = pd.read_csv(presettlement_path)
-        pre["date"] = pd.to_datetime(pre["date"]).dt.strftime("%Y-%m-%d")
-        merged = settled.merge(
-            pre[["date", "ticker", "presettlement_prob", "bid_cents",
-                 "ask_cents", "volume", "open_interest", "snapshot_time_utc"]],
-            on=["date", "ticker"], how="inner", suffixes=("", "_pre"),
-        )
-        merged = merged.dropna(subset=["presettlement_prob"])
-        merged["market_prob"] = merged["presettlement_prob"].clip(
-            PROB_CLIP_MIN, PROB_CLIP_MAX)
-        logger.info("Loaded Kalshi AUS (pre-settlement): %d rows, %d dates",
-                     len(merged), merged["date"].nunique())
-        return merged
-    logger.info("Loaded Kalshi AUS (settlement only): %d rows", len(settled))
-    return settled
+    # Generate synthetic contract rows from actual outcomes
+    logger.info("No real Kalshi data for Austin — generating synthetic contract rows")
+    rows = []
+    for i, (date, tmax) in enumerate(zip(dates, actual_tmax)):
+        if np.isnan(tmax):
+            continue
+        ds = date.strftime("%Y-%m-%d")
+        for b, (lo, hi) in enumerate(bucket_edges):
+            # Determine direction and thresholds
+            if lo <= -900:
+                direction = "below"
+                th_low = None
+                th_high = hi
+                outcome = 1 if tmax < hi else 0
+            elif hi >= 900:
+                direction = "above"
+                th_low = lo
+                th_high = None
+                outcome = 1 if tmax >= lo else 0
+            else:
+                direction = "between"
+                th_low = lo
+                th_high = hi
+                outcome = 1 if lo <= tmax < hi else 0
+
+            rows.append({
+                "date": ds,
+                "ticker": f"KXHIGHAUS-{ds}-B{b}",
+                "threshold_low": th_low if th_low is not None else float("nan"),
+                "threshold_high": th_high if th_high is not None else float("nan"),
+                "direction": direction,
+                "actual_outcome": outcome,
+                "actual_tmax": tmax,
+            })
+
+    df = pd.DataFrame(rows)
+    logger.info("Generated %d synthetic AUS contract rows across %d dates",
+                len(df), df["date"].nunique())
+    return df
 
 
 def build_contract_dataset(
@@ -932,7 +998,10 @@ def main():
     X_train, X_val, X_test, y_train, y_val, y_test = load_processed_chi_data(processed_dir)
 
     # Load Kalshi contract data for contract-level Brier
-    kalshi = load_kalshi_data_chi()
+    # Combine val+test dates and actuals for contract generation
+    all_eval_dates = y_val.index.append(y_test.index)
+    all_eval_actuals = np.concatenate([y_val.values, y_test.values])
+    kalshi = load_kalshi_data_aus(all_eval_dates, all_eval_actuals, bucket_edges)
     logger.info("Kalshi contract rows: %d, dates: %d",
                 len(kalshi), kalshi["date"].nunique())
 
@@ -1077,7 +1146,7 @@ def main():
     seasonal_all["HeteroscedasticNN"] = nn_seasonal
 
     # Save NN model checkpoint
-    nn_model_path = os.path.join(chi.models_dir, "heteroscedastic_nn_chi.pt")
+    nn_model_path = os.path.join(chi.models_dir, "heteroscedastic_nn_aus.pt")
     os.makedirs(chi.models_dir, exist_ok=True)
     torch.save(nn_res["model"].state_dict(), nn_model_path)
     logger.info("Saved NN checkpoint to %s", nn_model_path)
@@ -1170,6 +1239,58 @@ def main():
     with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=2)
     logger.info("Saved metadata to %s", metadata_path)
+
+    # Save benchmark_summary.json (used by promotion evaluation)
+    benchmark_summary = {
+        "best_brier": float(summary_df.iloc[0]["contract_brier"]),
+        "best_model": summary_df.iloc[0]["model"],
+        "n_oos_days": len(y_test),
+        "all_models": {row["model"]: float(row["contract_brier"]) for _, row in summary_df.iterrows()},
+    }
+    bm_summary_path = os.path.join(results_dir, "benchmark_summary.json")
+    with open(bm_summary_path, "w") as f:
+        json.dump(benchmark_summary, f, indent=2)
+    logger.info("Saved benchmark summary to %s", bm_summary_path)
+
+    # Save seasonal_brier.json (used by promotion evaluation)
+    best_model_name = summary_df.iloc[0]["model"]
+    if best_model_name in seasonal_all:
+        seasonal_brier_path = os.path.join(results_dir, "seasonal_brier.json")
+        with open(seasonal_brier_path, "w") as f:
+            json.dump(seasonal_all[best_model_name], f, indent=2)
+        logger.info("Saved seasonal Brier to %s", seasonal_brier_path)
+
+    # Save base predictions for synthesis/backtest pipeline (all models)
+    all_model_preds = {
+        "Persistence": persist,
+        "Climatology": clim,
+        "Ridge": best_ridge_result,
+        "HeteroscedasticNN": nn_res,
+    }
+
+    preds_rows = []
+    for model_name, model_preds in all_model_preds.items():
+        for i, d in enumerate(y_val.index):
+            preds_rows.append({
+                "date": d.strftime("%Y-%m-%d"),
+                "model_name": model_name,
+                "mu": float(model_preds["mu_val"][i]),
+                "sigma": float(model_preds["sigma_val"][i]),
+                "actual_tmax": float(y_val.values[i]),
+            })
+        for i, d in enumerate(y_test.index):
+            preds_rows.append({
+                "date": d.strftime("%Y-%m-%d"),
+                "model_name": model_name,
+                "mu": float(model_preds["mu_test"][i]),
+                "sigma": float(model_preds["sigma_test"][i]),
+                "actual_tmax": float(y_test.values[i]),
+            })
+    preds_df = pd.DataFrame(preds_rows)
+    preds_path = os.path.join(results_dir, "base_predictions.csv")
+    preds_df.to_csv(preds_path, index=False)
+    logger.info("Saved base predictions (%d rows, %d models) to %s",
+                len(preds_df), len(all_model_preds), preds_path)
 
     logger.info("=" * 70)
     logger.info("Austin Benchmark Complete")

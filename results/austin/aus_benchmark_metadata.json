@@ -1,0 +1,15 @@
+{
+  "city": "Austin",
+  "kalshi_ticker": "KXHIGHAUS",
+  "scoring": "contract_brier",
+  "target_station": "USW00013904",
+  "n_surrounding_stations": 19,
+  "date_range": "1985-01-01 to 2024-12-31",
+  "n_features": 92,
+  "n_train": 7730,
+  "n_val": 1657,
+  "n_test": 1657,
+  "n_buckets": 57,
+  "best_model": "Ridge (a=0.1)",
+  "best_contract_brier": 0.16815389671440517
+}

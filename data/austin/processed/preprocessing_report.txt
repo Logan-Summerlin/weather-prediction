@@ -1,0 +1,67 @@
+======================================================================
+Austin Temperature Prediction -- Preprocessing Report
+======================================================================
+
+Date range: 1985-01-01 to 2024-12-31
+Target station: USW00013904
+Minimum completeness threshold: 80%
+
+--- Station Data Completeness ---
+
+  USW00013904 | TMAX | 11044/14610 days |  75.6% | KEPT
+  USW00013904 | TMIN | 10986/14610 days |  75.2% | KEPT
+  USW00003904 | TMAX | 14600/14610 days |  99.9% | KEPT
+  USW00003904 | TMIN | 14596/14610 days |  99.9% | KEPT
+  USW00013958 | TMAX | 14610/14610 days | 100.0% | KEPT
+  USW00013958 | TMIN | 14610/14610 days | 100.0% | KEPT
+  USW00013959 | TMAX | 14609/14610 days | 100.0% | KEPT
+  USW00013959 | TMIN | 14609/14610 days | 100.0% | KEPT
+  USW00013962 | TMAX | 14609/14610 days | 100.0% | KEPT
+  USW00013962 | TMIN | 14609/14610 days | 100.0% | KEPT
+  USW00013963 | TMAX | 14610/14610 days | 100.0% | KEPT
+  USW00013963 | TMIN | 14610/14610 days | 100.0% | KEPT
+  USW00013985 | TMAX | 14610/14610 days | 100.0% | KEPT
+  USW00013985 | TMIN | 14610/14610 days | 100.0% | KEPT
+  USW00012960 | TMAX | 14610/14610 days | 100.0% | KEPT
+  USW00012960 | TMIN | 14610/14610 days | 100.0% | KEPT
+  USW00013966 | TMAX | 14608/14610 days | 100.0% | KEPT
+  USW00013966 | TMIN | 14608/14610 days | 100.0% | KEPT
+  USW00013961 | TMAX | 11745/14610 days |  80.4% | KEPT
+  USW00013961 | TMIN | 11746/14610 days |  80.4% | KEPT
+  USW00013964 | TMAX | 14610/14610 days | 100.0% | KEPT
+  USW00013964 | TMIN | 14610/14610 days | 100.0% | KEPT
+  USW00012917 | TMAX | 14601/14610 days |  99.9% | KEPT
+  USW00012917 | TMIN | 14601/14610 days |  99.9% | KEPT
+  USW00012918 | TMAX | 14574/14610 days |  99.8% | KEPT
+  USW00012918 | TMIN | 14571/14610 days |  99.7% | KEPT
+  USW00012919 | TMAX | 14609/14610 days | 100.0% | KEPT
+  USW00012919 | TMIN | 14610/14610 days | 100.0% | KEPT
+  USW00013957 | TMAX | 14610/14610 days | 100.0% | KEPT
+  USW00013957 | TMIN | 14609/14610 days | 100.0% | KEPT
+  USW00003927 | TMAX | 14610/14610 days | 100.0% | KEPT
+  USW00003927 | TMIN | 14610/14610 days | 100.0% | KEPT
+
+Stations dropped for low completeness: None
+
+--- Merged Data ---
+
+Total date range rows: 14610
+Total columns: 96
+
+--- Train / Validation / Test Split ---
+
+Train: 7730 rows (1992-10-15 to 2015-12-05)
+Val:   1657 rows (2015-12-06 to 2020-06-18)
+Test:  1657 rows (2020-06-19 to 2024-12-31)
+
+Feature columns: 92
+
+--- Target Statistics (training set, unscaled deg F) ---
+
+Mean:   80.2
+Std:    14.8
+Min:    28.0
+Max:    111.9
+Median: 82.0
+
+======================================================================

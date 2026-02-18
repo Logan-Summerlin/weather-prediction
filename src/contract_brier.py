@@ -18,6 +18,7 @@ PROB_CLIP_MAX = 1.0 - 1e-4
 CITY_TICKER_PATTERNS = {
     "chi": ("HIGHCHI", "KXHIGHCHI"),
     "phl": ("HIGHPHIL", "KXHIGHPHIL"),
+    "aus": ("HIGHAUS", "KXHIGHAUS"),
 }
 
 

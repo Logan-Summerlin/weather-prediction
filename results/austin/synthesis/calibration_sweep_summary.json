@@ -1,0 +1,27 @@
+{
+  "city": "Austin",
+  "ticker": "KXHIGHAUS",
+  "n_total_days": 13256,
+  "n_test_days": 1989,
+  "n_buckets": 57,
+  "methods": {
+    "1_raw_uncalibrated": {
+      "brier": 0.02226219426006219,
+      "ece": 0.023802215229640832
+    },
+    "2_isotonic": {
+      "brier": 0.016728875234797436,
+      "ece": 0.0005492086492269009
+    },
+    "3_platt_scaling": {
+      "brier": 0.018529502437316558,
+      "ece": 0.013130329450964168
+    },
+    "4_seasonal_regime": {
+      "brier": 0.018132558291373623,
+      "ece": 0.012206174446772649
+    }
+  },
+  "best_method": "2_isotonic",
+  "best_brier": 0.016728875234797436
+}
