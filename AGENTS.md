@@ -268,3 +268,55 @@ When choosing between options:
 6) Implement bucketization + EV computation (no live trades yet).
 7) Backtest with conservative execution assumptions.
 8) Paper trade, monitor, then scale cautiously.
+
+## Repo-Specific Implementation Memory (NYC/CHI/PHL Template)
+
+Use this section as operational memory when implementing any new city model in this repository.
+
+### Core city wiring files
+- City registry and contract bucket machinery: `src/city_config.py`
+- Existing city configs to copy structure from:
+  - `config_chicago.py`
+  - `config_philadelphia.py`
+  - NYC legacy base configs (`config.py`, `config_expanded.py`)
+
+### City rollout script pattern (minimum)
+For each new city `<city>`, create and maintain this script family under `scripts/`:
+1) `run_<city>_data_collection.py`
+2) `run_<city>_preprocessing.py`
+3) `run_<city>_benchmark.py`
+4) `run_<city>_synthesis_calibration.py`
+5) `run_<city>_backtest.py`
+6) `run_<city>_promotion_evaluation.py`
+
+### Required data artifact conventions
+- Raw station CSVs: `data/<city>/raw/<station_id>.csv`
+- Processed splits: `data/<city>/processed/features_{train,val,test}.csv`
+- Targets: `data/<city>/processed/target_{train,val,test}.csv`
+- City outputs: `results/<city>/...`
+- City model artifacts: `models/<city>/...`
+
+### Mandatory operational guardrails
+- No random shuffling for time series splits.
+- Fit scalers/imputers on training partition only.
+- Keep lagging explicit so day-t target never sees day-t predictors.
+- Treat missing Kalshi city rows as a hard benchmark availability constraint (emit status, do not fabricate data).
+- Never trade uncalibrated probabilities.
+
+### Promotion gate (must pass all)
+- Contract-aligned bucketization verified.
+- OOS reliability/calibration diagnostics acceptable by season/regime.
+- Contract-level Brier beats required baselines (including market-implied where available).
+- Positive EV after fees and conservative slippage assumptions.
+- Risk limits and kill-switch behavior validated.
+
+### Starting command sequence for a new city
+```bash
+python scripts/run_<city>_data_collection.py
+python scripts/run_<city>_preprocessing.py
+python scripts/run_<city>_benchmark.py
+python scripts/run_city_nws_kalshi_template_benchmark.py --city <city>
+python scripts/run_<city>_synthesis_calibration.py
+python scripts/run_<city>_backtest.py
+python scripts/run_<city>_promotion_evaluation.py
+```
