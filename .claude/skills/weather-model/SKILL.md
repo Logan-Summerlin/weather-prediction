@@ -1,11 +1,11 @@
 ---
 name: weather-model
-description: Use this skill to build, audit, and operate NYC/PHL/CHI weather prediction market pipelines with contract-aligned probabilistic forecasts, mandatory Kalshi PreSettlement ingestion, Contract Brier scoring, EV gating, and risk-managed execution.
+description: Use this skill to build, audit, and operate weather prediction market pipelines with contract-aligned probabilistic forecasts, mandatory Kalshi PreSettlement ingestion, Contract Brier scoring, EV gating, and risk-managed execution.
 ---
 # Weather Model Skill
 ## When to use
-- Use for NYC/PHL/CHI model work.
-- Use for city-template expansion work.
+- Use for existing model work.
+- Use for new city model expansion work.
 - Use for forecasting + trading audits.
 - Use for contract alignment validation.
 - Use for calibration and bucketization checks.
