@@ -413,8 +413,8 @@ def generate_report(all_gates: list[PromotionGate], output_path: str) -> dict:
         "timestamp": datetime.now().isoformat(),
         "city": "austin",
         "kalshi_ticker": "KXHIGHAUS",
-        "target_station": "USW00094846",
-        "target_station_name": "O'Hare International",
+        "target_station": "USW00013904",
+        "target_station_name": "Austin-Bergstrom International Airport",
         "overall_status": "PASS" if passed == total else "FAIL",
         "gates_passed": passed,
         "gates_total": total,
@@ -490,7 +490,7 @@ def print_report(report: dict) -> None:
         The promotion report dictionary.
     """
     print("\n" + "=" * 70)
-    print("AUSCAGO (KXHIGHAUS) PROMOTION READINESS EVALUATION")
+    print("AUSTIN (KXHIGHAUS) PROMOTION READINESS EVALUATION")
     print("=" * 70)
     print(f"Timestamp: {report['timestamp']}")
     print(f"Target Station: {report['target_station_name']} ({report['target_station']})")
