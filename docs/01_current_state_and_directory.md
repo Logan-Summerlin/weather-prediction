@@ -208,9 +208,7 @@ Each city follows: data_collection → preprocessing → benchmark → synthesis
 | `test_nwp_preprocessing.py` | 57 | NWP preprocessing |
 | `test_soundings_collection.py` | Core | Sounding data |
 | `test_soundings_preprocessing.py` | 47 | Sounding preprocessing |
-| `test_chi_pipeline.py` | 27 | Chicago end-to-end pipeline |
-| `test_phl_pipeline.py` | Core | Philadelphia pipeline |
-| `test_atl_pipeline.py` | Core | Atlanta pipeline |
+| `test_city_pipeline.py` | Core | Parameterized city-template pipeline tests (CHI/PHL/ATL) |
 | `test_chi_phl_tasks.py` | Core | Checkpoint persistence |
 
 ### `data/` — Data Artifacts
@@ -243,7 +241,7 @@ Each city follows: data_collection → preprocessing → benchmark → synthesis
 
 ### `ARCHIVE/` — Legacy Code & Docs
 
-All superseded scripts, tests, documentation, and reports are organized in timestamped subdirectories. See `ARCHIVE/README.md` for full inventory.
+Archive cleanup completed: only `legacy_root_docs/` audit references are retained. Removed files are summarized in `ARCHIVE/DELETED_LEGACY_FILES_SUMMARY.md`.
 
 ---
 
