@@ -5,21 +5,21 @@
 ---
 
 ## Project Overview
-Multi-city daily max-temperature probabilistic forecasting for Kalshi temperature bucket contracts, with calibration-first evaluation and EV-gated trading simulation. NYC (KXHIGHNY) fully operational. Chicago (KXHIGHCHI) and Philadelphia (KXHIGHPHL) pipelines complete through backtesting with promotion evaluations done.
+Multi-city daily max-temperature probabilistic forecasting for Kalshi temperature bucket contracts, with calibration-first evaluation and EV-gated trading simulation. Five cities: NYC (KXHIGHNY) fully operational, Chicago (KXHIGHCHI) and Philadelphia (KXHIGHPHL) pipelines complete through backtesting with promotion evaluations done, Atlanta (KXHIGHTATL) pipeline complete, Austin (KXHIGHAUS) pipeline complete but needs work.
 
 ## Current Phase Status
 | Layer | Description | Status |
 |---|---|---|
-| 1 | Operational + historical ingestion (NYC) | COMPLETE |
-| 2 | Time-safe feature engineering (NYC) | COMPLETE |
-| 3 | Distributional + synthesis modeling E/WGA/U (NYC) | COMPLETE |
-| 4 | Post-hoc calibration + bucketization (NYC) | COMPLETE |
-| 5 | EV/risk trading simulation + gating (NYC) | COMPLETE |
-| 6 | Daily production hardening (cutoff enforcement + kill switch) | IN PROGRESS |
-| 7 | Multi-city expansion (Chicago + Philadelphia) | BACKTEST COMPLETE |
+| 1 | Operational + historical ingestion (multi-city) | COMPLETE |
+| 2 | Time-safe feature engineering (multi-city) | COMPLETE |
+| 3 | Distributional + synthesis modeling E/WGA/U | COMPLETE |
+| 4 | Post-hoc calibration + bucketization | COMPLETE |
+| 5 | EV/risk trading simulation + gating | COMPLETE |
+| 6 | Daily production hardening (cutoff + kill switch) | IN PROGRESS |
+| 7 | Multi-city expansion (CHI/PHL/ATL/AUS) | BACKTEST COMPLETE |
 | 8 | Operational dashboard | PLANNING |
 
-## Canonical Benchmark State (2026-02-17)
+## Canonical Benchmark State (2026-02-19)
 
 ### NYC (KXHIGHNY)
 - E-core benchmark: `scripts/run_e0_e8_best_model_benchmark.py` (E0–E22).
@@ -35,41 +35,55 @@ Multi-city daily max-temperature probabilistic forecasting for Kalshi temperatur
 - Real Kalshi backtest: +$2,406 (+241%), Sharpe 6.07, 71% win rate, 1144 trading days.
 - Simulated market backtest: +$48 (+4.8%), Sharpe 1.17, 64% win rate, 317 days.
 - Promotion eval: **10/10 gates PASS**.
-- Seasonal weakness: DJF winter (simulated -$92, real Kalshi still +$564).
 - Cross-city best model: U8_cv_ensemble (contract Brier 0.1087).
 
 ### Philadelphia (KXHIGHPHL)
 - Best model (real Kalshi): **U9_kitchen_sink (contract Brier 0.1060)**.
 - Kalshi market Brier: 0.1099 | Edge: **+0.0039** (narrow).
 - Real Kalshi backtest: +$340 (+34%), Sharpe 2.76, 46% win rate, 451 trading days.
-- Simulated market backtest: -$22 (-2.2%), Sharpe -1.57, 63% win rate, 110 days.
 - Promotion eval: **10/10 gates PASS**.
-- Seasonal weakness: DJF winter (simulated -$62, real Kalshi mixed).
-- Cross-city best model: U2_contract_ridge (contract Brier 0.1058).
-- **Key issue:** Narrow Brier edge vs Kalshi; not yet profitable against simulated market. More calibration work needed for live readiness.
+- **Key issue:** Narrow Brier edge; not yet profitable against simulated market.
 
-## Key Lessons Learned (2026-02-17)
-1. **Real Kalshi vs simulated market results diverge significantly.** Simulated market proxy is much harder to beat. Always report both.
-2. **Winter (DJF) is the universal weak season** across all three cities. Cold-season volatility, storm tracks, and regime shifts degrade model skill.
-3. **Chicago has strongest expansion signal** — large Brier edge (+0.0162), profitable in real Kalshi backtest across all seasons.
-4. **Philadelphia edge is thin** (+0.0039) — needs winter calibration improvements before live deployment.
-5. **Contract Brier (not bucket-day Brier) is the correct metric** for Kalshi settlement logic comparison. All benchmarks now use contract Brier.
-6. **Promotion evaluation thresholds are city-specific** — CHI uses 0.16, PHL uses 0.14 Brier thresholds.
+### Atlanta (KXHIGHTATL)
+- Target: Hartsfield-Jackson (USW00013874), ~50 stations.
+- Promotion eval: **11/11 gates PASS**.
+- Status: Pipeline complete, backtest done.
+
+### Austin (KXHIGHAUS)
+- Target: Austin-Bergstrom (USW00013904), ~56 stations.
+- Promotion eval: **8/13 gates FAIL**.
+- Status: Pipeline complete, needs model improvements.
+
+## Key Lessons Learned
+1. **Real Kalshi vs simulated market results diverge significantly.** Always report both.
+2. **Winter (DJF) is the universal weak season** across all cities.
+3. **Chicago has strongest expansion signal** — large Brier edge (+0.0162).
+4. **Philadelphia edge is thin** (+0.0039) — needs calibration improvements.
+5. **Contract Brier (not bucket-day Brier) is the correct metric.**
+6. **Promotion evaluation thresholds are city-specific** — CHI uses 0.16, PHL uses 0.14.
 
 ## Operational Guardrails (locked)
 1. No delayed training-grade source may appear in live feature computation.
 2. Chronological splits only; no random shuffles.
 3. Trade logic requires calibrated probabilities and cost-aware EV.
-4. Persist audit artifacts for each run (mass checks, reliability metrics, trading diagnostics).
+4. Persist audit artifacts for each run.
 5. Trigger kill-switch on critical data/schema/calibration failures.
-6. While subagents are working, enter 3-minute sleep/wake cycles to monitor progress without burning context.
-7. Always use actual data as the foundation for analysis — never use made-up, template, or "proxy" data.
-8. Our models aim to beat Kalshi prediction markets; always compare model predictions against Kalshi market prices from ~24 hours before settlement as the primary benchmark.
+6. While subagents are working, enter 3-minute sleep/wake cycles to monitor progress.
+7. Always use actual data — never use made-up or proxy data.
+8. Always compare model predictions against Kalshi market prices as primary benchmark.
 
-## Repo Hygiene State (2026-02-17)
-- Legacy files in `ARCHIVE/` (legacy_experiments, legacy_root_runners, legacy_scripts, legacy_docs, legacy_runners).
-- Current docs: `docs/current_state_and_directory.md`, `docs/top15_models_brier_function_reference.md`, `docs/model_principles_and_us_city_portability.md`.
-- Planning docs: `nyc_temp_prediction_project_plan.md`, `prediction_market_expansion.md`.
+## Known Audit Findings
+1. **Settlement-Price Leakage (CRITICAL):** CHI/PHL Unified models U2-U5 used settlement-time market_prob as feature. E-series unaffected. See `ARCHIVE/legacy_root_docs/AUDIT_model_cheating_investigation.md`.
+2. **Brier Metric Scale Inconsistency:** NYC binary contract-row vs CHI/PHL multiclass bucket-day. Now standardized. See `ARCHIVE/legacy_root_docs/AUDIT_cross_city_brier_integrity.md`.
+
+## Repo Hygiene State (2026-02-19)
+- Major archive cleanup performed 2026-02-19: moved 23 superseded scripts, 6 legacy tests, all docs/ and reports/ contents, 3 root-level audit/planning docs to ARCHIVE/.
+- ARCHIVE/ now has 10 subdirectories (legacy_scripts_v2, legacy_tests, legacy_docs_v2, legacy_reports, legacy_root_docs, plus 5 original legacy dirs).
+- Documentation consolidated into 3 files in `docs/`:
+  - `docs/01_current_state_and_directory.md` — Codebase state and file directory.
+  - `docs/02_model_families_and_methods.md` — Model families, functions, and methods.
+  - `docs/03_principles_and_city_portability.md` — Principles and US city portability guide.
+- Planning docs: `nyc_temp_prediction_project_plan.md` (updated 2026-02-19).
 
 ## Active File Reference
 | Domain | Key Files |
@@ -77,44 +91,55 @@ Multi-city daily max-temperature probabilistic forecasting for Kalshi temperatur
 | NYC E0–E22 benchmark | `scripts/run_e0_e8_best_model_benchmark.py` |
 | NYC WGA E38–E42 | `scripts/run_wga_v2_benchmark.py` |
 | NYC Unified U0–U9 | `scripts/run_unified_outperformance_benchmark.py` |
-| Core modeling | `src/model.py`, `src/wind_gated_attention.py`, `src/synthesis_model.py` |
-| Calibration + evaluation | `src/calibration.py`, `src/evaluate.py`, `src/kalshi_backtester.py` |
-| Trading + market | `src/trading.py`, `src/kalshi_client.py` |
+| Multi-city template | `scripts/run_city_nws_kalshi_template_benchmark.py` |
+| Core modeling | `src/model.py`, `src/advanced_model.py`, `src/wind_gated_attention.py`, `src/synthesis_model.py` |
+| Extended models | `src/extended_models.py`, `src/baselines.py`, `src/crps_loss.py` |
+| Calibration + evaluation | `src/calibration.py`, `src/contract_brier.py`, `src/evaluate.py` |
+| Trading + market | `src/trading.py`, `src/kalshi_client.py`, `src/kalshi_backtester.py`, `src/live_trading.py` |
 | Data + features | `src/data_collection.py`, `src/data_preprocessing.py`, `src/operational_features.py` |
 | ASOS/NWP/Soundings | `src/asos_collection.py`, `src/nwp_collection.py`, `src/soundings_collection.py` |
-| Station management | `src/station_registry.py`, `src/station_discovery.py`, `config_expanded.py` |
+| Preprocessing | `src/asos_preprocessing.py`, `src/nwp_preprocessing.py`, `src/soundings_preprocessing.py` |
+| Station management | `src/station_registry.py`, `src/station_discovery.py`, `src/city_config.py` |
 | Market proxies | `src/market_proxy.py`, `src/mos_market_proxy.py`, `src/enhanced_market_proxy.py` |
-| Chicago pipeline | `config_chicago.py`, `scripts/run_chi_*.py`, `tests/test_chi_pipeline.py` |
-| Philadelphia pipeline | `config_philadelphia.py`, `scripts/run_phl_*.py` |
-| CHI results | `results/chicago/` (backtest, promotion_report_v2, unified_benchmark_results) |
-| PHL results | `results/philadelphia/` (backtest, promotion_report_v2, unified_benchmark_results) |
+| City configs | `config.py`, `config_expanded.py`, `config_chicago.py`, `config_philadelphia.py`, `config_atlanta.py`, `config_austin.py` |
+| Chicago pipeline | `scripts/run_chi_*.py`, `tests/test_chi_pipeline.py` |
+| Philadelphia pipeline | `scripts/run_phl_*.py`, `tests/test_phl_pipeline.py` |
+| Atlanta pipeline | `scripts/run_atl_*.py`, `tests/test_atl_pipeline.py` |
+| Austin pipeline | `scripts/run_aus_*.py` |
+| CHI results | `results/chicago/` |
+| PHL results | `results/philadelphia/` |
+| ATL results | `results/atlanta/` |
+| AUS results | `results/austin/` |
 | Cross-city comparison | `results/cross_city_comparison/best_models_summary.json` |
 
 ## Immediate Priorities
 1. **Improve DJF winter calibration** across all cities — biggest source of losses.
 2. **Validate CHI for live paper trading** — strongest expansion candidate (10/10 gates, +0.0162 edge).
-3. Enforce cutoff-time feature availability checks via automated schema/contract tests.
-4. Build operational dashboard for model vs market monitoring.
-5. Improve PHL Brier edge before promoting to live (currently only +0.0039).
-6. Improve execution microstructure assumptions (depth, queue, fill uncertainty).
+3. **Improve PHL Brier edge** before promoting to live (currently only +0.0039).
+4. **Improve Austin model** to pass remaining 5 promotion gates.
+5. Enforce cutoff-time feature availability checks via automated schema/contract tests.
+6. Build operational dashboard for model vs market monitoring.
+7. Improve execution microstructure assumptions (depth, queue, fill uncertainty).
 
 ## Multi-City Expansion Notes
 
-### Chicago (KXHIGHCHI) — Backtest Complete, Promotion Ready
-- Target: O'Hare (USW00094846), 11 buckets (10°F floor)
-- Station network: 45 stations across 4 rings (9 near / 12 regional / 16 extended / 8 far)
-- Meteorological sectors: WNW (cold advection), Lake (Michigan moderation), SW (Gulf warm), NearField, NE_Lake
-- Full pipeline: `config_chicago.py` + 6 scripts
+### Chicago (KXHIGHCHI) — Promotion Ready
+- Target: O'Hare (USW00094846), 62 buckets (-10°F floor)
+- Station network: 55 stations, 4 rings, lake-effect sectors (WNW, Lake, SW, NE_Lake)
 - Tests: 27 passing in `tests/test_chi_pipeline.py`
-- Promotion: 10/10 gates pass. Best real Kalshi model: U7_extended (Brier 0.1091, Sharpe 6.07).
-- **Next:** Live paper trading validation, then production deployment.
+- **Next:** Live paper trading validation.
 
-### Philadelphia (KXHIGHPHL) — Backtest Complete, Needs Calibration Work
-- Target: PHL International (USW00013739), 10 buckets
-- Station network: ~48 stations in `config_philadelphia.py`
-- Full pipeline: 6 scripts in `scripts/run_phl_*.py`
-- Promotion: 10/10 gates pass, but narrow real Kalshi edge (+0.0039) and negative simulated market P&L.
-- **Next:** Improve winter calibration, widen Brier edge before live deployment.
+### Philadelphia (KXHIGHPHL) — Needs Calibration Work
+- Target: PHL International (USW00013739), 57 buckets
+- Station network: ~50 stations, 4 rings
+- **Next:** Improve winter calibration, widen Brier edge.
 
-# currentDate
-Today's date is 2026-02-17.
+### Atlanta (KXHIGHTATL) — Pipeline Complete
+- Target: Hartsfield-Jackson (USW00013874), 57 buckets
+- Station network: ~49 stations, Piedmont/mountain sectors
+- **Next:** Backtest refinement, Kalshi data integration.
+
+### Austin (KXHIGHAUS) — Needs Work
+- Target: Austin-Bergstrom (USW00013904), 57 buckets
+- Station network: ~56 stations
+- **Next:** Model improvements to pass promotion gates.
