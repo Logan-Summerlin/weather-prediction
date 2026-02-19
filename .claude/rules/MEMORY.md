@@ -79,6 +79,13 @@ Multi-city daily max-temperature probabilistic forecasting for Kalshi temperatur
 ## Repo Hygiene State (2026-02-19)
 - Major archive cleanup performed 2026-02-19: moved 23 superseded scripts, 6 legacy tests, all docs/ and reports/ contents, 3 root-level audit/planning docs to ARCHIVE/.
 - ARCHIVE/ now has 10 subdirectories (legacy_scripts_v2, legacy_tests, legacy_docs_v2, legacy_reports, legacy_root_docs, plus 5 original legacy dirs).
+- **Codebase simplification (2026-02-19):**
+  - 24 per-city pipeline scripts consolidated into 6 unified scripts with `--city` flag.
+  - Old per-city scripts converted to thin backward-compatible wrappers (11 lines each).
+  - 3 per-city test files consolidated into `tests/test_city_pipeline.py` (parameterized).
+  - 9 experimental scripts moved to `scripts/experiments/`.
+  - Config system cleaned up: `src/operational_data.py` and `src/wga_data_pipeline.py` now use dynamic importlib-based config loading supporting all 5 cities.
+  - See `SIMPLIFICATION_REPORT.md` for full analysis.
 - Documentation consolidated into 3 files in `docs/`:
   - `docs/01_current_state_and_directory.md` — Codebase state and file directory.
   - `docs/02_model_families_and_methods.md` — Model families, functions, and methods.
@@ -102,10 +109,10 @@ Multi-city daily max-temperature probabilistic forecasting for Kalshi temperatur
 | Station management | `src/station_registry.py`, `src/station_discovery.py`, `src/city_config.py` |
 | Market proxies | `src/market_proxy.py`, `src/mos_market_proxy.py`, `src/enhanced_market_proxy.py` |
 | City configs | `config.py`, `config_expanded.py`, `config_chicago.py`, `config_philadelphia.py`, `config_atlanta.py`, `config_austin.py` |
-| Chicago pipeline | `scripts/run_chi_*.py`, `tests/test_chi_pipeline.py` |
-| Philadelphia pipeline | `scripts/run_phl_*.py`, `tests/test_phl_pipeline.py` |
-| Atlanta pipeline | `scripts/run_atl_*.py`, `tests/test_atl_pipeline.py` |
-| Austin pipeline | `scripts/run_aus_*.py` |
+| Unified city pipeline | `scripts/run_data_collection.py`, `scripts/run_preprocessing.py`, `scripts/run_benchmark.py`, `scripts/run_synthesis_calibration.py`, `scripts/run_backtest.py`, `scripts/run_promotion_evaluation.py` (all accept `--city` flag) |
+| Per-city wrappers | `scripts/run_chi_*.py`, `scripts/run_phl_*.py`, `scripts/run_atl_*.py`, `scripts/run_aus_*.py` (thin wrappers delegating to unified scripts) |
+| City pipeline tests | `tests/test_city_pipeline.py` (parameterized for CHI/PHL/ATL) |
+| Experimental scripts | `scripts/experiments/` (non-pipeline exploratory scripts) |
 | CHI results | `results/chicago/` |
 | PHL results | `results/philadelphia/` |
 | ATL results | `results/atlanta/` |

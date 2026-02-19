@@ -87,13 +87,14 @@ src/kalshi_client.py for exchange access.
 src/kalshi_backtester.py for execution simulation.
 scripts/fetch_kalshi_presettlement*.py for market snapshots.
 ## City Pipeline Pattern
-run_<city>_data_collection.py
-run_<city>_preprocessing.py
-run_<city>_benchmark.py
-run_city_nws_kalshi_template_benchmark.py --city <city>
-run_<city>_synthesis_calibration.py
-run_<city>_backtest.py
-run_<city>_promotion_evaluation.py
+scripts/run_data_collection.py --city <city>
+scripts/run_preprocessing.py --city <city>
+scripts/run_benchmark.py --city <city>
+scripts/run_city_nws_kalshi_template_benchmark.py --city <city>
+scripts/run_synthesis_calibration.py --city <city>
+scripts/run_backtest.py --city <city>
+scripts/run_promotion_evaluation.py --city <city>
+Legacy per-city wrappers (run_<city>_*.py) still work via delegation.
 Do not skip stage order.
 ## Data Artifact Conventions
 Raw: data/<city>/raw/<station_id>.csv.
@@ -312,14 +313,15 @@ Surface risks early: latency, leakage, calibration, slippage.
 Report what changed and how it was validated.
 ## Acceptance Command Template
 python -m pytest tests/test_city_config.py
+python -m pytest tests/test_city_pipeline.py
 python scripts/fetch_kalshi_presettlement_multi.py --city chi
 python scripts/fetch_kalshi_presettlement_multi.py --city phl
-python scripts/run_chi_preprocessing.py
-python scripts/run_phl_preprocessing.py
+python scripts/run_preprocessing.py --city chi
+python scripts/run_preprocessing.py --city phl
 python scripts/run_city_nws_kalshi_template_benchmark.py --city chi
 python scripts/run_city_nws_kalshi_template_benchmark.py --city phl
-python scripts/run_chi_backtest.py
-python scripts/run_phl_backtest.py
+python scripts/run_backtest.py --city chi
+python scripts/run_backtest.py --city phl
 ## Final Reminders
 Real data only.
 Real settlements only.

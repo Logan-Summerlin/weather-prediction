@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-02-19T14:26:10.636511",
-  "city": "aus",
-  "kalshi_ticker": "KXHIGHAUS",
-  "target_station": "USW00013904",
-  "target_station_name": "Austin-Bergstrom International Airport",
+  "timestamp": "2026-02-19T14:25:33.703689",
+  "city": "chi",
+  "kalshi_ticker": "KXHIGHCHI",
+  "target_station": "USW00094846",
+  "target_station_name": "O'Hare International",
   "overall_status": "FAIL",
-  "gates_passed": 7,
+  "gates_passed": 5,
   "gates_total": 13,
-  "pass_rate": "7/13 (54%)",
+  "pass_rate": "5/13 (38%)",
   "thresholds": {
     "brier_threshold": 0.16,
     "nws_brier_baseline": 0.14,
@@ -24,7 +24,7 @@
       "passed": false,
       "value": null,
       "threshold": null,
-      "details": "Benchmark results not found (unified/unknown from /home/user/weather-prediction/results/austin/synthesis/unified_benchmark_summary.json)"
+      "details": "Benchmark results not found (No benchmark results found)"
     },
     {
       "name": "beats_nws",
@@ -37,66 +37,66 @@
     {
       "name": "beats_kalshi_market",
       "description": "Model Brier beats Kalshi market",
-      "passed": false,
-      "value": -0.09291781831956109,
-      "threshold": 0.0,
-      "details": "Model: 0.2375, Market: 0.1446, Edge: -0.0929 (from real Kalshi presettlement)"
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Real Kalshi backtest not found at /home/user/weather-prediction/results/chicago/backtest/real_kalshi_backtest_metrics.json (skipped, non-blocking)"
     },
     {
       "name": "seasonal_brier",
       "description": "No season exceeds Brier threshold",
-      "passed": true,
-      "value": 0.1860405171692281,
-      "threshold": 0.22,
-      "details": "Worst season: DJF=0.1860 (threshold: 0.22)"
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Seasonal results not found at /home/user/weather-prediction/results/chicago/seasonal_brier.json"
     },
     {
       "name": "min_oos_days",
       "description": "Sufficient OOS evaluation days",
-      "passed": true,
-      "value": 366,
-      "threshold": 200,
-      "details": "OOS days: 366 (minimum: 200)"
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "OOS day count not found in benchmark results"
     },
     {
       "name": "ece",
       "description": "Expected Calibration Error within tolerance",
-      "passed": true,
-      "value": 0.0005492086492269009,
-      "threshold": 0.05,
-      "details": "ECE: 0.0005 (threshold: 0.05)"
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Calibration results not found at /home/user/weather-prediction/results/chicago/synthesis/calibration_summary.json"
     },
     {
       "name": "reliability_diagram",
       "description": "Reliability diagram artifact exists",
-      "passed": true,
+      "passed": false,
       "value": null,
       "threshold": null,
-      "details": "Found at /home/user/weather-prediction/results/austin/synthesis/reliability_diagram.png"
+      "details": "Reliability diagram not found at /home/user/weather-prediction/results/chicago/synthesis/reliability_diagram.png"
     },
     {
       "name": "positive_pnl",
       "description": "Simulated paper trading shows positive P&L",
       "passed": true,
-      "value": 1762.658047135254,
+      "value": 48.05354623143671,
       "threshold": 0.0,
-      "details": "Simulated P&L: $1762.66 (minimum: $0.00)"
+      "details": "Simulated P&L: $48.05 (minimum: $0.00)"
     },
     {
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
       "passed": false,
-      "value": -16.21176633293885,
+      "value": -61.21063641965634,
       "threshold": -0.3,
-      "details": "Max drawdown: -1621.2% (limit: -30.0%)"
+      "details": "Max drawdown: -6121.1% (limit: -30.0%)"
     },
     {
       "name": "real_kalshi_pnl",
       "description": "Real Kalshi backtest shows positive P&L",
-      "passed": false,
-      "value": -1059.5899999999997,
-      "threshold": 0.0,
-      "details": "Real Kalshi P&L: $-1059.59, Sharpe: -6.46 (minimum P&L: $0.00)"
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Real Kalshi backtest not found at /home/user/weather-prediction/results/chicago/backtest/real_kalshi_backtest_metrics.json (skipped, non-blocking)"
     },
     {
       "name": "data_pipeline",
@@ -104,7 +104,7 @@
       "passed": true,
       "value": 7,
       "threshold": 7,
-      "details": "7/7 required files present in /home/user/weather-prediction/data/austin/processed"
+      "details": "7/7 required files present in /home/user/weather-prediction/data/chicago/processed"
     },
     {
       "name": "model_checkpoints",
@@ -112,7 +112,7 @@
       "passed": false,
       "value": 0,
       "threshold": null,
-      "details": "0 model file(s) found in /home/user/weather-prediction/models/austin"
+      "details": "0 model file(s) found in /home/user/weather-prediction/models/chicago"
     },
     {
       "name": "scaler_artifact",
@@ -120,7 +120,7 @@
       "passed": true,
       "value": null,
       "threshold": null,
-      "details": "Scaler found at /home/user/weather-prediction/data/austin/processed/scaler.pkl"
+      "details": "Scaler found at /home/user/weather-prediction/data/chicago/processed/scaler.pkl"
     }
   ]
 }
