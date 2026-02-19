@@ -107,7 +107,7 @@ Minimum completeness threshold: 80%
   USW00022001 | TMAX |  2317/14610 days |  15.9% | DROPPED
   USW00022001 | TMIN |  2320/14610 days |  15.9% | DROPPED
 
-Stations dropped for low completeness: ['USC00414792', 'USW00013911', 'USW00012923', 'USW00093904', 'USW00012932', 'USW00012909', 'USW00003902', 'USW00003933', 'USW00012947', 'USW00013973', 'USW00012911', 'USW00022001']
+Stations dropped for low completeness: ['USW00022001', 'USW00093904', 'USW00012911', 'USW00013911', 'USW00012947', 'USW00012923', 'USW00013973', 'USW00003902', 'USW00012909', 'USC00414792', 'USW00003933', 'USW00012932']
 
 --- Merged Data ---
 
@@ -116,18 +116,18 @@ Total columns: 294
 
 --- Train / Validation / Test Split ---
 
-Train: 7730 rows (1992-10-15 to 2015-12-05)
-Val:   1657 rows (2015-12-06 to 2020-06-18)
-Test:  1657 rows (2020-06-19 to 2024-12-31)
+Train: 8036 rows (2000-01-01 to 2021-12-31)
+Val:   730 rows (2022-01-01 to 2023-12-31)
+Test:  366 rows (2024-01-01 to 2024-12-31)
 
 Feature columns: 218
 
 --- Target Statistics (training set, unscaled deg F) ---
 
-Mean:   80.2
-Std:    14.8
-Min:    28.0
+Mean:   80.7
+Std:    14.7
+Min:    23.2
 Max:    111.9
-Median: 82.0
+Median: 82.9
 
 ======================================================================

@@ -78,7 +78,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # Data Loading
 # ===========================================================================
 
-def load_processed_chi_data(processed_dir: str) -> tuple:
+def load_processed_aus_data(processed_dir: str) -> tuple:
     """Load preprocessed Austin CSV files from disk.
 
     Parameters
@@ -724,9 +724,9 @@ def train_heteroscedastic_nn(
         dropout=dropout,
     ).to(DEVICE)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", patience=7, factor=0.5,
+        optimizer, mode="min", patience=5, factor=0.5,
     )
 
     # Create DataLoaders
@@ -758,6 +758,7 @@ def train_heteroscedastic_nn(
             mu, sigma = model(X_batch)
             loss = gaussian_nll_loss(mu, sigma, y_batch)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             train_losses.append(loss.item())
 
@@ -995,7 +996,7 @@ def main():
     logger.info("Results directory: %s", results_dir)
 
     # --- Load data ---
-    X_train, X_val, X_test, y_train, y_val, y_test = load_processed_chi_data(processed_dir)
+    X_train, X_val, X_test, y_train, y_val, y_test = load_processed_aus_data(processed_dir)
 
     # Load Kalshi contract data for contract-level Brier
     # Combine val+test dates and actuals for contract generation
@@ -1259,6 +1260,47 @@ def main():
         with open(seasonal_brier_path, "w") as f:
             json.dump(seasonal_all[best_model_name], f, indent=2)
         logger.info("Saved seasonal Brier to %s", seasonal_brier_path)
+
+    # Save aus_vs_kalshi_comparison.json — compare best model vs Kalshi market
+    best_model_brier = float(summary_df.iloc[0]["contract_brier"])
+    best_model_name_comp = summary_df.iloc[0]["model"]
+    kalshi_comparison = {
+        "best_model": best_model_name_comp,
+        "best_model_contract_brier": best_model_brier,
+        "all_model_briers": {
+            row["model"]: float(row["contract_brier"])
+            for _, row in summary_df.iterrows()
+        },
+    }
+    if "market_prob" in kalshi.columns:
+        market_valid = kalshi.dropna(subset=["market_prob", "actual_outcome"])
+        if len(market_valid) > 0:
+            market_brier = contract_brier(
+                market_valid["market_prob"].values,
+                market_valid["actual_outcome"].values,
+            )
+            kalshi_comparison["kalshi_market_brier"] = float(market_brier)
+            kalshi_comparison["model_edge"] = float(market_brier - best_model_brier)
+            kalshi_comparison["n_market_rows"] = int(len(market_valid))
+            kalshi_comparison["n_market_dates"] = int(market_valid["date"].nunique())
+            logger.info(
+                "Kalshi comparison: best model (%s) Brier=%.4f, market Brier=%.4f, edge=+%.4f",
+                best_model_name_comp, best_model_brier, market_brier,
+                market_brier - best_model_brier,
+            )
+        else:
+            kalshi_comparison["kalshi_market_brier"] = None
+            kalshi_comparison["model_edge"] = None
+            logger.info("No valid market_prob rows for Kalshi comparison")
+    else:
+        kalshi_comparison["kalshi_market_brier"] = None
+        kalshi_comparison["model_edge"] = None
+        logger.info("No market_prob column in Kalshi data — skipping market comparison")
+
+    kalshi_comp_path = os.path.join(results_dir, "aus_vs_kalshi_comparison.json")
+    with open(kalshi_comp_path, "w") as f:
+        json.dump(kalshi_comparison, f, indent=2)
+    logger.info("Saved Kalshi comparison to %s", kalshi_comp_path)
 
     # Save base predictions for synthesis/backtest pipeline (all models)
     all_model_preds = {

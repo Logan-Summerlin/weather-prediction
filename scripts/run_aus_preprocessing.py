@@ -12,13 +12,13 @@ Pipeline steps:
   4. Create target (AUS TMAX) and lagged surrounding-station features
   5. Add cyclical date features (sin_day, cos_day)
   6. Handle missing data (forward-fill, then training-mean imputation)
-  7. Chronological split (70 / 15 / 15)
+  7. Chronological split (date-based: train 2000-2021, cal 2022-2023, test 2024-2025)
   8. Scale features (StandardScaler fit on training set only)
   9. Save processed outputs to data/austin/processed/
 
 Key differences from NYC pipeline:
   - Uses config_austin.ALL_STATIONS (AUS station network)
-  - Target column: USW00094846_TMAX (O'Hare International Airport)
+  - Target column: USW00013904_TMAX (Austin-Bergstrom International Airport)
   - MIN_COMPLETENESS = 0.80 (vs 0.90 for NYC, to allow more stations)
   - Outputs saved to data/austin/processed/
 
@@ -66,7 +66,7 @@ logger = logging.getLogger(__name__)
 # AUS-Specific Functions
 # ===========================================================================
 
-def load_chi_stations(raw_dir: str) -> dict[str, pd.DataFrame]:
+def load_aus_stations(raw_dir: str) -> dict[str, pd.DataFrame]:
     """Load all AUS station CSVs from the raw data directory.
 
     Parameters
@@ -94,13 +94,13 @@ def load_chi_stations(raw_dir: str) -> dict[str, pd.DataFrame]:
     return station_data
 
 
-def filter_chi_stations_by_completeness(
+def filter_aus_stations_by_completeness(
     merged_df: pd.DataFrame,
     min_completeness: float = None,
 ) -> tuple[pd.DataFrame, list[str]]:
     """Remove stations that fall below the minimum completeness threshold.
 
-    Uses AUS config defaults.  The target station (USW00094846) is never
+    Uses AUS config defaults.  The target station (USW00013904) is never
     dropped regardless of completeness.
 
     Parameters
@@ -168,19 +168,20 @@ def filter_chi_stations_by_completeness(
     return merged_df, dropped_stations
 
 
-def create_chi_target_and_features(
+def create_aus_target_and_features(
     merged_df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.Series]:
     """Create the AUS target variable and lagged feature columns.
 
-    Target: AUS TMAX on day t (O'Hare International Airport).
+    Target: AUS TMAX on day t (Austin-Bergstrom International Airport).
     Features: All surrounding-station values shifted by +1 (so row for day t
     contains surrounding-station data from day t-1).
 
-    NOTE: Austin-specific lake-effect features (e.g., Lake Michigan wind
-    direction interactions, onshore/offshore flow indicators) will be added
-    in a future iteration. The base pipeline is identical to the PHL template,
-    with the city-specific station network providing the different signal.
+    NOTE: Austin-specific geographic features (e.g., Hill Country terrain
+    effects, Gulf moisture advection, Blue Norther cold front indicators)
+    will be added in a future iteration. The base pipeline is identical to
+    the PHL template, with the city-specific station network providing the
+    different signal.
 
     Parameters
     ----------
@@ -227,56 +228,52 @@ def create_chi_target_and_features(
     return features, target
 
 
-def chronological_split_chi(
+def chronological_split_aus(
     features: pd.DataFrame,
     target: pd.Series,
-    train_ratio: float = None,
-    val_ratio: float = None,
 ) -> tuple:
-    """Split data chronologically into train/val/test sets.
+    """Split data chronologically into train/cal/test sets using fixed dates.
 
-    No shuffling. First train_ratio fraction is training, next val_ratio
-    is validation, remainder is test.
+    Mandatory date-based boundaries (no ratio-based splitting):
+      - Train: 2000-01-01 to 2021-12-31
+      - Calibration (val): 2022-01-01 to 2023-12-31
+      - Test: 2024-01-01 to 2025-12-31
 
     Parameters
     ----------
     features : pd.DataFrame
-        Feature matrix sorted by date.
+        Feature matrix sorted by date (DatetimeIndex).
     target : pd.Series
-        Target variable sorted by date.
-    train_ratio : float, optional
-        Fraction for training. Defaults to config_austin.TRAIN_RATIO.
-    val_ratio : float, optional
-        Fraction for validation. Defaults to config_austin.VAL_RATIO.
+        Target variable sorted by date (DatetimeIndex).
 
     Returns
     -------
     tuple
         (X_train, X_val, X_test, y_train, y_val, y_test)
     """
-    if train_ratio is None:
-        train_ratio = city_config.TRAIN_RATIO
-    if val_ratio is None:
-        val_ratio = city_config.VAL_RATIO
+    TRAIN_START, TRAIN_END = "2000-01-01", "2021-12-31"
+    CAL_START, CAL_END = "2022-01-01", "2023-12-31"
+    TEST_START, TEST_END = "2024-01-01", "2025-12-31"
 
-    n = len(features)
-    train_end = int(n * train_ratio)
-    val_end = int(n * (train_ratio + val_ratio))
+    idx = features.index
+    m_train = (idx >= TRAIN_START) & (idx <= TRAIN_END)
+    m_cal = (idx >= CAL_START) & (idx <= CAL_END)
+    m_test = (idx >= TEST_START) & (idx <= TEST_END)
 
-    X_train = features.iloc[:train_end]
-    X_val = features.iloc[train_end:val_end]
-    X_test = features.iloc[val_end:]
+    X_train = features.loc[m_train]
+    X_val = features.loc[m_cal]
+    X_test = features.loc[m_test]
 
-    y_train = target.iloc[:train_end]
-    y_val = target.iloc[train_end:val_end]
-    y_test = target.iloc[val_end:]
+    y_train = target.loc[m_train]
+    y_val = target.loc[m_cal]
+    y_test = target.loc[m_test]
 
-    logger.info("Chronological split:")
+    logger.info("Chronological split (date-based):")
     logger.info("  Train: %d rows (%s to %s)",
                 len(X_train),
                 X_train.index.min().strftime("%Y-%m-%d") if len(X_train) > 0 else "N/A",
                 X_train.index.max().strftime("%Y-%m-%d") if len(X_train) > 0 else "N/A")
-    logger.info("  Val:   %d rows (%s to %s)",
+    logger.info("  Cal:   %d rows (%s to %s)",
                 len(X_val),
                 X_val.index.min().strftime("%Y-%m-%d") if len(X_val) > 0 else "N/A",
                 X_val.index.max().strftime("%Y-%m-%d") if len(X_val) > 0 else "N/A")
@@ -288,7 +285,7 @@ def chronological_split_chi(
     return X_train, X_val, X_test, y_train, y_val, y_test
 
 
-def generate_chi_preprocessing_report(
+def generate_aus_preprocessing_report(
     merged_df: pd.DataFrame,
     completeness_df: pd.DataFrame,
     dropped_stations: list[str],
@@ -398,16 +395,17 @@ def main():
     logger.info("Austin Preprocessing Pipeline")
     logger.info("=" * 60)
 
-    chi = get_city_config("aus")
-    ensure_city_dirs(chi)
+    aus = get_city_config("aus")
+    ensure_city_dirs(aus)
 
-    raw_dir = os.path.join(chi.data_dir, "raw")
-    processed_dir = os.path.join(chi.data_dir, "processed")
+    raw_dir = os.path.join(aus.data_dir, "raw")
+    processed_dir = os.path.join(aus.data_dir, "processed")
     os.makedirs(processed_dir, exist_ok=True)
+    os.makedirs("models/austin", exist_ok=True)
 
     # 1. Load station data
     logger.info("Step 1: Loading AUS station data from %s", raw_dir)
-    station_data = load_chi_stations(raw_dir)
+    station_data = load_aus_stations(raw_dir)
     if not station_data:
         logger.error("No station data found. Run run_aus_data_collection.py first.")
         return
@@ -427,11 +425,11 @@ def main():
     # 4. Filter out low-completeness stations
     logger.info("Step 4: Filtering by completeness (threshold=%.0f%%)",
                 city_config.MIN_COMPLETENESS * 100)
-    merged_filtered, dropped_stations = filter_chi_stations_by_completeness(merged)
+    merged_filtered, dropped_stations = filter_aus_stations_by_completeness(merged)
 
     # 5. Create target and lagged features
     logger.info("Step 5: Creating target and lagged features")
-    features, target = create_chi_target_and_features(merged_filtered)
+    features, target = create_aus_target_and_features(merged_filtered)
 
     # 6. Add cyclical date features
     logger.info("Step 6: Adding cyclical date features")
@@ -445,7 +443,7 @@ def main():
 
     # 8. Chronological split
     logger.info("Step 8: Chronological split")
-    X_train, X_val, X_test, y_train, y_val, y_test = chronological_split_chi(
+    X_train, X_val, X_test, y_train, y_val, y_test = chronological_split_aus(
         features, target
     )
 
@@ -477,7 +475,7 @@ def main():
 
     # 12. Generate report
     logger.info("Step 12: Generating preprocessing report")
-    report = generate_chi_preprocessing_report(
+    report = generate_aus_preprocessing_report(
         merged, completeness_df, dropped_stations,
         X_train_s, X_val_s, X_test_s,
         y_train, y_val, y_test,

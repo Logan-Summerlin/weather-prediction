@@ -1,0 +1,30 @@
+{
+  "city": "Austin",
+  "ticker": "KXHIGHAUS",
+  "model_name": "U2_contract_ridge",
+  "n_total_days": 4384,
+  "n_train_days": 2920,
+  "n_cal_days": 2920,
+  "n_test_days": 1464,
+  "n_buckets": 57,
+  "methods": {
+    "1_raw_uncalibrated": {
+      "brier": 0.02081707037163413,
+      "ece": 0.01809151976726259
+    },
+    "2_isotonic": {
+      "brier": 0.016729437958190613,
+      "ece": 0.0028053794152393253
+    },
+    "3_platt_scaling": {
+      "brier": 0.018125164805485282,
+      "ece": 0.009925284618253689
+    },
+    "4_seasonal_regime": {
+      "brier": 0.017812713690763343,
+      "ece": 0.010352648093907003
+    }
+  },
+  "best_method": "2_isotonic",
+  "best_brier": 0.016729437958190613
+}
