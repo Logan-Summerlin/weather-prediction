@@ -2,7 +2,7 @@
 """
 Atlanta Model Benchmark Script.
 
-Trains and evaluates a suite of models for Atlanta (KXHIGHATL)
+Trains and evaluates a suite of models for Atlanta (KXHIGHTATL)
 temperature prediction, computing Brier scores on held-out OOS data
 using ATL bucket definitions from city_config.
 
@@ -202,30 +202,80 @@ SEASON_MAP_MONTH = {12: "DJF", 1: "DJF", 2: "DJF",
                     9: "SON", 10: "SON", 11: "SON"}
 
 
-def load_kalshi_data_atl() -> pd.DataFrame:
-    """Load Kalshi settlement + pre-settlement data for Atlanta."""
+def load_kalshi_data_atl(y_val=None, y_test=None, bucket_edges=None) -> pd.DataFrame:
+    """Load Kalshi settlement + pre-settlement data for Atlanta.
+    
+    If real Kalshi data files are not available, generates simulated contract
+    rows from bucket edges and actual temperature observations for val+test
+    dates. This allows contract-level Brier scoring even without real
+    Kalshi market data (scored as bucket-day Brier over all buckets).
+    """
     settlement_path = PROJECT_ROOT / "data" / "real_kalshi_atl_all.csv"
     presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_atl.csv"
 
-    settled = pd.read_csv(settlement_path)
-    settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
+    if settlement_path.exists():
+        settled = pd.read_csv(settlement_path)
+        settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
 
-    if presettlement_path.exists():
-        pre = pd.read_csv(presettlement_path)
-        pre["date"] = pd.to_datetime(pre["date"]).dt.strftime("%Y-%m-%d")
-        merged = settled.merge(
-            pre[["date", "ticker", "presettlement_prob", "bid_cents",
-                 "ask_cents", "volume", "open_interest", "snapshot_time_utc"]],
-            on=["date", "ticker"], how="inner", suffixes=("", "_pre"),
-        )
-        merged = merged.dropna(subset=["presettlement_prob"])
-        merged["market_prob"] = merged["presettlement_prob"].clip(
-            PROB_CLIP_MIN, PROB_CLIP_MAX)
-        logger.info("Loaded Kalshi ATL (pre-settlement): %d rows, %d dates",
-                     len(merged), merged["date"].nunique())
-        return merged
-    logger.info("Loaded Kalshi ATL (settlement only): %d rows", len(settled))
-    return settled
+        if presettlement_path.exists():
+            pre = pd.read_csv(presettlement_path)
+            pre["date"] = pd.to_datetime(pre["date"]).dt.strftime("%Y-%m-%d")
+            merged = settled.merge(
+                pre[["date", "ticker", "presettlement_prob", "bid_cents",
+                     "ask_cents", "volume", "open_interest", "snapshot_time_utc"]],
+                on=["date", "ticker"], how="inner", suffixes=("", "_pre"),
+            )
+            merged = merged.dropna(subset=["presettlement_prob"])
+            merged["market_prob"] = merged["presettlement_prob"].clip(
+                PROB_CLIP_MIN, PROB_CLIP_MAX)
+            logger.info("Loaded Kalshi ATL (pre-settlement): %d rows, %d dates",
+                         len(merged), merged["date"].nunique())
+            return merged
+        logger.info("Loaded Kalshi ATL (settlement only): %d rows", len(settled))
+        return settled
+
+    # --- No real Kalshi data: generate simulated contract rows ---
+    logger.warning("No real Kalshi ATL data found. Generating simulated contract rows "
+                   "from bucket edges for contract-level Brier scoring.")
+    if y_val is None or y_test is None or bucket_edges is None:
+        raise ValueError("Cannot generate simulated contracts without y_val, y_test, and bucket_edges")
+
+    rows = []
+    for y_series in [y_val, y_test]:
+        for dt, tmax in y_series.items():
+            date_str = pd.Timestamp(dt).strftime("%Y-%m-%d")
+            if np.isnan(tmax):
+                continue
+            for b_idx, (lo, hi) in enumerate(bucket_edges):
+                # Determine direction
+                if lo <= -900:
+                    direction = "below"
+                elif hi >= 900:
+                    direction = "above"
+                else:
+                    direction = "between"
+                # Determine actual outcome (1 if tmax falls in this bucket)
+                if direction == "below":
+                    outcome = 1.0 if tmax < hi else 0.0
+                elif direction == "above":
+                    outcome = 1.0 if tmax >= lo else 0.0
+                else:
+                    # Between: [lo, hi)
+                    outcome = 1.0 if (lo <= tmax < hi) else 0.0
+                rows.append({
+                    "date": date_str,
+                    "ticker": f"HIGHATL-SIM-B{b_idx}",
+                    "threshold_low": lo,
+                    "threshold_high": hi,
+                    "direction": direction,
+                    "actual_outcome": outcome,
+                    "actual_tmax": tmax,
+                })
+
+    df = pd.DataFrame(rows)
+    logger.info("Generated simulated ATL contract rows: %d rows, %d dates",
+                len(df), df["date"].nunique())
+    return df
 
 
 def build_contract_dataset(
@@ -912,7 +962,7 @@ def plot_seasonal_brier(
 def main():
     """Run the full Atlanta model benchmark with contract-level Brier."""
     logger.info("=" * 70)
-    logger.info("Atlanta Model Benchmark (KXHIGHATL) — Contract Brier")
+    logger.info("Atlanta Model Benchmark (KXHIGHTATL) — Contract Brier")
     logger.info("=" * 70)
 
     # --- Setup ---
@@ -932,7 +982,7 @@ def main():
     X_train, X_val, X_test, y_train, y_val, y_test = load_processed_atl_data(processed_dir)
 
     # Load Kalshi contract data for contract-level Brier
-    kalshi = load_kalshi_data_atl()
+    kalshi = load_kalshi_data_atl(y_val=y_val, y_test=y_test, bucket_edges=bucket_edges)
     logger.info("Kalshi contract rows: %d, dates: %d",
                 len(kalshi), kalshi["date"].nunique())
 
@@ -1082,6 +1132,67 @@ def main():
     torch.save(nn_res["model"].state_dict(), nn_model_path)
     logger.info("Saved NN checkpoint to %s", nn_model_path)
 
+    # --- Save base predictions for synthesis calibration ---
+    # Save predictions from all models for val+test dates
+    # The synthesis script needs: date, model_name, mu, sigma, actual_tmax
+    base_preds_rows = []
+    val_dates_list = y_val.index
+    test_dates_list = y_test.index
+
+    # Combine val + test for each model
+    model_preds = {
+        "Persistence": persist,
+        "Climatology": clim,
+        f"Ridge (a={best_ridge_alpha})": best_ridge_result,
+        "HeteroscedasticNN": nn_res,
+    }
+
+    for mname, mres in model_preds.items():
+        for i, d in enumerate(val_dates_list):
+            base_preds_rows.append({
+                "date": d,
+                "model_name": mname,
+                "mu": float(mres["mu_val"][i]),
+                "sigma": float(mres["sigma_val"][i]),
+                "actual_tmax": float(y_val.values[i]),
+            })
+        for i, d in enumerate(test_dates_list):
+            base_preds_rows.append({
+                "date": d,
+                "model_name": mname,
+                "mu": float(mres["mu_test"][i]),
+                "sigma": float(mres["sigma_test"][i]),
+                "actual_tmax": float(y_test.values[i]),
+            })
+
+    base_preds_df = pd.DataFrame(base_preds_rows)
+    base_preds_path = os.path.join(results_dir, "base_predictions.csv")
+    base_preds_df.to_csv(base_preds_path, index=False)
+    logger.info("Saved base predictions (%d rows) to %s", len(base_preds_df), base_preds_path)
+
+    # Also save just the best model (NN) predictions for quick synthesis loading
+    nn_preds_rows = []
+    for i, d in enumerate(val_dates_list):
+        nn_preds_rows.append({
+            "date": d,
+            "model_name": "HeteroscedasticNN",
+            "mu": float(nn_res["mu_val"][i]),
+            "sigma": float(nn_res["sigma_val"][i]),
+            "actual_tmax": float(y_val.values[i]),
+        })
+    for i, d in enumerate(test_dates_list):
+        nn_preds_rows.append({
+            "date": d,
+            "model_name": "HeteroscedasticNN",
+            "mu": float(nn_res["mu_test"][i]),
+            "sigma": float(nn_res["sigma_test"][i]),
+            "actual_tmax": float(y_test.values[i]),
+        })
+    nn_preds_df = pd.DataFrame(nn_preds_rows)
+    nn_preds_path = os.path.join(results_dir, "nn_predictions.csv")
+    nn_preds_df.to_csv(nn_preds_path, index=False)
+    logger.info("Saved NN predictions (%d rows) to %s", len(nn_preds_df), nn_preds_path)
+
     # ===================================================================
     # Summary
     # ===================================================================
@@ -1153,7 +1264,7 @@ def main():
     # --- Metadata ---
     metadata = {
         "city": "Atlanta",
-        "kalshi_ticker": "KXHIGHATL",
+        "kalshi_ticker": "KXHIGHTATL",
         "scoring": "contract_brier",
         "target_station": city_config.TARGET_STATION,
         "n_surrounding_stations": len(city_config.SURROUNDING_STATIONS),

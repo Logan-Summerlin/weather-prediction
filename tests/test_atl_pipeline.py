@@ -40,7 +40,7 @@ class TestAtlConfigLoads:
         assert self.cfg is not None
         assert self.cfg.city_code == "atl"
         assert self.cfg.city_name == "Atlanta"
-        assert self.cfg.kalshi_ticker == "KXHIGHATL"
+        assert self.cfg.kalshi_ticker == "KXHIGHTATL"
         assert isinstance(self.cfg.bucket_edges, list)
         assert isinstance(self.cfg.bucket_labels, list)
         assert isinstance(self.cfg.monthly_tmax_mean, dict)

@@ -78,6 +78,12 @@ CITY_CONFIGS = {
         "checkpoint_csv": DATA_DIR / "kalshi_presettlement_aus_checkpoint.csv",
         "series_tickers": ["KXHIGHAUS", "HIGHAUS"],
     },
+    "atl": {
+        "settlement_csv": DATA_DIR / "real_kalshi_atl_all.csv",
+        "output_csv": DATA_DIR / "kalshi_presettlement_atl.csv",
+        "checkpoint_csv": DATA_DIR / "kalshi_presettlement_atl_checkpoint.csv",
+        "series_tickers": ["KXHIGHTATL", "HIGHTATL"],
+    },
 }
 
 CSV_COLUMNS = [
@@ -525,7 +531,7 @@ def main():
         description="Fetch Kalshi pre-settlement prices for CHI and PHL"
     )
     parser.add_argument(
-        "--city", type=str, choices=["chi", "phl", "aus"], default=None,
+        "--city", type=str, choices=["chi", "phl", "aus", "atl"], default=None,
         help="Fetch only one city (default: both)",
     )
     parser.add_argument(

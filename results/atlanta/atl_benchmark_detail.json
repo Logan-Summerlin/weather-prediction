@@ -1,0 +1,20 @@
+{
+  "Persistence": {
+    "test_brier": 0.18996288861962884
+  },
+  "Climatology": {
+    "test_brier": 0.20345060249161215
+  },
+  "Ridge (a=100.0)": {
+    "test_brier": 0.18045359520959647,
+    "val_mae": 3.5825806368408735,
+    "test_mae": 3.3895198996782874,
+    "alpha": 100.0
+  },
+  "HeteroscedasticNN": {
+    "test_brier": 0.20981580408011416,
+    "val_mae": 3.9670903890163594,
+    "test_mae": 3.910868130585272,
+    "best_epoch": 165
+  }
+}

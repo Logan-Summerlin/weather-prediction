@@ -1,0 +1,110 @@
+{
+  "timestamp": "2026-02-18T09:04:24.265975",
+  "city": "atlanta",
+  "kalshi_ticker": "KXHIGHTATL",
+  "target_station": "USW00013874",
+  "target_station_name": "Hartsfield-Jackson Atlanta International Airport",
+  "overall_status": "PASS",
+  "gates_passed": 11,
+  "gates_total": 11,
+  "pass_rate": "11/11 (100%)",
+  "thresholds": {
+    "brier_threshold": 0.14,
+    "nws_brier_baseline": 0.12,
+    "ece_threshold": 0.05,
+    "min_positive_pnl": 0.0,
+    "max_drawdown_threshold": -0.3,
+    "min_oos_days": 200,
+    "seasonal_brier_threshold": 0.2
+  },
+  "gates": [
+    {
+      "name": "overall_brier",
+      "description": "OOS Brier score below threshold",
+      "passed": true,
+      "value": 0.015268285786318045,
+      "threshold": 0.14,
+      "details": "Best model Brier: 0.0153 (threshold: 0.14)"
+    },
+    {
+      "name": "beats_nws",
+      "description": "Model Brier beats NWS baseline",
+      "passed": true,
+      "value": 0.015268285786318045,
+      "threshold": 0.12,
+      "details": "Model: 0.0153 vs NWS: 0.1200"
+    },
+    {
+      "name": "seasonal_brier",
+      "description": "No season exceeds Brier threshold",
+      "passed": true,
+      "value": 0.02238039112612542,
+      "threshold": 0.2,
+      "details": "Worst season: JJA=0.0224 (threshold: 0.2)"
+    },
+    {
+      "name": "min_oos_days",
+      "description": "Sufficient OOS evaluation days",
+      "passed": true,
+      "value": 2192,
+      "threshold": 200,
+      "details": "OOS days: 2192 (minimum: 200)"
+    },
+    {
+      "name": "ece",
+      "description": "Expected Calibration Error within tolerance",
+      "passed": true,
+      "value": 0.0001935091354459053,
+      "threshold": 0.05,
+      "details": "ECE: 0.0002 (threshold: 0.05)"
+    },
+    {
+      "name": "reliability_diagram",
+      "description": "Reliability diagram artifact exists",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Found at /home/user/weather-prediction/results/atlanta/synthesis/reliability_diagram.png"
+    },
+    {
+      "name": "positive_pnl",
+      "description": "Paper trading shows positive P&L",
+      "passed": true,
+      "value": 1112.479091018129,
+      "threshold": 0.0,
+      "details": "Total P&L: $1112.48 (minimum: $0.00)"
+    },
+    {
+      "name": "max_drawdown",
+      "description": "Max drawdown within acceptable limits",
+      "passed": true,
+      "value": -0.08793131270825373,
+      "threshold": -0.3,
+      "details": "Max drawdown: -8.8% (limit: -30.0%)"
+    },
+    {
+      "name": "data_pipeline",
+      "description": "Processed data files exist",
+      "passed": true,
+      "value": 7,
+      "threshold": 7,
+      "details": "7/7 required files present in /home/user/weather-prediction/data/atlanta/processed"
+    },
+    {
+      "name": "model_checkpoints",
+      "description": "Model checkpoints saved",
+      "passed": true,
+      "value": 1,
+      "threshold": null,
+      "details": "1 model file(s) found in /home/user/weather-prediction/models/atlanta"
+    },
+    {
+      "name": "scaler_artifact",
+      "description": "Feature scaler artifact exists",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Scaler found at /home/user/weather-prediction/data/atlanta/processed/scaler.pkl"
+    }
+  ]
+}

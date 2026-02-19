@@ -1,0 +1,15 @@
+{
+  "city": "Atlanta",
+  "kalshi_ticker": "KXHIGHTATL",
+  "scoring": "contract_brier",
+  "target_station": "USW00013874",
+  "n_surrounding_stations": 50,
+  "date_range": "1985-01-01 to 2026-02-28",
+  "n_features": 194,
+  "n_train": 10514,
+  "n_val": 2253,
+  "n_test": 2253,
+  "n_buckets": 57,
+  "best_model": "Ridge (a=100.0)",
+  "best_contract_brier": 0.18045359520959647
+}

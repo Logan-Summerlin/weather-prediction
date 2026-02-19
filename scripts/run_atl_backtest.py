@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Atlanta KXHIGHATL Market Backtest.
+Atlanta KXHIGHTATL Market Backtest.
 
-Simulates Kalshi KXHIGHATL market conditions and runs an EV-gated trading
+Simulates Kalshi KXHIGHTATL market conditions and runs an EV-gated trading
 backtest using calibrated model predictions.  Reports P&L, Brier score,
 and drawdown metrics.
 
@@ -94,7 +94,7 @@ def generate_atl_market_data(
     max_spread: float = 0.10,
     seed: int = 42,
 ) -> pd.DataFrame:
-    """Simulate KXHIGHATL market data for backtesting.
+    """Simulate KXHIGHTATL market data for backtesting.
 
     Generates realistic market prices based on the actual temperature
     outcome with noise, bid-ask spreads, and volume.  The market is
@@ -852,7 +852,7 @@ def load_calibrated_predictions(results_dir: str) -> pd.DataFrame:
 # ===========================================================================
 
 def main() -> None:
-    """Run the full ATL KXHIGHATL market backtest."""
+    """Run the full ATL KXHIGHTATL market backtest."""
     cfg = get_city_config("atl")
     ensure_city_dirs(cfg)
 
@@ -860,7 +860,7 @@ def main() -> None:
     os.makedirs(backtest_dir, exist_ok=True)
 
     logger.info("=" * 70)
-    logger.info("Atlanta KXHIGHATL Market Backtest")
+    logger.info("Atlanta KXHIGHTATL Market Backtest")
     logger.info("  City:           %s", cfg.city_name)
     logger.info("  Ticker:         %s", cfg.kalshi_ticker)
     logger.info("  Station:        %s (%s)", cfg.target_station, cfg.target_station_name)
@@ -887,7 +887,7 @@ def main() -> None:
     logger.info("  Using OOS portion: %d days", len(oos_df))
 
     # ---- Step 2: Generate simulated market data ----
-    logger.info("Step 2: Generating simulated KXHIGHATL market data ...")
+    logger.info("Step 2: Generating simulated KXHIGHTATL market data ...")
     market_df = generate_atl_market_data(
         dates=pd.to_datetime(oos_df["date"]).values,
         actual_tmax=oos_df["actual_tmax"].values,
@@ -944,7 +944,7 @@ def main() -> None:
             backtest_result["bankroll_series"],
             DEFAULT_INITIAL_BANKROLL,
             os.path.join(backtest_dir, "pnl_curve.png"),
-            title="ATL KXHIGHATL Backtest: Cumulative P&L",
+            title="ATL KXHIGHTATL Backtest: Cumulative P&L",
         )
 
     # Brier comparison
@@ -961,7 +961,7 @@ def main() -> None:
         plot_seasonal_pnl(
             metrics["seasonal"],
             os.path.join(backtest_dir, "seasonal_pnl.png"),
-            title="ATL KXHIGHATL Backtest: Seasonal P&L",
+            title="ATL KXHIGHTATL Backtest: Seasonal P&L",
         )
 
     # Trade EV distribution
@@ -974,7 +974,7 @@ def main() -> None:
 
     # ---- Final summary ----
     logger.info("=" * 70)
-    logger.info("ATL KXHIGHATL Backtest Complete")
+    logger.info("ATL KXHIGHTATL Backtest Complete")
     logger.info("  Total trades:     %d", metrics["n_trades"])
     logger.info("  Win rate:         %.1f%%", metrics["win_rate"] * 100)
     logger.info("  Total P&L:        $%.2f", metrics["total_pnl"])
