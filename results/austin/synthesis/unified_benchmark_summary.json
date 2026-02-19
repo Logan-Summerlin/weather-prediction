@@ -1,0 +1,218 @@
+{
+  "city": "Austin",
+  "ticker": "KXHIGHAUS",
+  "station": "USW00013904",
+  "n_models": 5,
+  "split_boundaries": {
+    "train": "<=2021-12-31",
+    "calibration": "2022-01-01 to 2023-12-31",
+    "test": "2024-01-01 to 2025-12-31"
+  },
+  "n_train": 2043,
+  "n_cal": 2920,
+  "n_test": 1464,
+  "n_buckets": 57,
+  "best_overall_model": "U9_kitchen_sink",
+  "best_overall_brier": 0.01654643186152611,
+  "best_overall_calibration": "2_isotonic",
+  "models": {
+    "U9_kitchen_sink": {
+      "contract_brier": 0.01654643186152611,
+      "best_calibration_method": "2_isotonic",
+      "test_mae": 32.83668065493224,
+      "best_val_loss": 3.6168315410614014,
+      "best_epoch": 38,
+      "hidden_sizes": [
+        256,
+        128,
+        64
+      ],
+      "dropout": 0.2,
+      "use_batch_norm": true,
+      "features": [
+        "mu",
+        "sigma",
+        "sin_day",
+        "cos_day",
+        "mu_sigma_interaction",
+        "mu_seasonal_anomaly",
+        "sigma_regime",
+        "mu_squared",
+        "persistence_gap"
+      ],
+      "calibration_methods": {
+        "1_raw_uncalibrated": {
+          "brier": 0.018579025629870925,
+          "ece": 0.008472187195761106
+        },
+        "2_isotonic": {
+          "brier": 0.01654643186152611,
+          "ece": 0.0011996236993493759
+        },
+        "3_platt_scaling": {
+          "brier": 0.01758677101843755,
+          "ece": 0.006165044210493338
+        },
+        "4_seasonal_regime": {
+          "brier": 0.01724938021519435,
+          "ece": 0.006335644908712792
+        }
+      }
+    },
+    "U7_extended_mlp": {
+      "contract_brier": 0.016653941594868833,
+      "best_calibration_method": "2_isotonic",
+      "test_mae": 55.495037567550376,
+      "best_val_loss": 4.991320201328823,
+      "best_epoch": 65,
+      "hidden_sizes": [
+        128,
+        64,
+        32
+      ],
+      "dropout": 0.15,
+      "use_batch_norm": true,
+      "features": [
+        "mu",
+        "sigma",
+        "sin_day",
+        "cos_day",
+        "mu_sigma_interaction",
+        "mu_seasonal_anomaly",
+        "sigma_regime"
+      ],
+      "calibration_methods": {
+        "1_raw_uncalibrated": {
+          "brier": 0.02136305761546473,
+          "ece": 0.021506595718944487
+        },
+        "2_isotonic": {
+          "brier": 0.016653941594868833,
+          "ece": 0.002188439828944366
+        },
+        "3_platt_scaling": {
+          "brier": 0.018319396583197544,
+          "ece": 0.012738636013754627
+        },
+        "4_seasonal_regime": {
+          "brier": 0.01808140474238277,
+          "ece": 0.013115152476690466
+        }
+      }
+    },
+    "U5_regime_conditional": {
+      "contract_brier": 0.01670876357893626,
+      "best_calibration_method": "2_isotonic",
+      "test_mae": 58.698000739285206,
+      "best_val_loss": 5.003960405077253,
+      "best_epoch": 67,
+      "hidden_sizes": [
+        128,
+        64,
+        32
+      ],
+      "dropout": 0.15,
+      "use_batch_norm": true,
+      "features": [
+        "mu",
+        "sigma",
+        "sin_day",
+        "cos_day",
+        "mu_sigma_interaction",
+        "mu_seasonal_anomaly"
+      ],
+      "calibration_methods": {
+        "1_raw_uncalibrated": {
+          "brier": 0.021942854233470158,
+          "ece": 0.023977329951337747
+        },
+        "2_isotonic": {
+          "brier": 0.01670876357893626,
+          "ece": 0.0011571727497610904
+        },
+        "3_platt_scaling": {
+          "brier": 0.018458471320436303,
+          "ece": 0.013594046649693122
+        },
+        "4_seasonal_regime": {
+          "brier": 0.018196187522887153,
+          "ece": 0.014182372253409627
+        }
+      }
+    },
+    "U0_base_synthesis": {
+      "contract_brier": 0.016717033855593238,
+      "best_calibration_method": "2_isotonic",
+      "test_mae": 67.76459166399768,
+      "best_val_loss": 4.578885333878653,
+      "best_epoch": 5,
+      "hidden_sizes": [
+        64,
+        32
+      ],
+      "dropout": 0.1,
+      "use_batch_norm": true,
+      "features": [
+        "mu",
+        "sigma",
+        "sin_day",
+        "cos_day"
+      ],
+      "calibration_methods": {
+        "1_raw_uncalibrated": {
+          "brier": 0.020522926576181197,
+          "ece": 0.0138151351672179
+        },
+        "2_isotonic": {
+          "brier": 0.016717033855593238,
+          "ece": 0.0009310878688477078
+        },
+        "3_platt_scaling": {
+          "brier": 0.017981724801796474,
+          "ece": 0.007612291682779358
+        },
+        "4_seasonal_regime": {
+          "brier": 0.017659775535078838,
+          "ece": 0.007921923268409299
+        }
+      }
+    },
+    "U2_contract_ridge": {
+      "contract_brier": 0.016729437958190613,
+      "best_calibration_method": "2_isotonic",
+      "test_mae": 54.077773406753124,
+      "best_val_loss": 4.959192991256714,
+      "best_epoch": 37,
+      "hidden_sizes": [
+        32
+      ],
+      "dropout": 0.0,
+      "use_batch_norm": false,
+      "features": [
+        "mu",
+        "sigma",
+        "sin_day",
+        "cos_day",
+        "mu_seasonal_anomaly"
+      ],
+      "calibration_methods": {
+        "1_raw_uncalibrated": {
+          "brier": 0.02081707037163413,
+          "ece": 0.01809151976726259
+        },
+        "2_isotonic": {
+          "brier": 0.016729437958190613,
+          "ece": 0.0028053794152393253
+        },
+        "3_platt_scaling": {
+          "brier": 0.018125164805485282,
+          "ece": 0.009925284618253689
+        },
+        "4_seasonal_regime": {
+          "brier": 0.017812713690763343,
+          "ece": 0.010352648093907003
+        }
+      }
+    }
+  }
+}

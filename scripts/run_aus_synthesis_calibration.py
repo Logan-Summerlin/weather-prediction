@@ -78,6 +78,55 @@ SEASON_MAP = {
 
 SEASON_ORDER = ["DJF", "MAM", "JJA", "SON"]
 
+# ---------------------------------------------------------------------------
+# U-series model configurations
+# ---------------------------------------------------------------------------
+# Each variant specifies hidden layer sizes, dropout, batch-norm usage,
+# and the subset of synthesis features to include.  Feature names must
+# match the column names returned by _build_synthesis_features().
+U_SERIES_CONFIGS = {
+    "U0_base_synthesis": {
+        "hidden_sizes": [64, 32],
+        "dropout": 0.1,
+        "use_batch_norm": True,
+        "features": ["mu", "sigma", "sin_day", "cos_day"],
+    },
+    "U2_contract_ridge": {
+        "hidden_sizes": [32],
+        "dropout": 0.0,
+        "use_batch_norm": False,
+        "features": ["mu", "sigma", "sin_day", "cos_day", "mu_seasonal_anomaly"],
+        "note": "Simple linear-ish model for contract-level calibration",
+    },
+    "U5_regime_conditional": {
+        "hidden_sizes": [128, 64, 32],
+        "dropout": 0.15,
+        "use_batch_norm": True,
+        "features": ["mu", "sigma", "sin_day", "cos_day", "mu_sigma_interaction", "mu_seasonal_anomaly"],
+    },
+    "U7_extended_mlp": {
+        "hidden_sizes": [128, 64, 32],
+        "dropout": 0.15,
+        "use_batch_norm": True,
+        "features": ["mu", "sigma", "sin_day", "cos_day", "mu_sigma_interaction", "mu_seasonal_anomaly", "sigma_regime"],
+    },
+    "U9_kitchen_sink": {
+        "hidden_sizes": [256, 128, 64],
+        "dropout": 0.2,
+        "use_batch_norm": True,
+        "features": ["mu", "sigma", "sin_day", "cos_day", "mu_sigma_interaction", "mu_seasonal_anomaly", "sigma_regime", "mu_squared", "persistence_gap"],
+    },
+}
+
+# Canonical order of all synthesis features.  _build_synthesis_features()
+# returns a DataFrame with these columns; each U-series variant selects a
+# subset via its "features" list.
+ALL_SYNTHESIS_FEATURE_NAMES = [
+    "mu", "sigma", "sin_day", "cos_day",
+    "mu_sigma_interaction", "mu_seasonal_anomaly",
+    "sigma_regime", "mu_squared", "persistence_gap",
+]
+
 
 # ===========================================================================
 # Data Loading
@@ -237,7 +286,7 @@ def compute_brier_score(
 # ===========================================================================
 
 class SynthesisMLP(nn.Module):
-    """Small 3-layer MLP for synthesis model.
+    """Configurable MLP for synthesis model (U-series architecture).
 
     Takes base model (mu, sigma), seasonal features (sin_day, cos_day),
     and interaction features as input.  Outputs calibrated (mu, sigma)
@@ -248,9 +297,11 @@ class SynthesisMLP(nn.Module):
     n_features : int
         Number of input features.
     hidden_sizes : list[int]
-        Sizes of the three hidden layers.
+        Sizes of the hidden layers.
     dropout : float
         Dropout probability.
+    use_batch_norm : bool
+        Whether to include BatchNorm1d after each hidden linear layer.
     """
 
     def __init__(
@@ -258,6 +309,7 @@ class SynthesisMLP(nn.Module):
         n_features: int = 6,
         hidden_sizes: Optional[list[int]] = None,
         dropout: float = 0.15,
+        use_batch_norm: bool = True,
     ):
         super().__init__()
 
@@ -268,7 +320,8 @@ class SynthesisMLP(nn.Module):
         in_dim = n_features
         for h_dim in hidden_sizes:
             layers.append(nn.Linear(in_dim, h_dim))
-            layers.append(nn.BatchNorm1d(h_dim))
+            if use_batch_norm:
+                layers.append(nn.BatchNorm1d(h_dim))
             layers.append(nn.ReLU())
             if dropout > 0:
                 layers.append(nn.Dropout(p=dropout))
@@ -283,8 +336,8 @@ class SynthesisMLP(nn.Module):
         n_params = sum(p.numel() for p in self.parameters())
         logger.info(
             "SynthesisMLP created: n_features=%d, hidden=%s, "
-            "dropout=%.2f, params=%d",
-            n_features, hidden_sizes, dropout, n_params,
+            "dropout=%.2f, batch_norm=%s, params=%d",
+            n_features, hidden_sizes, dropout, use_batch_norm, n_params,
         )
 
     def _init_weights(self) -> None:
@@ -320,16 +373,19 @@ class SynthesisMLP(nn.Module):
 def _build_synthesis_features(
     df: pd.DataFrame,
     cfg,
-) -> np.ndarray:
-    """Build synthesis feature matrix from prediction DataFrame.
+) -> pd.DataFrame:
+    """Build synthesis feature DataFrame from prediction DataFrame.
 
     Features:
-      0. mu               - base model predicted mean
-      1. sigma             - base model predicted std
-      2. sin_day           - sin(2*pi*dayofyear/365.25)
-      3. cos_day           - cos(2*pi*dayofyear/365.25)
-      4. mu_sigma_interaction  - mu * sigma
-      5. mu_seasonal_anomaly   - (mu - seasonal_mean) / seasonal_std
+      0. mu                   - base model predicted mean
+      1. sigma                - base model predicted std
+      2. sin_day              - sin(2*pi*dayofyear/365.25)
+      3. cos_day              - cos(2*pi*dayofyear/365.25)
+      4. mu_sigma_interaction - mu * sigma
+      5. mu_seasonal_anomaly  - (mu - seasonal_mean) / seasonal_std
+      6. sigma_regime         - binary high/low uncertainty indicator
+      7. mu_squared           - quadratic temperature term
+      8. persistence_gap      - day-over-day mu change
 
     Parameters
     ----------
@@ -340,8 +396,9 @@ def _build_synthesis_features(
 
     Returns
     -------
-    np.ndarray
-        Shape (n_days, 6) feature matrix.
+    pd.DataFrame
+        DataFrame with columns matching ALL_SYNTHESIS_FEATURE_NAMES,
+        each row corresponding to the input df rows.
     """
     dates = pd.to_datetime(df["date"])
     doy = dates.dt.dayofyear.values.astype(float)
@@ -362,12 +419,30 @@ def _build_synthesis_features(
     seasonal_std = np.maximum(seasonal_std, 1.0)
     mu_seasonal_anomaly = (mu - seasonal_mean) / seasonal_std
 
-    features = np.column_stack([
-        mu, sigma, sin_day, cos_day,
-        mu_sigma_interaction, mu_seasonal_anomaly,
-    ])
+    # Binary uncertainty regime: 1 if sigma above median, 0 otherwise
+    sigma_median = np.median(sigma)
+    sigma_regime = (sigma > sigma_median).astype(float)
 
-    return features.astype(np.float32)
+    # Quadratic temperature term
+    mu_squared = mu ** 2
+
+    # Day-over-day mu change (fill first NaN with 0)
+    persistence_gap = np.diff(mu, prepend=mu[0])
+    persistence_gap[0] = 0.0
+
+    feature_df = pd.DataFrame({
+        "mu": mu,
+        "sigma": sigma,
+        "sin_day": sin_day,
+        "cos_day": cos_day,
+        "mu_sigma_interaction": mu_sigma_interaction,
+        "mu_seasonal_anomaly": mu_seasonal_anomaly,
+        "sigma_regime": sigma_regime,
+        "mu_squared": mu_squared,
+        "persistence_gap": persistence_gap,
+    }).astype(np.float32)
+
+    return feature_df
 
 
 def train_synthesis_mlp(
@@ -380,6 +455,9 @@ def train_synthesis_mlp(
     batch_size: int = 64,
     lr: float = 0.001,
     model_name: str = "U_aus_synthesis",
+    hidden_sizes: Optional[list[int]] = None,
+    dropout: float = 0.15,
+    use_batch_norm: bool = True,
 ) -> dict:
     """Train a synthesis MLP with early stopping.
 
@@ -406,6 +484,12 @@ def train_synthesis_mlp(
         Learning rate.
     model_name : str
         Name for logging.
+    hidden_sizes : list[int], optional
+        Hidden layer sizes for the MLP.  Defaults to [64, 32, 16].
+    dropout : float
+        Dropout probability.
+    use_batch_norm : bool
+        Whether to include BatchNorm1d layers.
 
     Returns
     -------
@@ -432,7 +516,12 @@ def train_synthesis_mlp(
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     # Initialize model
-    model = SynthesisMLP(n_features=n_features).to(DEVICE)
+    model = SynthesisMLP(
+        n_features=n_features,
+        hidden_sizes=hidden_sizes,
+        dropout=dropout,
+        use_batch_norm=use_batch_norm,
+    ).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", patience=5, factor=0.5,
@@ -1037,6 +1126,7 @@ def run_calibration_sweep(
     predictions_df: pd.DataFrame,
     bucket_edges: list[tuple[float, float]],
     output_dir: str,
+    model_name: str = "synthesis",
 ) -> dict:
     """Run a full calibration sweep on synthesis model predictions.
 
@@ -1045,6 +1135,12 @@ def run_calibration_sweep(
       2. Isotonic calibration per bucket
       3. Platt scaling per bucket
       4. Seasonal regime-conditional isotonic calibration
+
+    Date-based chronological splits:
+      - Train: up to 2021-12-31 (for fitting calibrators)
+      - Calibration: 2022-01-01 to 2023-12-31 (combined with train for
+        calibrator fitting to maximize calibration data)
+      - Test: 2024-01-01 to 2025-12-31 (held-out evaluation only)
 
     Parameters
     ----------
@@ -1055,6 +1151,8 @@ def run_calibration_sweep(
         Kalshi contract bucket boundaries.
     output_dir : str
         Directory to save calibration results and plots.
+    model_name : str
+        Name of the model for logging and file naming.
 
     Returns
     -------
@@ -1065,48 +1163,52 @@ def run_calibration_sweep(
     os.makedirs(output_dir, exist_ok=True)
 
     df = predictions_df.sort_values("date").reset_index(drop=True)
-    dates = pd.to_datetime(df["date"]).values
+    dates = pd.to_datetime(df["date"])
     mu = df["mu"].values
     sigma = df["sigma"].values
     actual_tmax = df["actual_tmax"].values
 
-    # Chronological split: 70% train, 15% val, 15% test
+    # Date-based chronological splits
+    # Synthesis predictions span 2022-2024. Calibrators are fit on the
+    # calibration partition (2022-2023) and evaluated on test (2024+).
+    cal_mask = (dates >= "2022-01-01") & (dates <= "2023-12-31")
+    test_mask = dates >= "2024-01-01"
+
+    cal_idx = np.where(cal_mask.values)[0]
+    test_idx = np.where(test_mask.values)[0]
+    # Use full calibration period for fitting calibrators
+    train_cal_idx = cal_idx
+
+    n_cal = len(cal_idx)
+    n_test = len(test_idx)
     n = len(df)
-    n_train = int(n * 0.70)
-    n_val = int(n * 0.15)
-    n_test = n - n_train - n_val
 
     logger.info(
-        "Calibration sweep: %d total days (train=%d, val=%d, test=%d)",
-        n, n_train, n_val, n_test,
+        "Calibration sweep [%s]: %d total days (cal=%d, test=%d)",
+        model_name, n, n_cal, n_test,
     )
 
-    # Split indices
-    train_slice = slice(0, n_train)
-    val_slice = slice(n_train, n_train + n_val)
-    test_slice = slice(n_train + n_val, None)
+    if n_test == 0:
+        logger.warning("No test data available (2024+). Returning empty results.")
+        return {"best_method": "N/A", "summary": {"n_test_days": 0}}
 
     # Compute raw bucket probabilities for all splits
-    raw_probs_train = compute_bucket_probs_gaussian(
-        mu[train_slice], sigma[train_slice], bucket_edges,
-    )
-    raw_probs_val = compute_bucket_probs_gaussian(
-        mu[val_slice], sigma[val_slice], bucket_edges,
+    raw_probs_train_cal = compute_bucket_probs_gaussian(
+        mu[train_cal_idx], sigma[train_cal_idx], bucket_edges,
     )
     raw_probs_test = compute_bucket_probs_gaussian(
-        mu[test_slice], sigma[test_slice], bucket_edges,
+        mu[test_idx], sigma[test_idx], bucket_edges,
     )
 
     # Build outcome matrices
-    outcomes_train = _build_outcome_matrix(actual_tmax[train_slice], bucket_edges)
-    outcomes_val = _build_outcome_matrix(actual_tmax[val_slice], bucket_edges)
-    outcomes_test = _build_outcome_matrix(actual_tmax[test_slice], bucket_edges)
+    outcomes_train_cal = _build_outcome_matrix(actual_tmax[train_cal_idx], bucket_edges)
+    outcomes_test = _build_outcome_matrix(actual_tmax[test_idx], bucket_edges)
 
     results: dict = {}
 
     # ---- 1. Raw (uncalibrated) ----
     brier_raw = compute_brier_score(
-        raw_probs_test, actual_tmax[test_slice], bucket_edges,
+        raw_probs_test, actual_tmax[test_idx], bucket_edges,
     )
     ece_raw = compute_ece(
         raw_probs_test.ravel(), outcomes_test.ravel(),
@@ -1126,15 +1228,13 @@ def run_calibration_sweep(
     )
 
     # ---- 2. Isotonic calibration ----
-    # Fit on train, apply to test (use val for development, but final eval on test)
-    cal_train_for_iso = np.vstack([raw_probs_train, raw_probs_val])
-    out_train_for_iso = np.vstack([outcomes_train, outcomes_val])
+    # Fit on train+cal, apply to test
     iso_probs_test = apply_isotonic_calibration(
-        cal_train_for_iso, out_train_for_iso, raw_probs_test,
+        raw_probs_train_cal, outcomes_train_cal, raw_probs_test,
     )
 
     brier_iso = compute_brier_score(
-        iso_probs_test, actual_tmax[test_slice], bucket_edges,
+        iso_probs_test, actual_tmax[test_idx], bucket_edges,
     )
     ece_iso = compute_ece(
         iso_probs_test.ravel(), outcomes_test.ravel(),
@@ -1155,11 +1255,11 @@ def run_calibration_sweep(
 
     # ---- 3. Platt scaling ----
     platt_probs_test = apply_platt_scaling(
-        cal_train_for_iso, out_train_for_iso, raw_probs_test,
+        raw_probs_train_cal, outcomes_train_cal, raw_probs_test,
     )
 
     brier_platt = compute_brier_score(
-        platt_probs_test, actual_tmax[test_slice], bucket_edges,
+        platt_probs_test, actual_tmax[test_idx], bucket_edges,
     )
     ece_platt = compute_ece(
         platt_probs_test.ravel(), outcomes_test.ravel(),
@@ -1179,14 +1279,15 @@ def run_calibration_sweep(
     )
 
     # ---- 4. Seasonal regime-conditional isotonic ----
-    dates_train_val = np.concatenate([dates[train_slice], dates[val_slice]])
+    dates_np = dates.values
+    dates_train_cal = dates_np[train_cal_idx]
     seasonal_probs_test = apply_seasonal_calibration(
-        cal_train_for_iso, out_train_for_iso, dates_train_val,
-        raw_probs_test, dates[test_slice],
+        raw_probs_train_cal, outcomes_train_cal, dates_train_cal,
+        raw_probs_test, dates_np[test_idx],
     )
 
     brier_seasonal = compute_brier_score(
-        seasonal_probs_test, actual_tmax[test_slice], bucket_edges,
+        seasonal_probs_test, actual_tmax[test_idx], bucket_edges,
     )
     ece_seasonal = compute_ece(
         seasonal_probs_test.ravel(), outcomes_test.ravel(),
@@ -1226,22 +1327,27 @@ def run_calibration_sweep(
         rel_data = info["reliability"]
         plot_reliability(
             rel_data,
-            title=f"AUS {method_name}: Reliability",
-            save_path=os.path.join(output_dir, f"reliability_{method_name}.png"),
+            title=f"AUS {model_name} {method_name}: Reliability",
+            save_path=os.path.join(
+                output_dir, f"reliability_{model_name}_{method_name}.png"
+            ),
         )
 
     # Brier comparison bar chart
     plot_brier_comparison(
         method_briers,
-        title="AUS Calibration Sweep: OOS Brier Scores",
-        save_path=os.path.join(output_dir, "brier_comparison.png"),
+        title=f"AUS {model_name} Calibration Sweep: OOS Brier Scores",
+        save_path=os.path.join(output_dir, f"brier_comparison_{model_name}.png"),
     )
 
     # ---- Build summary ----
     summary = {
         "city": "Austin",
         "ticker": "KXHIGHAUS",
+        "model_name": model_name,
         "n_total_days": n,
+        "n_train_days": n_cal,
+        "n_cal_days": n_cal,
         "n_test_days": n_test,
         "n_buckets": len(bucket_edges),
         "methods": {},
@@ -1259,7 +1365,9 @@ def run_calibration_sweep(
     results["summary"] = summary
 
     # Save summary JSON
-    summary_path = os.path.join(output_dir, "calibration_sweep_summary.json")
+    summary_path = os.path.join(
+        output_dir, f"calibration_sweep_{model_name}.json"
+    )
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2, default=str)
     logger.info("Saved calibration sweep summary to %s", summary_path)
@@ -1271,8 +1379,75 @@ def run_calibration_sweep(
 # Main Orchestration
 # ===========================================================================
 
+def _save_training_curves(
+    history: list[dict],
+    model_name: str,
+    output_dir: str,
+) -> None:
+    """Save training/validation loss and MAE curves for one model.
+
+    Parameters
+    ----------
+    history : list[dict]
+        Training history with keys: epoch, train_loss, val_loss, val_mae.
+    model_name : str
+        Name of the U-series model variant.
+    output_dir : str
+        Directory to save the plot.
+    """
+    if not history:
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    epochs = [h["epoch"] for h in history]
+    train_losses = [h["train_loss"] for h in history]
+    val_losses = [h["val_loss"] for h in history]
+    val_maes = [h["val_mae"] for h in history]
+
+    axes[0].plot(epochs, train_losses, label="Train Loss", linewidth=1.5)
+    axes[0].plot(epochs, val_losses, label="Val Loss", linewidth=1.5)
+    axes[0].set_xlabel("Epoch")
+    axes[0].set_ylabel("Loss (Gaussian NLL)")
+    axes[0].set_title("Training Curves")
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+
+    axes[1].plot(epochs, val_maes, label="Val MAE", linewidth=1.5, color="#2ca02c")
+    best_idx = int(np.argmin(val_maes))
+    axes[1].axvline(epochs[best_idx], color="red", linestyle="--", alpha=0.7)
+    axes[1].scatter([epochs[best_idx]], [val_maes[best_idx]],
+                    color="red", zorder=5, s=50)
+    axes[1].set_xlabel("Epoch")
+    axes[1].set_ylabel("MAE (deg F)")
+    axes[1].set_title("Validation MAE")
+    axes[1].legend()
+    axes[1].grid(True, alpha=0.3)
+
+    fig.suptitle(f"AUS {model_name}: Training Curves", fontsize=14, fontweight="bold")
+    fig.tight_layout()
+    curves_path = os.path.join(output_dir, f"training_curves_{model_name}.png")
+    fig.savefig(curves_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    logger.info("  Saved training curves to %s", curves_path)
+
+
 def main() -> None:
-    """Run the full AUS synthesis model training and calibration sweep."""
+    """Run the full AUS U-series synthesis model training and calibration sweep.
+
+    For each variant in U_SERIES_CONFIGS:
+      1. Select the feature subset specified by the config.
+      2. Train a SynthesisMLP with the variant's architecture.
+      3. Generate predictions on all data.
+      4. Run the 4-method calibration sweep (raw, isotonic, Platt, seasonal).
+      5. Record the best (model, calibration) combination by test-set
+         contract Brier.
+
+    Outputs:
+      - Per-model artifacts in results/austin/synthesis/
+      - results/austin/synthesis/unified_benchmark_summary.json
+      - results/austin/unified_predictions.csv
+    """
     cfg = get_city_config("aus")
     ensure_city_dirs(cfg)
 
@@ -1280,11 +1455,12 @@ def main() -> None:
     os.makedirs(synthesis_dir, exist_ok=True)
 
     logger.info("=" * 70)
-    logger.info("Austin Synthesis Model Training & Calibration Sweep")
+    logger.info("Austin U-Series Synthesis Model Training & Calibration Sweep")
     logger.info("  City:     %s", cfg.city_name)
     logger.info("  Ticker:   %s", cfg.kalshi_ticker)
     logger.info("  Station:  %s (%s)", cfg.target_station, cfg.target_station_name)
     logger.info("  Buckets:  %d", len(cfg.bucket_edges))
+    logger.info("  Models:   %s", list(U_SERIES_CONFIGS.keys()))
     logger.info("  Output:   %s", synthesis_dir)
     logger.info("=" * 70)
 
@@ -1296,128 +1472,270 @@ def main() -> None:
                 base_df["date"].min(),
                 base_df["date"].max())
 
-
-    # Drop rows with missing actual_tmax — cannot train or evaluate without targets
+    # Drop rows with missing actual_tmax -- cannot train or evaluate without targets
     n_before = len(base_df)
     base_df = base_df.dropna(subset=["actual_tmax"]).reset_index(drop=True)
     n_dropped = n_before - len(base_df)
     if n_dropped > 0:
         logger.info("  Dropped %d rows with NaN actual_tmax (%d remaining)",
                      n_dropped, len(base_df))
-    # ---- Step 2: Build synthesis features ----
+
+    # ---- Step 2: Build full synthesis feature set ----
     logger.info("Step 2: Building synthesis features ...")
-    features = _build_synthesis_features(base_df, cfg)
-    logger.info("  Feature matrix shape: %s", features.shape)
+    feature_df = _build_synthesis_features(base_df, cfg)
+    logger.info("  Feature DataFrame shape: %s", feature_df.shape)
+    logger.info("  Available features: %s", list(feature_df.columns))
 
-    # ---- Step 3: Chronological split ----
-    n = len(base_df)
-    n_train = int(n * 0.70)
-    n_val = int(n * 0.15)
+    # ---- Step 3: Date-based chronological splits ----
+    # NOTE: Base predictions only contain val (2022-2023) and test (2024+) from
+    # the benchmark script. The synthesis meta-model trains on the calibration
+    # partition (2022-2023) and evaluates on test (2024+). We split the
+    # calibration partition 70/30 for synthesis train/val to avoid overfitting.
+    dates = pd.to_datetime(base_df["date"])
+    cal_mask = (dates >= "2022-01-01") & (dates <= "2023-12-31")
+    test_mask = dates >= "2024-01-01"
 
-    X_train = features[:n_train]
-    X_val = features[n_train:n_train + n_val]
-    X_test = features[n_train + n_val:]
+    cal_idx = np.where(cal_mask.values)[0]
+    test_idx = np.where(test_mask.values)[0]
 
-    y_train = base_df["actual_tmax"].values[:n_train]
-    y_val = base_df["actual_tmax"].values[n_train:n_train + n_val]
-    y_test = base_df["actual_tmax"].values[n_train + n_val:]
+    # Split calibration into synthesis-train (70%) and synthesis-val (30%)
+    n_cal = len(cal_idx)
+    n_synth_train = int(n_cal * 0.7)
+    train_idx = cal_idx[:n_synth_train]
+    val_idx = cal_idx[n_synth_train:]
 
-    logger.info("  Train: %d, Val: %d, Test: %d", len(y_train), len(y_val), len(y_test))
+    y_all = base_df["actual_tmax"].values
+    y_train = y_all[train_idx]
+    y_cal = y_all[val_idx]
+    y_test = y_all[test_idx]
 
-    # ---- Step 4: Train synthesis MLP ----
-    logger.info("Step 3: Training synthesis MLP ...")
-    train_result = train_synthesis_mlp(
-        X_train, y_train, X_val, y_val,
-        max_epochs=200,
-        patience=15,
-        batch_size=64,
-        lr=0.001,
-        model_name="U_aus_synthesis",
+    logger.info(
+        "  Date splits: SynthTrain=%d (2022-mid2023), SynthVal=%d (mid2023-2023), Test=%d (2024+)",
+        len(train_idx), len(val_idx), len(test_idx),
     )
 
-    model = train_result["model"]
-    scaler = train_result["scaler"]
+    # ---- Step 4: Train each U-series variant ----
+    # Collect results for all (model, calibration) combinations
+    all_model_results: dict[str, dict] = {}
+    # Collect all predictions for unified_predictions.csv
+    all_predictions: list[pd.DataFrame] = []
 
-    # Save model checkpoint
-    model_path = os.path.join(synthesis_dir, "synthesis_model.pt")
-    torch.save(model.state_dict(), model_path)
-    logger.info("  Saved synthesis model to %s", model_path)
+    for variant_name, variant_cfg in U_SERIES_CONFIGS.items():
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("Training U-series variant: %s", variant_name)
+        logger.info("  hidden_sizes:   %s", variant_cfg["hidden_sizes"])
+        logger.info("  dropout:        %.2f", variant_cfg["dropout"])
+        logger.info("  use_batch_norm: %s", variant_cfg["use_batch_norm"])
+        logger.info("  features:       %s", variant_cfg["features"])
+        logger.info("=" * 60)
 
-    scaler_path = os.path.join(synthesis_dir, "synthesis_scaler.pkl")
-    with open(scaler_path, "wb") as f:
-        pickle.dump(scaler, f)
-    logger.info("  Saved scaler to %s", scaler_path)
+        # Select feature subset for this variant
+        feat_cols = variant_cfg["features"]
+        missing_cols = [c for c in feat_cols if c not in feature_df.columns]
+        if missing_cols:
+            logger.error(
+                "  SKIPPING %s: missing features %s", variant_name, missing_cols,
+            )
+            continue
 
-    # ---- Step 5: Generate synthesis predictions ----
-    logger.info("Step 4: Generating synthesis predictions ...")
-    synth_mu_all, synth_sigma_all = predict_synthesis(model, scaler, features)
+        X_all = feature_df[feat_cols].values.astype(np.float32)
+        X_train_v = X_all[train_idx]
+        X_cal_v = X_all[val_idx]
+        X_test_v = X_all[test_idx]
 
-    # Build synthesis prediction DataFrame
-    synth_df = base_df[["date", "actual_tmax"]].copy()
-    synth_df["mu"] = synth_mu_all
-    synth_df["sigma"] = synth_sigma_all
+        # Train MLP
+        train_result = train_synthesis_mlp(
+            X_train_v, y_train,
+            X_cal_v, y_cal,
+            max_epochs=200,
+            patience=15,
+            batch_size=64,
+            lr=0.001,
+            model_name=variant_name,
+            hidden_sizes=variant_cfg["hidden_sizes"],
+            dropout=variant_cfg["dropout"],
+            use_batch_norm=variant_cfg["use_batch_norm"],
+        )
 
-    # Compute MAE on test set
-    test_mu = synth_mu_all[n_train + n_val:]
-    test_mae = float(np.mean(np.abs(test_mu - y_test)))
-    logger.info("  Synthesis test MAE: %.2f F", test_mae)
+        model = train_result["model"]
+        scaler = train_result["scaler"]
 
-    # Save predictions
-    preds_path = os.path.join(synthesis_dir, "synthesis_predictions.csv")
-    synth_df.to_csv(preds_path, index=False)
-    logger.info("  Saved synthesis predictions to %s", preds_path)
+        # Save model checkpoint
+        model_path = os.path.join(synthesis_dir, f"{variant_name}_model.pt")
+        torch.save(model.state_dict(), model_path)
+        logger.info("  Saved model to %s", model_path)
 
-    # ---- Step 6: Calibration sweep ----
-    logger.info("Step 5: Running calibration sweep ...")
-    sweep_results = run_calibration_sweep(
-        synth_df, cfg.bucket_edges, synthesis_dir,
+        scaler_path = os.path.join(synthesis_dir, f"{variant_name}_scaler.pkl")
+        with open(scaler_path, "wb") as f:
+            pickle.dump(scaler, f)
+
+        # Save training curves
+        _save_training_curves(train_result["history"], variant_name, synthesis_dir)
+
+        # Generate predictions on all data
+        synth_mu_all, synth_sigma_all = predict_synthesis(model, scaler, X_all)
+
+        # Compute test MAE
+        test_mu = synth_mu_all[test_idx]
+        test_mae = float(np.mean(np.abs(test_mu - y_test)))
+        logger.info("  %s test MAE: %.2f F", variant_name, test_mae)
+
+        # Build prediction DataFrame for this variant
+        synth_df = base_df[["date", "actual_tmax"]].copy()
+        synth_df["mu"] = synth_mu_all
+        synth_df["sigma"] = synth_sigma_all
+
+        # Save per-model predictions
+        preds_path = os.path.join(synthesis_dir, f"{variant_name}_predictions.csv")
+        synth_df.to_csv(preds_path, index=False)
+
+        # Collect for unified predictions output
+        pred_out = synth_df.copy()
+        pred_out["model_name"] = variant_name
+        all_predictions.append(pred_out)
+
+        # ---- Calibration sweep for this variant ----
+        logger.info("  Running calibration sweep for %s ...", variant_name)
+        sweep_results = run_calibration_sweep(
+            synth_df, cfg.bucket_edges, synthesis_dir, model_name=variant_name,
+        )
+
+        sweep_summary = sweep_results.get("summary", {})
+        best_cal_method = sweep_summary.get("best_method", "N/A")
+        best_cal_brier = sweep_summary.get("best_brier", float("nan"))
+
+        all_model_results[variant_name] = {
+            "test_mae": test_mae,
+            "best_val_loss": train_result["best_val_loss"],
+            "best_epoch": train_result["best_epoch"],
+            "best_calibration_method": best_cal_method,
+            "best_calibrated_brier": best_cal_brier,
+            "hidden_sizes": variant_cfg["hidden_sizes"],
+            "dropout": variant_cfg["dropout"],
+            "use_batch_norm": variant_cfg["use_batch_norm"],
+            "features": variant_cfg["features"],
+            "calibration_methods": {},
+        }
+
+        # Record all calibration method results
+        for method_name, method_info in sweep_results.items():
+            if method_name in ("best_method", "summary"):
+                continue
+            all_model_results[variant_name]["calibration_methods"][method_name] = {
+                "brier": method_info["brier"],
+                "ece": method_info["ece"],
+            }
+
+        logger.info(
+            "  %s => best_cal=%s, Brier=%.4f, MAE=%.2f F",
+            variant_name, best_cal_method, best_cal_brier, test_mae,
+        )
+
+    # ---- Step 5: Identify overall best (model, calibration) combination ----
+    if not all_model_results:
+        logger.error("No models were successfully trained. Exiting.")
+        return
+
+    best_overall_model = None
+    best_overall_brier = float("inf")
+    for vname, vresults in all_model_results.items():
+        if vresults["best_calibrated_brier"] < best_overall_brier:
+            best_overall_brier = vresults["best_calibrated_brier"]
+            best_overall_model = vname
+
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("OVERALL BEST MODEL: %s", best_overall_model)
+    logger.info("  Calibration:   %s",
+                all_model_results[best_overall_model]["best_calibration_method"])
+    logger.info("  Contract Brier: %.4f", best_overall_brier)
+    logger.info("  Test MAE:       %.2f F",
+                all_model_results[best_overall_model]["test_mae"])
+    logger.info("=" * 70)
+
+    # ---- Step 6: Save unified benchmark summary ----
+    unified_summary = {
+        "city": "Austin",
+        "ticker": "KXHIGHAUS",
+        "station": cfg.target_station,
+        "n_models": len(all_model_results),
+        "split_boundaries": {
+            "train": "<=2021-12-31",
+            "calibration": "2022-01-01 to 2023-12-31",
+            "test": "2024-01-01 to 2025-12-31",
+        },
+        "n_train": int(len(train_idx)),
+        "n_cal": int(len(cal_idx)),
+        "n_test": int(len(test_idx)),
+        "n_buckets": len(cfg.bucket_edges),
+        "best_overall_model": best_overall_model,
+        "best_overall_brier": best_overall_brier,
+        "best_overall_calibration": all_model_results[best_overall_model][
+            "best_calibration_method"
+        ],
+        "models": {},
+    }
+
+    # Build per-model summary sorted by Brier
+    sorted_models = sorted(
+        all_model_results.items(),
+        key=lambda x: x[1]["best_calibrated_brier"],
     )
+    for vname, vresults in sorted_models:
+        unified_summary["models"][vname] = {
+            "contract_brier": vresults["best_calibrated_brier"],
+            "best_calibration_method": vresults["best_calibration_method"],
+            "test_mae": vresults["test_mae"],
+            "best_val_loss": vresults["best_val_loss"],
+            "best_epoch": vresults["best_epoch"],
+            "hidden_sizes": vresults["hidden_sizes"],
+            "dropout": vresults["dropout"],
+            "use_batch_norm": vresults["use_batch_norm"],
+            "features": vresults["features"],
+            "calibration_methods": vresults["calibration_methods"],
+        }
 
-    # ---- Step 7: Save training curves ----
-    logger.info("Step 6: Saving training curves ...")
-    history = train_result["history"]
-    if history:
-        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    summary_path = os.path.join(synthesis_dir, "unified_benchmark_summary.json")
+    with open(summary_path, "w") as f:
+        json.dump(unified_summary, f, indent=2, default=str)
+    logger.info("Saved unified benchmark summary to %s", summary_path)
 
-        epochs = [h["epoch"] for h in history]
-        train_losses = [h["train_loss"] for h in history]
-        val_losses = [h["val_loss"] for h in history]
-        val_maes = [h["val_mae"] for h in history]
+    # ---- Step 7: Save unified predictions CSV ----
+    if all_predictions:
+        unified_preds = pd.concat(all_predictions, ignore_index=True)
+        unified_preds_path = os.path.join(cfg.results_dir, "unified_predictions.csv")
+        unified_preds.to_csv(unified_preds_path, index=False)
+        logger.info("Saved unified predictions (%d rows) to %s",
+                     len(unified_preds), unified_preds_path)
 
-        axes[0].plot(epochs, train_losses, label="Train Loss", linewidth=1.5)
-        axes[0].plot(epochs, val_losses, label="Val Loss", linewidth=1.5)
-        axes[0].set_xlabel("Epoch")
-        axes[0].set_ylabel("Loss (Gaussian NLL)")
-        axes[0].set_title("Training Curves")
-        axes[0].legend()
-        axes[0].grid(True, alpha=0.3)
-
-        axes[1].plot(epochs, val_maes, label="Val MAE", linewidth=1.5, color="#2ca02c")
-        best_idx = int(np.argmin(val_maes))
-        axes[1].axvline(epochs[best_idx], color="red", linestyle="--", alpha=0.7)
-        axes[1].scatter([epochs[best_idx]], [val_maes[best_idx]],
-                        color="red", zorder=5, s=50)
-        axes[1].set_xlabel("Epoch")
-        axes[1].set_ylabel("MAE (deg F)")
-        axes[1].set_title("Validation MAE")
-        axes[1].legend()
-        axes[1].grid(True, alpha=0.3)
-
-        fig.suptitle("AUS Synthesis Model: Training Curves", fontsize=14, fontweight="bold")
-        fig.tight_layout()
-        curves_path = os.path.join(synthesis_dir, "training_curves.png")
-        fig.savefig(curves_path, dpi=150, bbox_inches="tight")
-        plt.close(fig)
-        logger.info("  Saved training curves to %s", curves_path)
+    # ---- Step 8: Print leaderboard ----
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("AUS U-Series Leaderboard (sorted by contract Brier, test set)")
+    logger.info("%-25s  %12s  %12s  %10s  %s",
+                "Model", "Brier", "MAE (F)", "Epoch", "Best Cal")
+    logger.info("-" * 85)
+    for vname, vresults in sorted_models:
+        marker = " ***" if vname == best_overall_model else ""
+        logger.info(
+            "%-25s  %12.4f  %12.2f  %10d  %s%s",
+            vname,
+            vresults["best_calibrated_brier"],
+            vresults["test_mae"],
+            vresults["best_epoch"],
+            vresults["best_calibration_method"],
+            marker,
+        )
+    logger.info("=" * 70)
 
     # ---- Final summary ----
-    summary = sweep_results.get("summary", {})
-    logger.info("=" * 70)
-    logger.info("AUS Synthesis Calibration Sweep Complete")
-    logger.info("  Best method:      %s", summary.get("best_method", "N/A"))
-    logger.info("  Best Brier:       %.4f", summary.get("best_brier", float("nan")))
-    logger.info("  Synthesis MAE:    %.2f F", test_mae)
-    logger.info("  Test days:        %d", summary.get("n_test_days", 0))
+    logger.info("")
+    logger.info("AUS U-Series Synthesis Calibration Sweep Complete")
+    logger.info("  Best model:       %s", best_overall_model)
+    logger.info("  Best calibration: %s",
+                all_model_results[best_overall_model]["best_calibration_method"])
+    logger.info("  Contract Brier:   %.4f", best_overall_brier)
     logger.info("  Output dir:       %s", synthesis_dir)
     logger.info("=" * 70)
 

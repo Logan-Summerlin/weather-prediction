@@ -6,10 +6,10 @@
   "n_surrounding_stations": 50,
   "date_range": "1985-01-01 to 2024-12-31",
   "n_features": 202,
-  "n_train": 7730,
-  "n_val": 1657,
-  "n_test": 1657,
+  "n_train": 8036,
+  "n_val": 730,
+  "n_test": 366,
   "n_buckets": 57,
   "best_model": "Ridge (a=100.0)",
-  "best_contract_brier": 0.17803759616244633
+  "best_contract_brier": 0.17946940877251213
 }

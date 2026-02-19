@@ -121,12 +121,49 @@ class PromotionGate:
 # Gate Category 1: Forecast Quality
 # ===========================================================================
 
+def _load_best_brier(results_dir: str) -> tuple[float, str]:
+    """Load the best model Brier score, preferring unified benchmark results.
+
+    Checks unified_benchmark_summary.json first (U-series), then falls back
+    to benchmark_summary.json (base benchmark).
+
+    Parameters
+    ----------
+    results_dir : str
+        Path to Austin results directory.
+
+    Returns
+    -------
+    tuple[float, str]
+        (best_brier, source_description) or (1.0, error_message) if not found.
+    """
+    # Prefer unified benchmark if available
+    unified_path = os.path.join(results_dir, "synthesis", "unified_benchmark_summary.json")
+    if os.path.exists(unified_path):
+        with open(unified_path) as f:
+            unified = json.load(f)
+        best_brier = unified.get("best_brier", unified.get("best_contract_brier", 1.0))
+        best_model = unified.get("best_model", "unknown")
+        return best_brier, f"unified/{best_model} from {unified_path}"
+
+    # Fallback to base benchmark
+    benchmark_path = os.path.join(results_dir, "benchmark_summary.json")
+    if os.path.exists(benchmark_path):
+        with open(benchmark_path) as f:
+            results = json.load(f)
+        best_brier = results.get("best_brier", 1.0)
+        return best_brier, f"base benchmark from {benchmark_path}"
+
+    return 1.0, "No benchmark results found"
+
+
 def check_forecast_quality(results_dir: str) -> list[PromotionGate]:
     """Check OOS Brier score gates.
 
     Verifies:
       - Overall OOS Brier is below the absolute threshold.
       - Model Brier beats the NWS baseline.
+      - Model Brier beats Kalshi market (from real presettlement data).
       - No season has a Brier score above the seasonal threshold.
       - Sufficient OOS days are available for evaluation.
 
@@ -142,63 +179,93 @@ def check_forecast_quality(results_dir: str) -> list[PromotionGate]:
     """
     gates: list[PromotionGate] = []
 
+    # Load best Brier (unified > base fallback)
+    best_brier, brier_source = _load_best_brier(results_dir)
+
     # Gate 1: Overall OOS Brier below absolute threshold
     gate = PromotionGate("overall_brier", "OOS Brier score below threshold")
-    benchmark_path = os.path.join(results_dir, "benchmark_summary.json")
-    if os.path.exists(benchmark_path):
-        with open(benchmark_path) as f:
-            results = json.load(f)
-        best_brier = results.get("best_brier", 1.0)
+    if best_brier < 1.0:
         gate.evaluate(best_brier, BRIER_THRESHOLD, "less")
-        gate.details = f"Best model Brier: {best_brier:.4f} (threshold: {BRIER_THRESHOLD})"
+        gate.details = f"Best model Brier: {best_brier:.4f} (threshold: {BRIER_THRESHOLD}, source: {brier_source})"
     else:
-        gate.details = f"Benchmark results not found at {benchmark_path}"
+        gate.details = f"Benchmark results not found ({brier_source})"
         gate.passed = False
     gates.append(gate)
 
     # Gate 2: Beats NWS baseline
     gate2 = PromotionGate("beats_nws", "Model Brier beats NWS baseline")
-    if os.path.exists(benchmark_path):
-        with open(benchmark_path) as f:
-            results = json.load(f)
-        best_brier = results.get("best_brier", 1.0)
+    if best_brier < 1.0:
         gate2.evaluate(best_brier, NWS_BRIER_BASELINE, "less")
-        gate2.details = f"Model: {best_brier:.4f} vs NWS: {NWS_BRIER_BASELINE:.4f}"
+        gate2.details = f"Model: {best_brier:.4f} vs NWS: {NWS_BRIER_BASELINE:.4f} (source: {brier_source})"
     else:
         gate2.details = "Benchmark results not found"
         gate2.passed = False
     gates.append(gate2)
 
-    # Gate 3: Seasonal stress test — no season exceeds threshold
-    gate3 = PromotionGate("seasonal_brier", "No season exceeds Brier threshold")
+    # Gate 3: Beats Kalshi market Brier (from real presettlement data)
+    gate3 = PromotionGate("beats_kalshi_market", "Model Brier beats Kalshi market")
+    real_kalshi_bt_path = os.path.join(results_dir, "backtest", "real_kalshi_backtest_metrics.json")
+    if os.path.exists(real_kalshi_bt_path):
+        with open(real_kalshi_bt_path) as f:
+            rk = json.load(f)
+        model_brier_rk = rk.get("model_brier", float("nan"))
+        market_brier_rk = rk.get("market_brier", float("nan"))
+        brier_edge_rk = rk.get("brier_edge", float("nan"))
+        if not (np.isnan(model_brier_rk) or np.isnan(market_brier_rk)):
+            # Model must have lower Brier than market (positive edge)
+            gate3.evaluate(brier_edge_rk, 0.0, "greater")
+            gate3.details = (
+                f"Model: {model_brier_rk:.4f}, Market: {market_brier_rk:.4f}, "
+                f"Edge: {brier_edge_rk:+.4f} (from real Kalshi presettlement)"
+            )
+        else:
+            gate3.details = "Real Kalshi Brier scores are NaN"
+            gate3.passed = False
+    else:
+        gate3.details = f"Real Kalshi backtest not found at {real_kalshi_bt_path} (skipped, non-blocking)"
+        # Non-blocking: if real Kalshi data doesn't exist yet, pass by default
+        gate3.passed = True
+    gates.append(gate3)
+
+    # Gate 4: Seasonal stress test — no season exceeds threshold
+    gate4 = PromotionGate("seasonal_brier", "No season exceeds Brier threshold")
     seasonal_path = os.path.join(results_dir, "seasonal_brier.json")
     if os.path.exists(seasonal_path):
         with open(seasonal_path) as f:
             seasonal = json.load(f)
         worst_season = max(seasonal.values())
         worst_name = max(seasonal, key=seasonal.get)
-        gate3.evaluate(worst_season, SEASONAL_BRIER_THRESHOLD, "less")
-        gate3.details = (
+        gate4.evaluate(worst_season, SEASONAL_BRIER_THRESHOLD, "less")
+        gate4.details = (
             f"Worst season: {worst_name}={worst_season:.4f} "
             f"(threshold: {SEASONAL_BRIER_THRESHOLD})"
         )
     else:
-        gate3.details = f"Seasonal results not found at {seasonal_path}"
-        gate3.passed = False
-    gates.append(gate3)
+        gate4.details = f"Seasonal results not found at {seasonal_path}"
+        gate4.passed = False
+    gates.append(gate4)
 
-    # Gate 4: Minimum OOS evaluation days
-    gate4 = PromotionGate("min_oos_days", "Sufficient OOS evaluation days")
-    if os.path.exists(benchmark_path):
+    # Gate 5: Minimum OOS evaluation days
+    gate5 = PromotionGate("min_oos_days", "Sufficient OOS evaluation days")
+    benchmark_path = os.path.join(results_dir, "benchmark_summary.json")
+    # Try unified first for OOS days, then base benchmark
+    unified_path = os.path.join(results_dir, "synthesis", "unified_benchmark_summary.json")
+    n_oos = 0
+    if os.path.exists(unified_path):
+        with open(unified_path) as f:
+            unified = json.load(f)
+        n_oos = unified.get("n_oos_days", 0)
+    if n_oos == 0 and os.path.exists(benchmark_path):
         with open(benchmark_path) as f:
             results = json.load(f)
         n_oos = results.get("n_oos_days", 0)
-        gate4.evaluate(n_oos, MIN_OOS_DAYS, "greater")
-        gate4.details = f"OOS days: {n_oos} (minimum: {MIN_OOS_DAYS})"
+    if n_oos > 0:
+        gate5.evaluate(n_oos, MIN_OOS_DAYS, "greater")
+        gate5.details = f"OOS days: {n_oos} (minimum: {MIN_OOS_DAYS})"
     else:
-        gate4.details = "Benchmark results not found"
-        gate4.passed = False
-    gates.append(gate4)
+        gate5.details = "OOS day count not found in benchmark results"
+        gate5.passed = False
+    gates.append(gate5)
 
     return gates
 
@@ -262,8 +329,9 @@ def check_trading(results_dir: str) -> list[PromotionGate]:
     """Check trading simulation gates.
 
     Verifies:
-      - Paper-trading P&L is positive after fees and slippage.
+      - Simulated paper-trading P&L is positive after fees and slippage.
       - Maximum drawdown is within acceptable limits.
+      - Real Kalshi backtest P&L is positive (if data available).
 
     Parameters
     ----------
@@ -277,33 +345,70 @@ def check_trading(results_dir: str) -> list[PromotionGate]:
     """
     gates: list[PromotionGate] = []
 
+    # Try combined backtest_summary.json first, fall back to backtest_metrics.json
     bt_path = os.path.join(results_dir, "backtest", "backtest_summary.json")
+    bt_metrics_path = os.path.join(results_dir, "backtest", "backtest_metrics.json")
 
-    # Gate 1: Positive P&L
-    gate = PromotionGate("positive_pnl", "Paper trading shows positive P&L")
+    # Gate 1: Positive P&L (simulated)
+    gate = PromotionGate("positive_pnl", "Simulated paper trading shows positive P&L")
+    bt_data = None
     if os.path.exists(bt_path):
         with open(bt_path) as f:
-            bt = json.load(f)
-        total_pnl = bt.get("total_pnl", -999)
+            bt_data = json.load(f)
+        # Combined summary has nested structure
+        sim = bt_data.get("simulated_market", bt_data)
+        total_pnl = sim.get("total_pnl", -999)
         gate.evaluate(total_pnl, MIN_POSITIVE_PNL, "greater")
-        gate.details = f"Total P&L: ${total_pnl:.2f} (minimum: ${MIN_POSITIVE_PNL:.2f})"
+        gate.details = f"Simulated P&L: ${total_pnl:.2f} (minimum: ${MIN_POSITIVE_PNL:.2f})"
+    elif os.path.exists(bt_metrics_path):
+        with open(bt_metrics_path) as f:
+            bt_metrics = json.load(f)
+        total_pnl = bt_metrics.get("total_pnl", -999)
+        gate.evaluate(total_pnl, MIN_POSITIVE_PNL, "greater")
+        gate.details = f"Simulated P&L: ${total_pnl:.2f} (minimum: ${MIN_POSITIVE_PNL:.2f})"
     else:
-        gate.details = f"Backtest results not found at {bt_path}"
+        gate.details = f"Backtest results not found at {bt_path} or {bt_metrics_path}"
         gate.passed = False
     gates.append(gate)
 
     # Gate 2: Max drawdown within limits
     gate2 = PromotionGate("max_drawdown", "Max drawdown within acceptable limits")
-    if os.path.exists(bt_path):
+    if os.path.exists(bt_metrics_path):
+        with open(bt_metrics_path) as f:
+            bt_metrics = json.load(f)
+        max_dd = bt_metrics.get("max_drawdown", -1.0)
+        gate2.evaluate(max_dd, MAX_DRAWDOWN_THRESHOLD, "greater")
+        gate2.details = f"Max drawdown: {max_dd:.1%} (limit: {MAX_DRAWDOWN_THRESHOLD:.1%})"
+    elif os.path.exists(bt_path):
         with open(bt_path) as f:
-            bt = json.load(f)
-        max_dd = bt.get("max_drawdown", -1.0)
+            bt_data = json.load(f)
+        sim = bt_data.get("simulated_market", bt_data)
+        max_dd = sim.get("max_drawdown", sim.get("max_drawdown_pct", -1.0))
         gate2.evaluate(max_dd, MAX_DRAWDOWN_THRESHOLD, "greater")
         gate2.details = f"Max drawdown: {max_dd:.1%} (limit: {MAX_DRAWDOWN_THRESHOLD:.1%})"
     else:
         gate2.details = "Backtest results not found"
         gate2.passed = False
     gates.append(gate2)
+
+    # Gate 3: Real Kalshi backtest positive P&L
+    gate3 = PromotionGate("real_kalshi_pnl", "Real Kalshi backtest shows positive P&L")
+    rk_path = os.path.join(results_dir, "backtest", "real_kalshi_backtest_metrics.json")
+    if os.path.exists(rk_path):
+        with open(rk_path) as f:
+            rk = json.load(f)
+        rk_pnl = rk.get("total_pnl", -999)
+        rk_sharpe = rk.get("sharpe_ratio", 0.0)
+        gate3.evaluate(rk_pnl, MIN_POSITIVE_PNL, "greater")
+        gate3.details = (
+            f"Real Kalshi P&L: ${rk_pnl:.2f}, Sharpe: {rk_sharpe:.2f} "
+            f"(minimum P&L: ${MIN_POSITIVE_PNL:.2f})"
+        )
+    else:
+        gate3.details = f"Real Kalshi backtest not found at {rk_path} (skipped, non-blocking)"
+        # Non-blocking: pass if data doesn't exist yet
+        gate3.passed = True
+    gates.append(gate3)
 
     return gates
 

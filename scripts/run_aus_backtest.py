@@ -82,7 +82,7 @@ DEFAULT_INITIAL_BANKROLL = 1000.0
 # Market Data Simulation
 # ===========================================================================
 
-def generate_chi_market_data(
+def generate_aus_market_data(
     dates: np.ndarray,
     actual_tmax: np.ndarray,
     model_mu: np.ndarray,
@@ -284,7 +284,7 @@ def run_ev_gated_backtest(
     Parameters
     ----------
     market_df : pd.DataFrame
-        Market dataset from generate_chi_market_data().
+        Market dataset from generate_aus_market_data().
     ev_threshold : float
         Minimum EV to trigger a trade (default 0.02).
     fee_rate : float
@@ -820,6 +820,25 @@ def load_calibrated_predictions(results_dir: str) -> pd.DataFrame:
     pd.DataFrame
         DataFrame with columns: date, mu, sigma, actual_tmax.
     """
+    # Prefer unified predictions (U-series models) if available
+    unified_path = os.path.join(results_dir, "unified_predictions.csv")
+    unified_summary_path = os.path.join(
+        results_dir, "synthesis", "unified_benchmark_summary.json")
+
+    if os.path.isfile(unified_path) and os.path.isfile(unified_summary_path):
+        logger.info("Loading unified predictions from %s", unified_path)
+        with open(unified_summary_path) as f:
+            summary = json.load(f)
+        best_model = summary.get("best_overall_model", "")
+        df = pd.read_csv(unified_path, parse_dates=["date"])
+        required = {"date", "mu", "sigma", "actual_tmax", "model_name"}
+        if required.issubset(df.columns) and best_model:
+            best_df = df[df["model_name"] == best_model].copy()
+            if len(best_df) > 0:
+                logger.info("  Using best U-series model: %s (%d predictions)",
+                           best_model, len(best_df))
+                return best_df
+
     synthesis_path = os.path.join(results_dir, "synthesis", "synthesis_predictions.csv")
 
     if os.path.isfile(synthesis_path):
@@ -845,6 +864,264 @@ def load_calibrated_predictions(results_dir: str) -> pd.DataFrame:
         f"predictions. Synthetic data fallback has been removed to prevent "
         f"silent corruption of backtest results."
     )
+
+
+# ===========================================================================
+# Real Kalshi Backtest
+# ===========================================================================
+
+def run_real_kalshi_backtest(
+    preds_df: pd.DataFrame,
+    cfg,
+    backtest_dir: str,
+    ev_threshold: float = DEFAULT_EV_THRESHOLD,
+    fee_rate: float = DEFAULT_FEE_RATE,
+    kelly_fraction: float = DEFAULT_KELLY_FRACTION,
+    max_contracts: int = DEFAULT_MAX_CONTRACTS,
+    initial_bankroll: float = DEFAULT_INITIAL_BANKROLL,
+) -> Optional[dict]:
+    """Run backtest using real Kalshi presettlement data.
+
+    Loads real presettlement and settlement data, merges them, computes
+    model probabilities for each contract row, and runs the same EV-gated
+    backtest loop used for simulated data.
+
+    Parameters
+    ----------
+    preds_df : pd.DataFrame
+        Model predictions with columns: date, mu, sigma, actual_tmax.
+    cfg
+        City config object (from get_city_config).
+    backtest_dir : str
+        Directory to save real Kalshi backtest outputs.
+    ev_threshold : float
+        Minimum EV to trigger a trade.
+    fee_rate : float
+        Kalshi fee rate.
+    kelly_fraction : float
+        Fraction of Kelly to use.
+    max_contracts : int
+        Maximum contracts per bucket per day.
+    initial_bankroll : float
+        Starting bankroll in dollars.
+
+    Returns
+    -------
+    dict or None
+        Backtest metrics if real Kalshi data exists, else None.
+    """
+    pre_path = Path(PROJECT_ROOT) / "data" / "kalshi_presettlement_aus.csv"
+    settled_path = Path(PROJECT_ROOT) / "data" / "real_kalshi_aus_all.csv"
+
+    if not pre_path.exists() or not settled_path.exists():
+        logger.warning("Real Kalshi data not found, skipping real backtest")
+        return None
+
+    logger.info("Loading real Kalshi presettlement data from %s", pre_path)
+    pre = pd.read_csv(pre_path)
+    logger.info("Loading real Kalshi settlement data from %s", settled_path)
+    settled = pd.read_csv(settled_path)
+
+    # Normalize dates
+    pre["date"] = pd.to_datetime(pre["date"]).dt.strftime("%Y-%m-%d")
+    settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
+
+    # Merge presettlement with settlement on date+ticker
+    merged = settled.merge(
+        pre[["date", "ticker", "presettlement_prob", "bid_cents", "ask_cents"]],
+        on=["date", "ticker"],
+        how="inner",
+    )
+    merged = merged.dropna(subset=["presettlement_prob", "actual_outcome"])
+    logger.info("  Merged real Kalshi rows: %d", len(merged))
+
+    if len(merged) == 0:
+        logger.warning("No matched real Kalshi rows after merge")
+        return None
+
+    # Map model predictions to contract rows
+    preds_by_date = dict(zip(
+        preds_df["date"].astype(str),
+        zip(preds_df["mu"].values, preds_df["sigma"].values),
+    ))
+
+    # Compute model prob for each contract row
+    rows = []
+    for _, row in merged.iterrows():
+        date_str = row["date"]
+        if date_str not in preds_by_date:
+            continue
+        mu, sigma = preds_by_date[date_str]
+        sigma = max(sigma, 0.5)
+
+        th_lo = float(row.get("threshold_low", float("nan")))
+        th_hi = float(row.get("threshold_high", float("nan")))
+        direction = str(row.get("direction", "between"))
+
+        if direction in ("below", "less"):
+            model_prob = norm.cdf(th_hi, mu, sigma)
+        elif direction == "above":
+            model_prob = 1.0 - norm.cdf(th_lo, mu, sigma)
+        else:
+            # "between" bucket
+            if np.isnan(th_lo) or np.isnan(th_hi):
+                continue
+            model_prob = norm.cdf(th_hi, mu, sigma) - norm.cdf(th_lo, mu, sigma)
+
+        model_prob = float(np.clip(model_prob, PROB_CLIP_MIN, PROB_CLIP_MAX))
+        market_prob = float(np.clip(row["presettlement_prob"], PROB_CLIP_MIN, PROB_CLIP_MAX))
+
+        # Convert bid/ask cents to prices
+        bid_price = row.get("bid_cents", market_prob * 100)
+        if pd.isna(bid_price):
+            bid_price = market_prob * 100
+        bid_price = float(bid_price) / 100.0
+
+        ask_price = row.get("ask_cents", market_prob * 100)
+        if pd.isna(ask_price):
+            ask_price = market_prob * 100
+        ask_price = float(ask_price) / 100.0
+
+        rows.append({
+            "date": date_str,
+            "ticker": row["ticker"],
+            "bucket_label": row.get("bucket", row.get("bucket_label", "")),
+            "model_prob": model_prob,
+            "market_prob": market_prob,
+            "bid_price": float(np.clip(bid_price, 0.01, 0.99)),
+            "ask_price": float(np.clip(ask_price, 0.01, 0.99)),
+            "actual_outcome": int(row["actual_outcome"]),
+            "volume": row.get("volume", 10),
+        })
+
+    if not rows:
+        logger.warning("No matched real Kalshi rows with model predictions")
+        return None
+
+    market_df = pd.DataFrame(rows)
+    logger.info("  Real Kalshi market rows with model predictions: %d (%d unique dates)",
+                len(market_df), market_df["date"].nunique())
+
+    # Save real Kalshi market data
+    real_market_path = os.path.join(backtest_dir, "real_kalshi_market_data.csv")
+    market_df.to_csv(real_market_path, index=False)
+    logger.info("  Saved real Kalshi market data to %s", real_market_path)
+
+    # Run the same EV-gated backtest
+    backtest_result = run_ev_gated_backtest(
+        market_df=market_df,
+        ev_threshold=ev_threshold,
+        fee_rate=fee_rate,
+        kelly_fraction=kelly_fraction,
+        max_contracts=max_contracts,
+        initial_bankroll=initial_bankroll,
+    )
+
+    # Compute Brier scores on real Kalshi contract rows
+    model_brier_sum = 0.0
+    market_brier_sum = 0.0
+    n_brier = 0
+    for _, r in market_df.iterrows():
+        outcome = r["actual_outcome"]
+        if np.isnan(outcome):
+            continue
+        model_brier_sum += (r["model_prob"] - outcome) ** 2
+        market_brier_sum += (r["market_prob"] - outcome) ** 2
+        n_brier += 1
+
+    # Assemble metrics
+    metrics = {
+        "source": "real_kalshi_presettlement",
+        "total_pnl": backtest_result["total_pnl"],
+        "initial_bankroll": backtest_result["initial_bankroll"],
+        "final_bankroll": backtest_result["final_bankroll"],
+        "return_pct": backtest_result["total_pnl"] / backtest_result["initial_bankroll"] * 100,
+        "n_trades": backtest_result["n_trades"],
+        "win_rate": backtest_result["win_rate"],
+        "n_trading_days": len(backtest_result["daily_pnl"]),
+        "n_contract_rows": len(market_df),
+        "n_unique_dates": int(market_df["date"].nunique()),
+    }
+
+    # Drawdown
+    bankroll_series = backtest_result["bankroll_series"]
+    if len(bankroll_series) > 0:
+        cummax = bankroll_series.cummax()
+        drawdown = bankroll_series - cummax
+        metrics["max_drawdown"] = float(drawdown.min())
+        metrics["max_drawdown_pct"] = float(
+            (drawdown / cummax).min() * 100
+        ) if cummax.max() > 0 else 0.0
+    else:
+        metrics["max_drawdown"] = 0.0
+        metrics["max_drawdown_pct"] = 0.0
+
+    # Sharpe
+    daily_pnl = backtest_result["daily_pnl"]
+    if len(daily_pnl) > 1:
+        daily_returns = daily_pnl / backtest_result["initial_bankroll"]
+        mean_ret = daily_returns.mean()
+        std_ret = daily_returns.std()
+        metrics["sharpe_ratio"] = float(mean_ret / std_ret * np.sqrt(252)) if std_ret > 0 else 0.0
+    else:
+        metrics["sharpe_ratio"] = 0.0
+
+    # Brier scores
+    if n_brier > 0:
+        metrics["model_brier"] = model_brier_sum / n_brier
+        metrics["market_brier"] = market_brier_sum / n_brier
+        metrics["brier_edge"] = metrics["market_brier"] - metrics["model_brier"]
+    else:
+        metrics["model_brier"] = float("nan")
+        metrics["market_brier"] = float("nan")
+        metrics["brier_edge"] = float("nan")
+
+    # Seasonal breakdown
+    if backtest_result["trades"]:
+        trades_df = pd.DataFrame(backtest_result["trades"])
+        trades_df["date"] = pd.to_datetime(trades_df["date"])
+        trades_df["month"] = trades_df["date"].dt.month
+        trades_df["season"] = trades_df["month"].map(SEASON_MAP)
+        seasonal_metrics = {}
+        for season in SEASON_ORDER:
+            s_df = trades_df[trades_df["season"] == season]
+            if len(s_df) == 0:
+                seasonal_metrics[season] = {"n_trades": 0, "pnl": 0.0, "win_rate": 0.0}
+                continue
+            seasonal_metrics[season] = {
+                "n_trades": len(s_df),
+                "pnl": float(s_df["pnl"].sum()),
+                "win_rate": float(s_df["won"].mean()),
+                "avg_ev": float(s_df["ev"].mean()),
+            }
+        metrics["seasonal"] = seasonal_metrics
+    else:
+        metrics["seasonal"] = {}
+
+    # Save metrics
+    metrics_path = os.path.join(backtest_dir, "real_kalshi_backtest_metrics.json")
+    with open(metrics_path, "w") as f:
+        json.dump(metrics, f, indent=2, default=str)
+    logger.info("  Saved real Kalshi backtest metrics to %s", metrics_path)
+
+    # Save trades
+    if backtest_result["trades"]:
+        trades_df_out = pd.DataFrame(backtest_result["trades"])
+        trades_path = os.path.join(backtest_dir, "real_kalshi_trades.csv")
+        trades_df_out.to_csv(trades_path, index=False)
+        logger.info("  Saved %d real Kalshi trades to %s",
+                     len(trades_df_out), trades_path)
+
+    # Visualization: P&L curve for real Kalshi backtest
+    if len(bankroll_series) > 0:
+        plot_pnl_curve(
+            bankroll_series,
+            initial_bankroll,
+            os.path.join(backtest_dir, "real_kalshi_pnl_curve.png"),
+            title="AUS Real Kalshi Backtest: Cumulative P&L",
+        )
+
+    return metrics
 
 
 # ===========================================================================
@@ -888,7 +1165,7 @@ def main() -> None:
 
     # ---- Step 2: Generate simulated market data ----
     logger.info("Step 2: Generating simulated KXHIGHAUS market data ...")
-    market_df = generate_chi_market_data(
+    market_df = generate_aus_market_data(
         dates=pd.to_datetime(oos_df["date"]).values,
         actual_tmax=oos_df["actual_tmax"].values,
         model_mu=oos_df["mu"].values,
@@ -972,9 +1249,22 @@ def main() -> None:
             title="AUS Backtest: Trade EV Distribution",
         )
 
-    # ---- Final summary ----
+    # ---- Step 6: Real Kalshi backtest ----
+    logger.info("Step 6: Running real Kalshi presettlement backtest ...")
+    real_kalshi_metrics = run_real_kalshi_backtest(
+        preds_df=preds_df,
+        cfg=cfg,
+        backtest_dir=backtest_dir,
+        ev_threshold=DEFAULT_EV_THRESHOLD,
+        fee_rate=DEFAULT_FEE_RATE,
+        kelly_fraction=DEFAULT_KELLY_FRACTION,
+        max_contracts=DEFAULT_MAX_CONTRACTS,
+        initial_bankroll=DEFAULT_INITIAL_BANKROLL,
+    )
+
+    # ---- Final summary: simulated market backtest ----
     logger.info("=" * 70)
-    logger.info("AUS KXHIGHAUS Backtest Complete")
+    logger.info("AUS KXHIGHAUS Simulated Market Backtest Complete")
     logger.info("  Total trades:     %d", metrics["n_trades"])
     logger.info("  Win rate:         %.1f%%", metrics["win_rate"] * 100)
     logger.info("  Total P&L:        $%.2f", metrics["total_pnl"])
@@ -988,15 +1278,79 @@ def main() -> None:
     logger.info("  Output dir:       %s", backtest_dir)
     logger.info("=" * 70)
 
-    # Seasonal summary
+    # Seasonal summary (simulated)
     if metrics.get("seasonal"):
-        logger.info("  Seasonal breakdown:")
+        logger.info("  Seasonal breakdown (simulated):")
         for season in SEASON_ORDER:
             s = metrics["seasonal"].get(season, {})
             logger.info("    %s: %d trades, P&L=$%.2f, Win rate=%.1f%%",
                         season, s.get("n_trades", 0),
                         s.get("pnl", 0.0),
                         s.get("win_rate", 0.0) * 100)
+
+    # ---- Final summary: real Kalshi backtest ----
+    if real_kalshi_metrics is not None:
+        logger.info("")
+        logger.info("=" * 70)
+        logger.info("AUS KXHIGHAUS Real Kalshi Backtest Complete")
+        logger.info("  Total trades:     %d", real_kalshi_metrics["n_trades"])
+        logger.info("  Win rate:         %.1f%%", real_kalshi_metrics["win_rate"] * 100)
+        logger.info("  Total P&L:        $%.2f", real_kalshi_metrics["total_pnl"])
+        logger.info("  Return:           %.1f%%", real_kalshi_metrics["return_pct"])
+        logger.info("  Max drawdown:     $%.2f (%.1f%%)",
+                    real_kalshi_metrics["max_drawdown"],
+                    real_kalshi_metrics["max_drawdown_pct"])
+        logger.info("  Sharpe ratio:     %.2f", real_kalshi_metrics["sharpe_ratio"])
+        logger.info("  Model Brier:      %.4f", real_kalshi_metrics.get("model_brier", float("nan")))
+        logger.info("  Market Brier:     %.4f", real_kalshi_metrics.get("market_brier", float("nan")))
+        logger.info("  Brier edge:       %.4f", real_kalshi_metrics.get("brier_edge", float("nan")))
+        logger.info("  Contract rows:    %d", real_kalshi_metrics["n_contract_rows"])
+        logger.info("  Trading days:     %d", real_kalshi_metrics["n_trading_days"])
+        logger.info("=" * 70)
+
+        # Seasonal summary (real Kalshi)
+        if real_kalshi_metrics.get("seasonal"):
+            logger.info("  Seasonal breakdown (real Kalshi):")
+            for season in SEASON_ORDER:
+                s = real_kalshi_metrics["seasonal"].get(season, {})
+                logger.info("    %s: %d trades, P&L=$%.2f, Win rate=%.1f%%",
+                            season, s.get("n_trades", 0),
+                            s.get("pnl", 0.0),
+                            s.get("win_rate", 0.0) * 100)
+    else:
+        logger.warning("Real Kalshi backtest was skipped (data not available)")
+
+    # ---- Save combined summary ----
+    combined_summary = {
+        "simulated_market": {
+            "total_pnl": metrics["total_pnl"],
+            "return_pct": metrics["return_pct"],
+            "sharpe_ratio": metrics["sharpe_ratio"],
+            "n_trades": metrics["n_trades"],
+            "win_rate": metrics["win_rate"],
+            "model_brier": metrics.get("model_brier"),
+            "market_brier": metrics.get("market_brier"),
+            "brier_edge": metrics.get("brier_edge"),
+        },
+        "real_kalshi": None,
+    }
+    if real_kalshi_metrics is not None:
+        combined_summary["real_kalshi"] = {
+            "total_pnl": real_kalshi_metrics["total_pnl"],
+            "return_pct": real_kalshi_metrics["return_pct"],
+            "sharpe_ratio": real_kalshi_metrics["sharpe_ratio"],
+            "n_trades": real_kalshi_metrics["n_trades"],
+            "win_rate": real_kalshi_metrics["win_rate"],
+            "model_brier": real_kalshi_metrics.get("model_brier"),
+            "market_brier": real_kalshi_metrics.get("market_brier"),
+            "brier_edge": real_kalshi_metrics.get("brier_edge"),
+            "n_contract_rows": real_kalshi_metrics["n_contract_rows"],
+            "n_trading_days": real_kalshi_metrics["n_trading_days"],
+        }
+    combined_path = os.path.join(backtest_dir, "backtest_summary.json")
+    with open(combined_path, "w") as f:
+        json.dump(combined_summary, f, indent=2, default=str)
+    logger.info("Saved combined backtest summary to %s", combined_path)
 
 
 if __name__ == "__main__":

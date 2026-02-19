@@ -1,0 +1,30 @@
+{
+  "city": "Austin",
+  "ticker": "KXHIGHAUS",
+  "model_name": "U9_kitchen_sink",
+  "n_total_days": 4384,
+  "n_train_days": 2920,
+  "n_cal_days": 2920,
+  "n_test_days": 1464,
+  "n_buckets": 57,
+  "methods": {
+    "1_raw_uncalibrated": {
+      "brier": 0.018579025629870925,
+      "ece": 0.008472187195761106
+    },
+    "2_isotonic": {
+      "brier": 0.01654643186152611,
+      "ece": 0.0011996236993493759
+    },
+    "3_platt_scaling": {
+      "brier": 0.01758677101843755,
+      "ece": 0.006165044210493338
+    },
+    "4_seasonal_regime": {
+      "brier": 0.01724938021519435,
+      "ece": 0.006335644908712792
+    }
+  },
+  "best_method": "2_isotonic",
+  "best_brier": 0.01654643186152611
+}

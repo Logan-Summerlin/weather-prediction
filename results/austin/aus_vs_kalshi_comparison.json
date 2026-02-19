@@ -1,41 +1,14 @@
 {
-  "city": "Austin",
-  "ticker": "KXHIGHAUS",
-  "target_station": "USW00013904",
-  "evaluation_type": "contract_brier",
-  "real_kalshi_presettlement": true,
-  "n_kalshi_dates": 1003,
-  "n_kalshi_contracts": 5653,
-  "model_results": {
-    "Ridge (a=0.1)": {
-      "contract_brier": 0.1682
-    },
-    "HeteroscedasticNN": {
-      "contract_brier": 0.1721
-    },
-    "Persistence": {
-      "contract_brier": 0.1772
-    },
-    "Climatology": {
-      "contract_brier": 0.1958
-    }
+  "best_model": "Ridge (a=100.0)",
+  "best_model_contract_brier": 0.17946940877251213,
+  "all_model_briers": {
+    "Ridge (a=100.0)": 0.17946940877251213,
+    "Persistence": 0.18698789342325028,
+    "Climatology": 0.2007949392020855,
+    "HeteroscedasticNN": 0.21738886390280227
   },
-  "kalshi_market_presettlement_brier": 0.1281,
-  "best_model_brier": 0.1682,
-  "market_edge": -0.0401,
-  "model_beats_market": false,
-  "seasonal_market_brier": {
-    "DJF": 0.1224,
-    "MAM": 0.1317,
-    "JJA": 0.1318,
-    "SON": 0.1271
-  },
-  "simulated_backtest": {
-    "total_pnl": 2214.81,
-    "sharpe_ratio": 5.1,
-    "win_rate": 0.644,
-    "max_drawdown_pct": -4.1
-  },
-  "promotion_status": "9/11 gates PASS",
-  "recommendation": "Not yet ready for live deployment. Base models do not beat Kalshi market. Need E-series/WGA/Unified synthesis models."
+  "kalshi_market_brier": 0.12811955156554042,
+  "model_edge": -0.051349857206971716,
+  "n_market_rows": 5653,
+  "n_market_dates": 1003
 }
