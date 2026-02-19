@@ -34,6 +34,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+from src.seasons import SEASON_MAP as SHARED_SEASON_MAP, SEASON_ORDER as SHARED_SEASON_ORDER
+from src.utils import to_numpy as _shared_to_numpy
+
 # Apply a clean plot style, with graceful fallback
 _PREFERRED_STYLE = "seaborn-v0_8-whitegrid"
 if _PREFERRED_STYLE in plt.style.available:
@@ -54,22 +57,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Meteorological season mapping (mirrors src/evaluate.py)
 # ---------------------------------------------------------------------------
-SEASON_MAP = {
-    12: "Winter (DJF)",
-    1: "Winter (DJF)",
-    2: "Winter (DJF)",
-    3: "Spring (MAM)",
-    4: "Spring (MAM)",
-    5: "Spring (MAM)",
-    6: "Summer (JJA)",
-    7: "Summer (JJA)",
-    8: "Summer (JJA)",
-    9: "Fall (SON)",
-    10: "Fall (SON)",
-    11: "Fall (SON)",
-}
-
-SEASON_ORDER = ["Winter (DJF)", "Spring (MAM)", "Summer (JJA)", "Fall (SON)"]
+SEASON_MAP = SHARED_SEASON_MAP
+SEASON_ORDER = SHARED_SEASON_ORDER
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -100,7 +89,7 @@ def _to_numpy(arr: Union[np.ndarray, pd.Series, list]) -> np.ndarray:
     np.ndarray
         1-D float64 array.
     """
-    return np.asarray(arr, dtype=np.float64).ravel()
+    return _shared_to_numpy(arr)
 
 
 # ===========================================================================

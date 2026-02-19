@@ -33,6 +33,8 @@ import pandas as pd
 from scipy import stats
 from scipy.ndimage import gaussian_filter1d
 
+from src.seasons import SEASON_MAP_SHORT
+
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
@@ -48,13 +50,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Season definitions
 # ---------------------------------------------------------------------------
-SEASON_MAP = {
-    12: "Winter", 1: "Winter", 2: "Winter",
-    3: "Spring", 4: "Spring", 5: "Spring",
-    6: "Summer", 7: "Summer", 8: "Summer",
-    9: "Fall", 10: "Fall", 11: "Fall",
-}
-
 # Persistence weights by season (persistence / climatology)
 # Winter: more volatile, rely more on climatology
 # Summer: more stable, persistence carries further
