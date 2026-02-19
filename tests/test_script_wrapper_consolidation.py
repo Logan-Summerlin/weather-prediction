@@ -17,8 +17,8 @@ STAGES = {
     "backtest",
     "promotion_evaluation",
 }
-CITIES = {"chi", "phl", "atl", "aus"}
-WRAPPER_PATTERN = re.compile(r"^run_(chi|phl|atl|aus)_(.+)\.py$")
+CITIES = {"nyc", "chi", "phl", "atl", "aus"}
+WRAPPER_PATTERN = re.compile(r"^run_(nyc|chi|phl|atl|aus)_(.+)\.py$")
 
 
 def _wrapper_paths() -> list[Path]:

@@ -65,6 +65,7 @@ from src.contract_brier import contract_brier_score
 # City Mappings
 # ---------------------------------------------------------------------------
 CITY_CONFIG_MODULES = {
+    "nyc": "config_expanded",
     "chi": "config_chicago",
     "phl": "config_philadelphia",
     "atl": "config_atlanta",
@@ -72,6 +73,7 @@ CITY_CONFIG_MODULES = {
 }
 
 CITY_TARGET_NAMES = {
+    "nyc": "NYC_TMAX",
     "chi": "CHI_TMAX",
     "phl": "PHL_TMAX",
     "atl": "ATL_TMAX",

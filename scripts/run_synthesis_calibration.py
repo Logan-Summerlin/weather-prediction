@@ -67,6 +67,7 @@ from src.city_config import get_city_config, ensure_city_dirs
 # City code -> config module mapping
 # ---------------------------------------------------------------------------
 CITY_CONFIG_MODULES = {
+    "nyc": "config_expanded",
     "chi": "config_chicago",
     "phl": "config_philadelphia",
     "atl": "config_atlanta",

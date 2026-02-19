@@ -8,10 +8,13 @@ calibration, backtesting, and promotion evaluation.
 Use `run_city_pipeline.py` as the default orchestrator:
 
 ```bash
+python scripts/run_city_pipeline.py --city nyc --stage all
 python scripts/run_city_pipeline.py --city chi --stage all
 python scripts/run_city_pipeline.py --city phl --stage benchmark
 python scripts/run_city_pipeline.py --city atl --stage all --dry-run
 ```
+
+Supported cities: `nyc`, `chi`, `phl`, `atl`, `aus`.
 
 Supported stages:
 - `data_collection`
@@ -33,13 +36,15 @@ Each stage still has a direct script for ad hoc runs:
 - `run_backtest.py`
 - `run_promotion_evaluation.py`
 
-All accept `--city` and preserve existing artifact locations under
-`data/<city>/`, `models/<city>/`, and `results/<city>/`.
+All accept `--city {nyc,chi,phl,atl,aus}` and preserve existing artifact
+locations under `data/<city>/`, `models/<city>/`, and `results/<city>/`.
+NYC uses root-level `data/`, `models/`, `results/` for backward compatibility.
 
 ## Backward-Compatible City Wrappers
 
 City wrappers are intentionally retained for compatibility:
 
+- `run_nyc_<stage>.py`
 - `run_chi_<stage>.py`
 - `run_phl_<stage>.py`
 - `run_atl_<stage>.py`
@@ -55,8 +60,11 @@ NWS/Kalshi benchmark evaluation and template validation.
 
 ## Experiments and Utilities
 
-- `experiments/`: one-off research and diagnostic scripts.
+- `experiments/benchmarking/`: model training, evaluation, and cross-city comparisons.
+- `experiments/trading/`: backtest and trading strategy experiments.
 - `fetch_*` / `download_*`: market and external data utilities.
+
+See `experiments/README.md` for a detailed index.
 
 Keep these separate from production pipeline stage entrypoints to avoid
 accidental coupling.

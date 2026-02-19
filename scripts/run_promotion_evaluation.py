@@ -57,6 +57,7 @@ logger = logging.getLogger(__name__)
 # City-specific config module mapping (for optional dynamic import)
 # ---------------------------------------------------------------------------
 CITY_CONFIG_MODULES = {
+    "nyc": "config_expanded",
     "chi": "config_chicago",
     "phl": "config_philadelphia",
     "atl": "config_atlanta",
@@ -67,6 +68,15 @@ CITY_CONFIG_MODULES = {
 # City-specific promotion thresholds
 # ---------------------------------------------------------------------------
 CITY_THRESHOLDS = {
+    "nyc": {
+        "brier_threshold": 0.14,            # NYC moderate variance
+        "nws_brier_baseline": 0.12,         # NYC NWS OKX baseline
+        "ece_threshold": 0.05,
+        "min_positive_pnl": 0.0,
+        "max_drawdown_threshold": -0.30,
+        "min_oos_days": 200,
+        "seasonal_brier_threshold": 0.20,
+    },
     "chi": {
         "brier_threshold": 0.16,            # Wider Chicago variance
         "nws_brier_baseline": 0.14,         # Chicago NWS LOT baseline
