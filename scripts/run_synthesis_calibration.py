@@ -149,6 +149,54 @@ def load_base_predictions(results_dir: str, city_code: str = "") -> pd.DataFrame
     )
 
 
+
+
+def load_kalshi_contract_rows(city_code: str, valid_dates: pd.Series | pd.DatetimeIndex) -> pd.DataFrame:
+    """Load day-specific listed Kalshi contracts for a city from pre-settlement snapshots.
+
+    Uses real pre-settlement rows (with threshold_low/high) joined to settled outcomes,
+    then filters to dates present in the model predictions.
+    """
+    pre_path = PROJECT_ROOT / "data" / f"kalshi_presettlement_{city_code}.csv"
+    settled_path = PROJECT_ROOT / "data" / f"real_kalshi_{city_code}_all.csv"
+    if not pre_path.exists() or not settled_path.exists():
+        raise FileNotFoundError(
+            f"Missing Kalshi files for {city_code}: {pre_path} and/or {settled_path}"
+        )
+
+    pre = pd.read_csv(pre_path)
+    settled = pd.read_csv(settled_path)
+    pre["date"] = pd.to_datetime(pre["date"]).dt.normalize()
+    settled["date"] = pd.to_datetime(settled["date"]).dt.normalize()
+
+    merge_keys = ["date", "ticker"]
+    if "bucket" in pre.columns and "bucket" in settled.columns:
+        merge_keys.append("bucket")
+
+    cols_pre = [c for c in ["date", "ticker", "bucket", "threshold_low", "threshold_high", "direction", "presettlement_prob"] if c in pre.columns]
+    cols_set = [c for c in ["date", "ticker", "bucket", "actual_outcome", "actual_tmax"] if c in settled.columns]
+
+    rows = pre[cols_pre].merge(settled[cols_set], on=merge_keys, how="inner")
+    rows = rows.dropna(subset=["actual_outcome", "threshold_low", "threshold_high"])
+
+    keep_dates = pd.to_datetime(valid_dates).dt.normalize().unique()
+    rows = rows[rows["date"].isin(keep_dates)].copy()
+
+    # Enforce canonical between/below/above semantics from thresholds
+    rows["threshold_low"] = rows["threshold_low"].astype(float)
+    rows["threshold_high"] = rows["threshold_high"].astype(float)
+    if "direction" not in rows.columns:
+        rows["direction"] = "between"
+
+    rows["direction"] = rows["direction"].fillna("between").str.lower()
+    rows.loc[rows["threshold_low"] <= -900, "direction"] = "below"
+    rows.loc[rows["threshold_high"] >= 900, "direction"] = "above"
+
+    rows = rows.sort_values(["date", "ticker"]).reset_index(drop=True)
+    if rows.empty:
+        raise RuntimeError(f"No overlapping Kalshi contract rows found for {city_code}.")
+    return rows
+
 # ===========================================================================
 # Bucket Probability Conversion
 # ===========================================================================
@@ -1063,227 +1111,144 @@ def run_calibration_sweep(
     city_name: str = "Chicago",
     kalshi_ticker: str = "KXHIGHCHI",
 ) -> dict:
-    """Run a full calibration sweep on synthesis model predictions.
-
-    Evaluates:
-      1. Raw (uncalibrated) Gaussian -> bucket probs
-      2. Isotonic calibration per bucket
-      3. Platt scaling per bucket
-      4. Seasonal regime-conditional isotonic calibration
-
-    Parameters
-    ----------
-    predictions_df : pd.DataFrame
-        Must have columns: date, mu, sigma, actual_tmax.
-        Sorted chronologically.
-    bucket_edges : list of (low, high) tuples
-        Kalshi contract bucket boundaries.
-    output_dir : str
-        Directory to save calibration results and plots.
-
-    Returns
-    -------
-    dict
-        Keys: method_name -> {brier, ece, reliability_data}.
-        Also includes "best_method" and "summary" keys.
-    """
+    """Run calibration sweep using day-specific listed Kalshi contracts."""
     os.makedirs(output_dir, exist_ok=True)
 
     df = predictions_df.sort_values("date").reset_index(drop=True)
-    dates = pd.to_datetime(df["date"]).values
-    mu = df["mu"].values
-    sigma = df["sigma"].values
-    actual_tmax = df["actual_tmax"].values
+    df["date"] = pd.to_datetime(df["date"]).dt.normalize()
 
-    # Chronological split: 70% train, 15% val, 15% test
-    n = len(df)
-    n_train = int(n * 0.70)
-    n_val = int(n * 0.15)
-    n_test = n - n_train - n_val
+    contracts = load_kalshi_contract_rows(city_code, df["date"])
+    contracts = contracts.merge(
+        df[["date", "mu", "sigma"]],
+        on="date",
+        how="inner",
+    )
+    contracts = contracts.dropna(subset=["mu", "sigma", "actual_outcome"])
+
+    sigma = np.maximum(contracts["sigma"].values.astype(float), 1e-6)
+    mu = contracts["mu"].values.astype(float)
+    lo = contracts["threshold_low"].values.astype(float)
+    hi = contracts["threshold_high"].values.astype(float)
+    direction = contracts["direction"].astype(str).str.lower().values
+
+    probs = np.full(len(contracts), np.nan, dtype=float)
+    below = (direction == "below") | (direction == "less")
+    above = direction == "above"
+    between = ~(below | above)
+
+    probs[below] = norm.cdf(hi[below], loc=mu[below], scale=sigma[below])
+    probs[above] = 1.0 - norm.cdf(lo[above], loc=mu[above], scale=sigma[above])
+    probs[between] = (
+        norm.cdf(hi[between], loc=mu[between], scale=sigma[between])
+        - norm.cdf(lo[between], loc=mu[between], scale=sigma[between])
+    )
+    contracts["raw_prob"] = np.clip(probs, PROB_CLIP_MIN, PROB_CLIP_MAX)
+    contracts["outcome"] = contracts["actual_outcome"].astype(float)
+
+    unique_dates = np.array(sorted(contracts["date"].unique()))
+    n_dates = len(unique_dates)
+    n_train = int(n_dates * 0.70)
+    n_val = int(n_dates * 0.15)
+    train_dates = set(unique_dates[:n_train])
+    val_dates = set(unique_dates[n_train:n_train + n_val])
+    test_dates = set(unique_dates[n_train + n_val:])
+
+    train_mask = contracts["date"].isin(train_dates).values
+    val_mask = contracts["date"].isin(val_dates).values
+    test_mask = contracts["date"].isin(test_dates).values
 
     logger.info(
-        "Calibration sweep: %d total days (train=%d, val=%d, test=%d)",
-        n, n_train, n_val, n_test,
+        "Calibration sweep (contract rows): %d rows across %d dates (train=%d, val=%d, test=%d)",
+        len(contracts), n_dates, len(train_dates), len(val_dates), len(test_dates),
     )
 
-    # Split indices
-    train_slice = slice(0, n_train)
-    val_slice = slice(n_train, n_train + n_val)
-    test_slice = slice(n_train + n_val, None)
-
-    # Compute raw bucket probabilities for all splits
-    raw_probs_train = compute_bucket_probs_gaussian(
-        mu[train_slice], sigma[train_slice], bucket_edges,
-    )
-    raw_probs_val = compute_bucket_probs_gaussian(
-        mu[val_slice], sigma[val_slice], bucket_edges,
-    )
-    raw_probs_test = compute_bucket_probs_gaussian(
-        mu[test_slice], sigma[test_slice], bucket_edges,
-    )
-
-    # Build outcome matrices
-    outcomes_train = _build_outcome_matrix(actual_tmax[train_slice], bucket_edges)
-    outcomes_val = _build_outcome_matrix(actual_tmax[val_slice], bucket_edges)
-    outcomes_test = _build_outcome_matrix(actual_tmax[test_slice], bucket_edges)
+    cal_mask = train_mask | val_mask
+    p_cal = contracts.loc[cal_mask, "raw_prob"].values
+    y_cal = contracts.loc[cal_mask, "outcome"].values
+    p_test_raw = contracts.loc[test_mask, "raw_prob"].values
+    y_test = contracts.loc[test_mask, "outcome"].values
 
     results: dict = {}
 
-    # ---- 1. Raw (uncalibrated) ----
-    brier_raw = compute_brier_score(
-        raw_probs_test, actual_tmax[test_slice], bucket_edges,
-    )
-    ece_raw = compute_ece(
-        raw_probs_test.ravel(), outcomes_test.ravel(),
-    )
-    rel_raw = compute_reliability_diagram(
-        raw_probs_test.ravel(), outcomes_test.ravel(),
-    )
+    def _pack(name: str, p_test: np.ndarray):
+        p_test = np.clip(p_test, PROB_CLIP_MIN, PROB_CLIP_MAX)
+        brier = float(np.mean((p_test - y_test) ** 2))
+        ece = compute_ece(p_test, y_test)
+        rel = compute_reliability_diagram(p_test, y_test)
+        results[name] = {"brier": brier, "ece": ece, "reliability": rel}
 
-    results["1_raw_uncalibrated"] = {
-        "brier": brier_raw["overall_brier"],
-        "ece": ece_raw,
-        "reliability": rel_raw,
-    }
-    logger.info(
-        "  Raw uncalibrated: Brier=%.4f, ECE=%.4f",
-        brier_raw["overall_brier"], ece_raw,
-    )
+    _pack("1_raw_uncalibrated", p_test_raw)
 
-    # ---- 2. Isotonic calibration ----
-    # Fit on train, apply to test (use val for development, but final eval on test)
-    cal_train_for_iso = np.vstack([raw_probs_train, raw_probs_val])
-    out_train_for_iso = np.vstack([outcomes_train, outcomes_val])
-    iso_probs_test = apply_isotonic_calibration(
-        cal_train_for_iso, out_train_for_iso, raw_probs_test,
-    )
+    iso = IsotonicRegression(out_of_bounds="clip")
+    iso.fit(p_cal, y_cal)
+    _pack("2_isotonic", iso.transform(p_test_raw))
 
-    brier_iso = compute_brier_score(
-        iso_probs_test, actual_tmax[test_slice], bucket_edges,
-    )
-    ece_iso = compute_ece(
-        iso_probs_test.ravel(), outcomes_test.ravel(),
-    )
-    rel_iso = compute_reliability_diagram(
-        iso_probs_test.ravel(), outcomes_test.ravel(),
-    )
+    try:
+        lr = LogisticRegression(max_iter=1000)
+        lr.fit(p_cal.reshape(-1, 1), y_cal)
+        p_platt = lr.predict_proba(p_test_raw.reshape(-1, 1))[:, 1]
+    except Exception:
+        p_platt = p_test_raw.copy()
+    _pack("3_platt_scaling", p_platt)
 
-    results["2_isotonic"] = {
-        "brier": brier_iso["overall_brier"],
-        "ece": ece_iso,
-        "reliability": rel_iso,
-    }
-    logger.info(
-        "  Isotonic calibrated: Brier=%.4f, ECE=%.4f",
-        brier_iso["overall_brier"], ece_iso,
-    )
+    season_cal = pd.to_datetime(contracts.loc[cal_mask, "date"]).dt.month.map(SEASON_MAP).values
+    season_test = pd.to_datetime(contracts.loc[test_mask, "date"]).dt.month.map(SEASON_MAP).values
+    p_seasonal = p_test_raw.copy()
+    for season in SEASON_ORDER:
+        m_cal = season_cal == season
+        m_test = season_test == season
+        if not m_test.any():
+            continue
+        if m_cal.sum() < 20:
+            p_seasonal[m_test] = iso.transform(p_test_raw[m_test])
+            continue
+        iso_s = IsotonicRegression(out_of_bounds="clip")
+        iso_s.fit(p_cal[m_cal], y_cal[m_cal])
+        p_seasonal[m_test] = iso_s.transform(p_test_raw[m_test])
+    _pack("4_seasonal_regime", p_seasonal)
 
-    # ---- 3. Platt scaling ----
-    platt_probs_test = apply_platt_scaling(
-        cal_train_for_iso, out_train_for_iso, raw_probs_test,
-    )
-
-    brier_platt = compute_brier_score(
-        platt_probs_test, actual_tmax[test_slice], bucket_edges,
-    )
-    ece_platt = compute_ece(
-        platt_probs_test.ravel(), outcomes_test.ravel(),
-    )
-    rel_platt = compute_reliability_diagram(
-        platt_probs_test.ravel(), outcomes_test.ravel(),
-    )
-
-    results["3_platt_scaling"] = {
-        "brier": brier_platt["overall_brier"],
-        "ece": ece_platt,
-        "reliability": rel_platt,
-    }
-    logger.info(
-        "  Platt scaling: Brier=%.4f, ECE=%.4f",
-        brier_platt["overall_brier"], ece_platt,
-    )
-
-    # ---- 4. Seasonal regime-conditional isotonic ----
-    dates_train_val = np.concatenate([dates[train_slice], dates[val_slice]])
-    seasonal_probs_test = apply_seasonal_calibration(
-        cal_train_for_iso, out_train_for_iso, dates_train_val,
-        raw_probs_test, dates[test_slice],
-    )
-
-    brier_seasonal = compute_brier_score(
-        seasonal_probs_test, actual_tmax[test_slice], bucket_edges,
-    )
-    ece_seasonal = compute_ece(
-        seasonal_probs_test.ravel(), outcomes_test.ravel(),
-    )
-    rel_seasonal = compute_reliability_diagram(
-        seasonal_probs_test.ravel(), outcomes_test.ravel(),
-    )
-
-    results["4_seasonal_regime"] = {
-        "brier": brier_seasonal["overall_brier"],
-        "ece": ece_seasonal,
-        "reliability": rel_seasonal,
-    }
-    logger.info(
-        "  Seasonal regime: Brier=%.4f, ECE=%.4f",
-        brier_seasonal["overall_brier"], ece_seasonal,
-    )
-
-    # ---- Identify best method ----
-    method_briers = {
-        name: info["brier"] for name, info in results.items()
-    }
+    method_briers = {k: v["brier"] for k, v in results.items()}
     best_method = min(method_briers, key=method_briers.get)
-
-    logger.info("=" * 60)
-    logger.info("Best calibration method: %s (Brier=%.4f)",
-                best_method, method_briers[best_method])
-    logger.info("=" * 60)
-
     results["best_method"] = best_method
 
-    # ---- Generate plots ----
-    # Reliability diagrams
     for method_name, info in results.items():
         if method_name == "best_method":
             continue
-        rel_data = info["reliability"]
         plot_reliability(
-            rel_data,
-            title=f"{city_code.upper()} {method_name}: Reliability",
+            info["reliability"],
+            title=f"{city_code.upper()} {method_name}: Reliability (listed contracts)",
             save_path=os.path.join(output_dir, f"reliability_{method_name}.png"),
         )
 
-    # Brier comparison bar chart
+    # Persist best-method reliability under canonical filename for promotion checks.
+    plot_reliability(
+        results[best_method]["reliability"],
+        title=f"{city_code.upper()} best calibration ({best_method})",
+        save_path=os.path.join(output_dir, "reliability_diagram.png"),
+    )
+
     plot_brier_comparison(
         method_briers,
-        title=f"{city_code.upper()} Calibration Sweep: OOS Brier Scores",
+        title=f"{city_code.upper()} Calibration Sweep: Contract-row Brier",
         save_path=os.path.join(output_dir, "brier_comparison.png"),
     )
 
-    # ---- Build summary ----
     summary = {
         "city": city_name,
         "ticker": kalshi_ticker,
-        "n_total_days": n,
-        "n_test_days": n_test,
+        "evaluation_unit": "listed_contract_rows",
+        "contract_granularity": "day-specific Kalshi pre-settlement rows (typically 2F increments)",
+        "n_total_rows": int(len(contracts)),
+        "n_total_dates": int(n_dates),
+        "n_test_rows": int(test_mask.sum()),
+        "n_test_dates": int(len(test_dates)),
         "n_buckets": len(bucket_edges),
-        "methods": {},
+        "methods": {k: {"brier": v["brier"], "ece": v["ece"]} for k, v in results.items() if k != "best_method"},
+        "best_method": best_method,
+        "best_brier": method_briers[best_method],
     }
-    for method_name, info in results.items():
-        if method_name == "best_method":
-            continue
-        summary["methods"][method_name] = {
-            "brier": info["brier"],
-            "ece": info["ece"],
-        }
-    summary["best_method"] = best_method
-    summary["best_brier"] = method_briers[best_method]
 
     results["summary"] = summary
-
-    # Save summary JSON
     summary_path = os.path.join(output_dir, "calibration_sweep_summary.json")
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2, default=str)
@@ -1456,7 +1421,7 @@ def main() -> None:
     logger.info("  Best method:      %s", summary.get("best_method", "N/A"))
     logger.info("  Best Brier:       %.4f", summary.get("best_brier", float("nan")))
     logger.info("  Synthesis MAE:    %.2f F", test_mae)
-    logger.info("  Test days:        %d", summary.get("n_test_days", 0))
+    logger.info("  Test dates:       %d", summary.get("n_test_dates", summary.get("n_test_days", 0)))
     logger.info("  Output dir:       %s", synthesis_dir)
     logger.info("=" * 70)
 

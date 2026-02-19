@@ -105,7 +105,8 @@ CITY_THRESHOLDS = {
         "seasonal_brier_threshold": 0.20,   # Less extreme winters than CHI
     },
     "aus": {
-        "brier_threshold": 0.16,            # Wider Austin variance
+        "brier_threshold": 0.11,            # Austin promotion target
+        "brier_floor": 0.04,                # Lower than this likely indicates scoring bug
         "nws_brier_baseline": 0.14,         # Austin NWS baseline
         "ece_threshold": 0.05,
         "min_positive_pnl": 0.0,
@@ -192,13 +193,31 @@ def _load_best_brier(results_dir: str) -> tuple[float, str]:
     tuple[float, str]
         (best_brier, source_description) or (1.0, error_message) if not found.
     """
-    # Prefer unified benchmark if available
+    # Prefer city synthesis calibration summary (listed contract rows)
+    synth_path = os.path.join(results_dir, "synthesis", "calibration_sweep_summary.json")
+    if os.path.exists(synth_path):
+        with open(synth_path) as f:
+            synth = json.load(f)
+        best_brier = synth.get("best_brier", 1.0)
+        best_method = synth.get("best_method", "unknown")
+        return best_brier, f"synthesis/{best_method} from {synth_path}"
+
+    # Fallback to unified benchmark if available
     unified_path = os.path.join(results_dir, "synthesis", "unified_benchmark_summary.json")
     if os.path.exists(unified_path):
         with open(unified_path) as f:
             unified = json.load(f)
-        best_brier = unified.get("best_brier", unified.get("best_contract_brier", 1.0))
-        best_model = unified.get("best_model", "unknown")
+        best_brier = unified.get(
+            "best_brier",
+            unified.get(
+                "best_contract_brier",
+                unified.get("best_overall_brier", 1.0),
+            ),
+        )
+        best_model = unified.get(
+            "best_model",
+            unified.get("best_overall_model", "unknown"),
+        )
         return best_brier, f"unified/{best_model} from {unified_path}"
 
     # Fallback to base benchmark
@@ -240,6 +259,7 @@ def check_forecast_quality(results_dir: str, thresholds: dict) -> list[Promotion
     """
     gates: list[PromotionGate] = []
     brier_threshold = thresholds["brier_threshold"]
+    brier_floor = thresholds.get("brier_floor", 0.0)
     nws_brier_baseline = thresholds["nws_brier_baseline"]
     seasonal_brier_threshold = thresholds["seasonal_brier_threshold"]
     min_oos_days = thresholds["min_oos_days"]
@@ -259,6 +279,22 @@ def check_forecast_quality(results_dir: str, thresholds: dict) -> list[Promotion
         gate.details = f"Benchmark results not found ({brier_source})"
         gate.passed = False
     gates.append(gate)
+
+    # Gate 1b: Brier sanity floor (protect against accidental metric bugs)
+    gate_floor = PromotionGate(
+        "brier_sanity_floor",
+        "OOS Brier is above minimum sanity floor",
+    )
+    if best_brier < 1.0:
+        gate_floor.evaluate(best_brier, brier_floor, "greater")
+        gate_floor.details = (
+            f"Best model Brier: {best_brier:.4f} "
+            f"(minimum sanity floor: {brier_floor:.4f}, source: {brier_source})"
+        )
+    else:
+        gate_floor.details = f"Benchmark results not found ({brier_source})"
+        gate_floor.passed = False
+    gates.append(gate_floor)
 
     # Gate 2: Beats NWS baseline
     gate2 = PromotionGate("beats_nws", "Model Brier beats NWS baseline")
