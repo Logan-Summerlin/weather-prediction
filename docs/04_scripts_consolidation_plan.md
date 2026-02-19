@@ -91,7 +91,7 @@ This gives:
 ### Phase 3 — Cleanup and hardening
 
 1. ✅ Add integration test that loops through stages in `--dry-run` mode for each city.
-2. ⏳ Add lint/check to prevent introducing new per-city duplicate wrappers.
+2. ✅ Add lint/check to prevent introducing new per-city duplicate wrappers.
 3. ⏳ Optionally move long-tail experiments into subfolders (`experiments/leakage_audits`, `experiments/ensemble`, etc.).
 
 ## 8) Progress Update (Completed in this iteration)
@@ -109,18 +109,23 @@ This gives:
   - stage expansion order,
   - end-to-end `--dry-run` invocation,
   - single-stage dry-run success.
+- Added guardrail coverage in `tests/test_script_wrapper_consolidation.py` to
+  enforce wrapper-consolidation invariants:
+  - all expected `<city> x <stage>` shim files exist,
+  - wrappers remain thin delegators,
+  - wrappers must hard-code the city and dispatch to unified `run_<stage>.py`.
 
 ### Outstanding
 
 - Decide whether to keep existing stage scripts (`run_data_collection.py`, etc.) as
   canonical implementations or demote them to thin shims that dispatch through
   `run_city_pipeline.py`.
-- Add CI guardrail/lint rule to flag newly added duplicate per-city wrappers that
-  include non-trivial logic.
 - Evaluate introducing `nyc` into the same canonical runner path or formally
   documenting NYC as a legacy compatibility track.
 - Reorganize `scripts/experiments/` into purpose-based subfolders once current
   active experiments are tagged.
+- Wire the new wrapper guardrail test into CI-required checks so regressions are
+  blocked on pull requests by default.
 
 ## 6) Guardrails for Refactor
 
