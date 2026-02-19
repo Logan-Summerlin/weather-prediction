@@ -237,11 +237,11 @@ Each city follows: data_collection → preprocessing → benchmark → synthesis
 | `results/atlanta/` | Benchmark, promotion report (11/11 PASS), backtest |
 | `results/austin/` | Benchmark, promotion report (8/13 FAIL), backtest |
 | `results/cross_city_comparison/` | `best_models_summary.json` |
-| Legacy dirs | `results/phase1_*`, `results/advanced_models/`, etc. (historical NYC experiments) |
+| Legacy dirs | Moved to `ARCHIVE/results_legacy/` (historical NYC and exploratory experiments) |
 
 ### `ARCHIVE/` — Legacy Code & Docs
 
-Archive cleanup completed: only `legacy_root_docs/` audit references are retained. Removed files are summarized in `ARCHIVE/DELETED_LEGACY_FILES_SUMMARY.md`.
+Archive now contains both `legacy_root_docs/` (audit references) and `results_legacy/` (historical experiment outputs migrated from `results/`).
 
 ---
 
