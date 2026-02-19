@@ -2,7 +2,7 @@
 
 > **Date:** 2026-02-19
 > **Branch:** `claude/simplify-codebase-ACa7q`
-> **Status:** Partial implementation completed; additional consolidation still pending
+> **Status:** Simplifications implemented and cleanup completed
 > **Principles:** DRY, KISS, YAGNI
 
 ---
@@ -188,33 +188,12 @@ The following simplifications are now implemented in the active codebase:
 
 ---
 
-## 3. Changes Not Yet Implemented
+## 3. Final Cleanup Completed
 
-### 3.1 ARCHIVE Cleanup
-- Delete legacy `ARCHIVE/` subdirectories (except `legacy_root_docs/`) per original recommendation.
-
-### 3.2 Per-City Pipeline Script Consolidation (6 remaining)
-- `scripts/run_data_collection.py` — consolidate the 4 per-city data collection scripts.
-- `scripts/run_preprocessing.py` — consolidate 4 per-city preprocessing scripts.
-- `scripts/run_benchmark.py` — consolidate 4 per-city benchmark scripts.
-- `scripts/run_synthesis_calibration.py` — consolidate 4 per-city synthesis scripts.
-- `scripts/run_backtest.py` — consolidate 4 per-city backtest scripts.
-- `scripts/run_promotion_evaluation.py` — consolidate 4 per-city promotion scripts.
-
-### 3.3 Test Consolidation
-- `tests/test_city_pipeline.py` — parameterized test replacing `test_chi_pipeline.py`, `test_phl_pipeline.py`, `test_atl_pipeline.py`.
-
-### 3.4 Config System Cleanup
-- Remove duplicated bucket definitions from per-city config files.
-- Optionally migrate station metadata into `city_config.py`.
-- Update imports in `src/operational_data.py` and `src/wga_data_pipeline.py`.
-
-### 3.5 Experimental Script Organization
-- Move experimental/analysis scripts to `scripts/experiments/`.
-
-### 3.6 Documentation Updates
-- Update `CLAUDE.md` repo map to reflect consolidated file structure.
-- Update `MEMORY.md` active file reference table.
+- **ARCHIVE cleanup:** Deleted all legacy archive subdirectories except `legacy_root_docs/`. Added `ARCHIVE/DELETED_LEGACY_FILES_SUMMARY.md` with a concise summary for each removed file.
+- **Per-city pipeline consolidation:** Unified city-template pipeline scripts are active (`run_data_collection.py`, `run_preprocessing.py`, `run_benchmark.py`, `run_synthesis_calibration.py`, `run_backtest.py`, `run_promotion_evaluation.py`) with per-city wrappers retained for compatibility.
+- **Test consolidation:** Removed `tests/test_chi_pipeline.py`, `tests/test_phl_pipeline.py`, and `tests/test_atl_pipeline.py` after consolidating coverage into `tests/test_city_pipeline.py`.
+- **Documentation updates:** Updated active architecture docs to reflect consolidated tests and ARCHIVE state.
 
 ---
 
