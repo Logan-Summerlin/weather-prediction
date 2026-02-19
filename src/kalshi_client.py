@@ -29,6 +29,8 @@ import logging
 from typing import Optional, Union
 
 import requests
+
+from src.utils import to_numpy as _shared_to_numpy
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -83,7 +85,7 @@ def _to_numpy(arr: Union[np.ndarray, pd.Series, list]) -> np.ndarray:
     np.ndarray
         1-D float64 array.
     """
-    return np.asarray(arr, dtype=np.float64).ravel()
+    return _shared_to_numpy(arr)
 
 
 # ===========================================================================
