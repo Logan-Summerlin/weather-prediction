@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Backward-compatible wrapper for MOS download (KNYC default)."""
+"""Backward-compatible wrapper for MOS download (KNYC)."""
 
-try:
+import os
+import sys
+
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from download_iem_mos_data import *  # noqa: F401,F403
+else:
     from scripts.download_iem_mos_data import *  # noqa: F401,F403
-except ModuleNotFoundError:
-    from download_iem_mos_data import *  # type: ignore # noqa: F401,F403
 
 
 if __name__ == "__main__":

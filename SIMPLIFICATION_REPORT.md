@@ -2,7 +2,7 @@
 
 > **Date:** 2026-02-19
 > **Branch:** `claude/simplify-codebase-ACa7q`
-> **Status:** Analysis complete, implementation halted before completion
+> **Status:** Partial implementation completed; additional consolidation still pending
 > **Principles:** DRY, KISS, YAGNI
 
 ---
@@ -161,60 +161,60 @@ Several scripts in `scripts/` are experimental or one-off analysis scripts that 
 
 ---
 
-## 2. Changes Completed (Then Reverted)
+## 2. Changes Completed
 
-The following changes were implemented but have been **reverted** to keep the working tree clean for this report. They can be re-applied:
+The following simplifications are now implemented in the active codebase:
 
-### 2.1 ARCHIVE Cleanup
-- Deleted 9 ARCHIVE subdirectories (all except `legacy_root_docs/`)
-- Removed 68 files totaling ~48,000 lines of dead code
+### 2.1 Shared Utility Modules Created
+- Added `src/seasons.py` with shared season constants and helpers:
+  - `SEASON_MAP`, `SEASON_ORDER`, `SEASON_MAP_SHORT`
+  - `get_season()`, `get_season_months()`
+- Added `src/utils.py` with shared `to_numpy()` helper.
 
-### 2.2 Shared Utility Modules Created
-- `src/seasons.py` — SEASON_MAP, SEASON_ORDER, SEASON_MAP_SHORT, get_season(), get_season_months()
-- `src/utils.py` — to_numpy() helper function
+### 2.2 src/ Modules Updated (6 of 6 complete)
+- `src/calibration.py` — season mapping and numpy conversion now rely on shared modules.
+- `src/evaluate.py` — season mapping and numpy conversion now rely on shared modules.
+- `src/trading.py` — season mapping and numpy conversion now rely on shared modules.
+- `src/kalshi_backtester.py` — season mapping and numpy conversion now rely on shared modules.
+- `src/kalshi_client.py` — numpy conversion now relies on shared module.
+- `src/market_proxy.py` — short season mapping now relies on shared module.
 
-### 2.3 src/ Modules Updated (2 of 6)
-- `src/calibration.py` — replaced inline SEASON_MAP/SEASON_ORDER/_to_numpy with imports from shared modules
-- `src/evaluate.py` — same treatment
-
-### 2.4 Data Collection Script Consolidated (1 of 6)
-- Created `scripts/run_data_collection.py` — unified version replacing 4 per-city scripts
-- Deleted `scripts/run_chi_data_collection.py`, `run_phl_data_collection.py`, `run_atl_data_collection.py`, `run_aus_data_collection.py`
+### 2.3 MOS Script Consolidation Completed
+- Added unified script: `scripts/download_iem_mos_data.py` with station parameterization (`--station`).
+- Converted existing city-specific MOS scripts into thin backward-compatible wrappers:
+  - `scripts/download_iem_mos.py`
+  - `scripts/download_iem_mos_kord.py`
+  - `scripts/download_iem_mos_kphl.py`
 
 ---
 
 ## 3. Changes Not Yet Implemented
 
-### 3.1 src/ Module Updates (4 remaining)
-- `src/trading.py` — replace inline SEASON_MAP/SEASON_ORDER/_to_numpy
-- `src/kalshi_backtester.py` — replace inline SEASON_MAP/SEASON_ORDER/_to_numpy/_get_season
-- `src/kalshi_client.py` — replace inline _to_numpy
-- `src/market_proxy.py` — replace inline SEASON_MAP_SHORT
+### 3.1 ARCHIVE Cleanup
+- Delete legacy `ARCHIVE/` subdirectories (except `legacy_root_docs/`) per original recommendation.
 
-### 3.2 Script Consolidation (5 remaining)
-- `scripts/run_preprocessing.py` — consolidate 4 per-city preprocessing scripts
-- `scripts/run_benchmark.py` — consolidate 4 per-city benchmark scripts
-- `scripts/run_synthesis_calibration.py` — consolidate 4 per-city synthesis scripts
-- `scripts/run_backtest.py` — consolidate 4 per-city backtest scripts
-- `scripts/run_promotion_evaluation.py` — consolidate 4 per-city promotion scripts
+### 3.2 Per-City Pipeline Script Consolidation (6 remaining)
+- `scripts/run_data_collection.py` — consolidate the 4 per-city data collection scripts.
+- `scripts/run_preprocessing.py` — consolidate 4 per-city preprocessing scripts.
+- `scripts/run_benchmark.py` — consolidate 4 per-city benchmark scripts.
+- `scripts/run_synthesis_calibration.py` — consolidate 4 per-city synthesis scripts.
+- `scripts/run_backtest.py` — consolidate 4 per-city backtest scripts.
+- `scripts/run_promotion_evaluation.py` — consolidate 4 per-city promotion scripts.
 
 ### 3.3 Test Consolidation
-- `tests/test_city_pipeline.py` — parameterized test replacing test_chi_pipeline.py, test_phl_pipeline.py, test_atl_pipeline.py
+- `tests/test_city_pipeline.py` — parameterized test replacing `test_chi_pipeline.py`, `test_phl_pipeline.py`, `test_atl_pipeline.py`.
 
-### 3.4 MOS Script Consolidation
-- Consolidate 3 MOS download scripts into 1
+### 3.4 Config System Cleanup
+- Remove duplicated bucket definitions from per-city config files.
+- Optionally migrate station metadata into `city_config.py`.
+- Update imports in `src/operational_data.py` and `src/wga_data_pipeline.py`.
 
-### 3.5 Config System Cleanup
-- Remove duplicated bucket definitions from per-city config files
-- Optionally migrate station metadata into city_config.py
-- Update imports in src/operational_data.py and src/wga_data_pipeline.py
+### 3.5 Experimental Script Organization
+- Move experimental/analysis scripts to `scripts/experiments/`.
 
-### 3.6 Experimental Script Organization
-- Move experimental/analysis scripts to `scripts/experiments/`
-
-### 3.7 Documentation Updates
-- Update CLAUDE.md repo map to reflect consolidated file structure
-- Update MEMORY.md active file reference table
+### 3.6 Documentation Updates
+- Update `CLAUDE.md` repo map to reflect consolidated file structure.
+- Update `MEMORY.md` active file reference table.
 
 ---
 

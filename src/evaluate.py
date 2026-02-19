@@ -74,8 +74,7 @@ def _to_numpy(arr: Union[np.ndarray, pd.Series, list]) -> np.ndarray:
     np.ndarray
         1-D float64 array.
     """
-    out = np.asarray(arr, dtype=np.float64).ravel()
-    return out
+    return _shared_to_numpy(arr)
 
 
 def _validate_inputs(

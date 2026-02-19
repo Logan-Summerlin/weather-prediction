@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Backward-compatible wrapper for MOS download (KORD)."""
 
-try:
+import os
+import sys
+
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from download_iem_mos_data import run_for_station
+else:
     from scripts.download_iem_mos_data import run_for_station
-except ModuleNotFoundError:
-    from download_iem_mos_data import run_for_station  # type: ignore
 
 
 if __name__ == "__main__":
