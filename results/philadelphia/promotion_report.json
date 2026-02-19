@@ -1,0 +1,126 @@
+{
+  "timestamp": "2026-02-19T14:25:46.472831",
+  "city": "phl",
+  "kalshi_ticker": "KXHIGHPHL",
+  "target_station": "USW00013739",
+  "target_station_name": "Philadelphia International Airport",
+  "overall_status": "FAIL",
+  "gates_passed": 4,
+  "gates_total": 13,
+  "pass_rate": "4/13 (31%)",
+  "thresholds": {
+    "brier_threshold": 0.15,
+    "nws_brier_baseline": 0.13,
+    "ece_threshold": 0.05,
+    "min_positive_pnl": 0.0,
+    "max_drawdown_threshold": -0.3,
+    "min_oos_days": 200,
+    "seasonal_brier_threshold": 0.2
+  },
+  "gates": [
+    {
+      "name": "overall_brier",
+      "description": "OOS Brier score below threshold",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Benchmark results not found (No benchmark results found)"
+    },
+    {
+      "name": "beats_nws",
+      "description": "Model Brier beats NWS baseline",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Benchmark results not found"
+    },
+    {
+      "name": "beats_kalshi_market",
+      "description": "Model Brier beats Kalshi market",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Real Kalshi backtest not found at /home/user/weather-prediction/results/philadelphia/backtest/real_kalshi_backtest_metrics.json (skipped, non-blocking)"
+    },
+    {
+      "name": "seasonal_brier",
+      "description": "No season exceeds Brier threshold",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Seasonal results not found at /home/user/weather-prediction/results/philadelphia/seasonal_brier.json"
+    },
+    {
+      "name": "min_oos_days",
+      "description": "Sufficient OOS evaluation days",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "OOS day count not found in benchmark results"
+    },
+    {
+      "name": "ece",
+      "description": "Expected Calibration Error within tolerance",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Calibration results not found at /home/user/weather-prediction/results/philadelphia/synthesis/calibration_summary.json"
+    },
+    {
+      "name": "reliability_diagram",
+      "description": "Reliability diagram artifact exists",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Reliability diagram not found at /home/user/weather-prediction/results/philadelphia/synthesis/reliability_diagram.png"
+    },
+    {
+      "name": "positive_pnl",
+      "description": "Simulated paper trading shows positive P&L",
+      "passed": false,
+      "value": -21.994186472260367,
+      "threshold": 0.0,
+      "details": "Simulated P&L: $-21.99 (minimum: $0.00)"
+    },
+    {
+      "name": "max_drawdown",
+      "description": "Max drawdown within acceptable limits",
+      "passed": false,
+      "value": -72.3958477650873,
+      "threshold": -0.3,
+      "details": "Max drawdown: -7239.6% (limit: -30.0%)"
+    },
+    {
+      "name": "real_kalshi_pnl",
+      "description": "Real Kalshi backtest shows positive P&L",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Real Kalshi backtest not found at /home/user/weather-prediction/results/philadelphia/backtest/real_kalshi_backtest_metrics.json (skipped, non-blocking)"
+    },
+    {
+      "name": "data_pipeline",
+      "description": "Processed data files exist",
+      "passed": true,
+      "value": 7,
+      "threshold": 7,
+      "details": "7/7 required files present in /home/user/weather-prediction/data/philadelphia/processed"
+    },
+    {
+      "name": "model_checkpoints",
+      "description": "Model checkpoints saved",
+      "passed": false,
+      "value": 0,
+      "threshold": null,
+      "details": "0 model file(s) found in /home/user/weather-prediction/models/philadelphia"
+    },
+    {
+      "name": "scaler_artifact",
+      "description": "Feature scaler artifact exists",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Scaler found at /home/user/weather-prediction/data/philadelphia/processed/scaler.pkl"
+    }
+  ]
+}

@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-02-18T09:04:24.265975",
-  "city": "atlanta",
+  "timestamp": "2026-02-19T14:26:03.713770",
+  "city": "atl",
   "kalshi_ticker": "KXHIGHTATL",
   "target_station": "USW00013874",
   "target_station_name": "Hartsfield-Jackson Atlanta International Airport",
-  "overall_status": "PASS",
+  "overall_status": "FAIL",
   "gates_passed": 11,
-  "gates_total": 11,
-  "pass_rate": "11/11 (100%)",
+  "gates_total": 13,
+  "pass_rate": "11/13 (85%)",
   "thresholds": {
     "brier_threshold": 0.14,
     "nws_brier_baseline": 0.12,
@@ -24,7 +24,7 @@
       "passed": true,
       "value": 0.015268285786318045,
       "threshold": 0.14,
-      "details": "Best model Brier: 0.0153 (threshold: 0.14)"
+      "details": "Best model Brier: 0.0153 (threshold: 0.14, source: base benchmark from /home/user/weather-prediction/results/atlanta/benchmark_summary.json)"
     },
     {
       "name": "beats_nws",
@@ -32,7 +32,15 @@
       "passed": true,
       "value": 0.015268285786318045,
       "threshold": 0.12,
-      "details": "Model: 0.0153 vs NWS: 0.1200"
+      "details": "Model: 0.0153 vs NWS: 0.1200 (source: base benchmark from /home/user/weather-prediction/results/atlanta/benchmark_summary.json)"
+    },
+    {
+      "name": "beats_kalshi_market",
+      "description": "Model Brier beats Kalshi market",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Real Kalshi backtest not found at /home/user/weather-prediction/results/atlanta/backtest/real_kalshi_backtest_metrics.json (skipped, non-blocking)"
     },
     {
       "name": "seasonal_brier",
@@ -68,19 +76,27 @@
     },
     {
       "name": "positive_pnl",
-      "description": "Paper trading shows positive P&L",
+      "description": "Simulated paper trading shows positive P&L",
       "passed": true,
       "value": 1112.479091018129,
       "threshold": 0.0,
-      "details": "Total P&L: $1112.48 (minimum: $0.00)"
+      "details": "Simulated P&L: $1112.48 (minimum: $0.00)"
     },
     {
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
-      "passed": true,
-      "value": -0.08793131270825373,
+      "passed": false,
+      "value": -1342.0292199481296,
       "threshold": -0.3,
-      "details": "Max drawdown: -8.8% (limit: -30.0%)"
+      "details": "Max drawdown: -134202.9% (limit: -30.0%)"
+    },
+    {
+      "name": "real_kalshi_pnl",
+      "description": "Real Kalshi backtest shows positive P&L",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Real Kalshi backtest not found at /home/user/weather-prediction/results/atlanta/backtest/real_kalshi_backtest_metrics.json (skipped, non-blocking)"
     },
     {
       "name": "data_pipeline",
@@ -93,10 +109,10 @@
     {
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
-      "passed": true,
-      "value": 1,
+      "passed": false,
+      "value": 0,
       "threshold": null,
-      "details": "1 model file(s) found in /home/user/weather-prediction/models/atlanta"
+      "details": "0 model file(s) found in /home/user/weather-prediction/models/atlanta"
     },
     {
       "name": "scaler_artifact",
