@@ -1,10 +1,11 @@
 """
-Parameterized tests for all city prediction pipelines (CHI, PHL, ATL).
+Parameterized tests for all city prediction pipelines (CHI, PHL, ATL, AUS).
 
 Consolidates the per-city test files:
   - test_chi_pipeline.py
   - test_phl_pipeline.py
   - test_atl_pipeline.py
+  - test_aus_pipeline.py (Austin)
 
 Tests cover:
   1. city_config integration (bucket edges, labels, target station, etc.)
@@ -126,6 +127,42 @@ CITY_TEST_DATA = {
         },
         "full_range": (-20, 121),
         "expected_scripts": ["run_atl_data_collection.py"],
+    },
+    "aus": {
+        "city_name": "Austin",
+        "kalshi_ticker": "KXHIGHAUS",
+        "target_station": "USW00013904",
+        "target_station_name_contains": "Austin-Bergstrom",
+        "timezone": "America/Chicago",
+        "dir_name": "austin",
+        "config_module": "config_austin",
+        "n_buckets": 57,
+        "first_label": "Below 0",
+        "last_label": "Above 110",
+        "min_surrounding_stations": 45,
+        "asos_target_code": "KAUS",
+        "ring_names": ["Ring1_Near", "Ring2_Regional", "Ring3_Extended", "Ring4_Far"],
+        "compass_sectors": ["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
+        "meteorological_sectors": ["Dryline_W", "Gulf_E", "Warm_S", "NearField", "Norther_N"],
+        "bucket_spot_checks": {
+            -5: 0,    # Below 0
+            5: 3,     # (4,6)
+            32: 17,   # (32,34)
+            55: 28,   # (54,56)
+            72: 37,   # (72,74)
+            90: 46,   # (90,92)
+            100: 51,  # (100,102)
+            110: 56,  # Above 110
+        },
+        "full_range": (-20, 121),
+        "expected_scripts": [
+            "run_aus_data_collection.py",
+            "run_aus_preprocessing.py",
+            "run_aus_benchmark.py",
+            "run_aus_synthesis_calibration.py",
+            "run_aus_backtest.py",
+            "run_aus_promotion_evaluation.py",
+        ],
     },
 }
 

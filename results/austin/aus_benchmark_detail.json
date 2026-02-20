@@ -12,9 +12,9 @@
     "alpha": 100.0
   },
   "HeteroscedasticNN": {
-    "test_brier": 0.21738886390280227,
-    "val_mae": 4.256105394128251,
-    "test_mae": 4.579736785471765,
-    "best_epoch": 62
+    "test_brier": 0.21747915414556665,
+    "val_mae": 4.153224330954355,
+    "test_mae": 4.6398161428482805,
+    "best_epoch": 42
   }
 }
