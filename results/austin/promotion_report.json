@@ -1,15 +1,16 @@
 {
-  "timestamp": "2026-02-19T14:26:10.636511",
+  "timestamp": "2026-02-20T00:47:19.066911",
   "city": "aus",
   "kalshi_ticker": "KXHIGHAUS",
   "target_station": "USW00013904",
   "target_station_name": "Austin-Bergstrom International Airport",
   "overall_status": "FAIL",
-  "gates_passed": 7,
-  "gates_total": 13,
-  "pass_rate": "7/13 (54%)",
+  "gates_passed": 9,
+  "gates_total": 14,
+  "pass_rate": "9/14 (64%)",
   "thresholds": {
-    "brier_threshold": 0.16,
+    "brier_threshold": 0.11,
+    "brier_floor": 0.04,
     "nws_brier_baseline": 0.14,
     "ece_threshold": 0.05,
     "min_positive_pnl": 0.0,
@@ -22,17 +23,25 @@
       "name": "overall_brier",
       "description": "OOS Brier score below threshold",
       "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Benchmark results not found (unified/unknown from /home/user/weather-prediction/results/austin/synthesis/unified_benchmark_summary.json)"
+      "value": 0.15958257671521614,
+      "threshold": 0.11,
+      "details": "Best model Brier: 0.1596 (threshold: 0.11, source: synthesis/4_seasonal_regime from /home/user/weather-prediction/results/austin/synthesis/calibration_sweep_summary.json)"
+    },
+    {
+      "name": "brier_sanity_floor",
+      "description": "OOS Brier is above minimum sanity floor",
+      "passed": true,
+      "value": 0.15958257671521614,
+      "threshold": 0.04,
+      "details": "Best model Brier: 0.1596 (minimum sanity floor: 0.0400, source: synthesis/4_seasonal_regime from /home/user/weather-prediction/results/austin/synthesis/calibration_sweep_summary.json)"
     },
     {
       "name": "beats_nws",
       "description": "Model Brier beats NWS baseline",
       "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Benchmark results not found"
+      "value": 0.15958257671521614,
+      "threshold": 0.14,
+      "details": "Model: 0.1596 vs NWS: 0.1400 (source: synthesis/4_seasonal_regime from /home/user/weather-prediction/results/austin/synthesis/calibration_sweep_summary.json)"
     },
     {
       "name": "beats_kalshi_market",
@@ -109,10 +118,10 @@
     {
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
-      "passed": false,
-      "value": 0,
+      "passed": true,
+      "value": 1,
       "threshold": null,
-      "details": "0 model file(s) found in /home/user/weather-prediction/models/austin"
+      "details": "1 model file(s) found in /home/user/weather-prediction/models/austin"
     },
     {
       "name": "scaler_artifact",

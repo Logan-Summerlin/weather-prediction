@@ -1,0 +1,6 @@
+{
+  "city": "aus",
+  "status": "missing_required_inputs",
+  "error": "MOS file not found: data/austin/mos/combined_mos_kaus.csv",
+  "output_csv": "/home/user/weather-prediction/results/austin/aus_nyc_template_benchmark.csv"
+}
