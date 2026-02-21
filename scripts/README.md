@@ -40,18 +40,15 @@ All accept `--city {nyc,chi,phl,atl,aus}` and preserve existing artifact
 locations under `data/<city>/`, `models/<city>/`, and `results/<city>/`.
 NYC uses root-level `data/`, `models/`, `results/` for backward compatibility.
 
-## Backward-Compatible City Wrappers
+## Legacy Wrappers Removed
 
-City wrappers are intentionally retained for compatibility:
+City-specific wrapper scripts (`run_<city>_<stage>.py`) were removed because
+they duplicated the unified stage CLIs without adding functionality.
 
-- `run_nyc_<stage>.py`
-- `run_chi_<stage>.py`
-- `run_phl_<stage>.py`
-- `run_atl_<stage>.py`
-- `run_aus_<stage>.py`
+Use either:
 
-These wrappers delegate to the unified stage scripts and should not contain
-business logic.
+- `run_city_pipeline.py --city <city> --stage <stage>`
+- `run_<stage>.py --city <city>`
 
 ## Parameterized Template
 
