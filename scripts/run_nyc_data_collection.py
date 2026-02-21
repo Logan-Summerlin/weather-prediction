@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NYC Station Data Collection — backward-compatible wrapper.
+"""New York City Data Collection — backward-compatible wrapper.
 
 Delegates to the unified ``run_data_collection.py --city nyc``.
 """

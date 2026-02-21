@@ -55,43 +55,6 @@ logger = logging.getLogger(__name__)
 # Station metadata loading
 # ---------------------------------------------------------------------------
 
-def _get_city_config_module(city_code: str):
-    """Dynamically load the per-city config module.
-
-    Parameters
-    ----------
-    city_code : str
-        City identifier (chi, phl, atl, aus, nyc).
-
-    Returns
-    -------
-    module or None
-        The imported config module, or None on failure.
-    """
-    import importlib
-
-    _CONFIG_MODULES = {
-        "chi": "config_chicago",
-        "phl": "config_philadelphia",
-        "atl": "config_atlanta",
-        "aus": "config_austin",
-    }
-
-    try:
-        if city_code in _CONFIG_MODULES:
-            return importlib.import_module(_CONFIG_MODULES[city_code])
-        elif city_code == "nyc":
-            try:
-                return importlib.import_module("config_expanded")
-            except ImportError:
-                return importlib.import_module("config")
-        else:
-            logger.warning("Unknown city code: %s", city_code)
-            return None
-    except ImportError:
-        logger.warning("Could not import config module for %s", city_code)
-        return None
-
 
 def _load_station_metadata(city_code: str) -> Dict[str, Dict]:
     """Load station metadata from the city's config module.
@@ -107,14 +70,8 @@ def _load_station_metadata(city_code: str) -> Dict[str, Dict]:
         Station ID → metadata dict with keys:
         name, state, lat, lon, distance_mi, bearing, ring, sector.
     """
-    cfg = _get_city_config_module(city_code)
-    if cfg is not None and hasattr(cfg, "STATION_METADATA"):
-        return dict(cfg.STATION_METADATA)
-    if cfg is None:
-        logger.warning("Could not import config module for %s", city_code)
-    else:
-        logger.warning("No STATION_METADATA in config for %s", city_code)
-    return {}
+    cfg = get_city_runtime_config(city_code)
+    return dict(cfg.STATION_METADATA)
 
 
 def _get_station_order(city_code: str) -> List[str]:

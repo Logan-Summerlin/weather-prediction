@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Austin Preprocessing Pipeline — backward-compatible wrapper.
+"""Austin Preprocessing — backward-compatible wrapper.
 
 Delegates to the unified ``run_preprocessing.py --city aus``.
 """

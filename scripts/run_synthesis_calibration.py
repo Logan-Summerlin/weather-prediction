@@ -63,16 +63,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.city_config import get_city_config, ensure_city_dirs
 
-# ---------------------------------------------------------------------------
-# City code -> config module mapping
-# ---------------------------------------------------------------------------
-CITY_CONFIG_MODULES = {
-    "nyc": "config_expanded",
-    "chi": "config_chicago",
-    "phl": "config_philadelphia",
-    "atl": "config_atlanta",
-    "aus": "config_austin",
-}
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -1269,7 +1259,7 @@ def main() -> None:
     parser.add_argument(
         "--city",
         required=True,
-        choices=sorted(CITY_CONFIG_MODULES.keys()),
+        choices=["nyc", "chi", "phl", "atl", "aus"],
         help="City code (chi, phl, atl, aus)",
     )
     args = parser.parse_args()

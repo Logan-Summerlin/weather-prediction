@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NYC Synthesis Calibration — backward-compatible wrapper.
+"""New York City Synthesis Calibration — backward-compatible wrapper.
 
 Delegates to the unified ``run_synthesis_calibration.py --city nyc``.
 """

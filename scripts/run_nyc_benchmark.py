@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NYC Benchmark — backward-compatible wrapper.
+"""New York City Model Benchmark — backward-compatible wrapper.
 
 Delegates to the unified ``run_benchmark.py --city nyc``.
 """

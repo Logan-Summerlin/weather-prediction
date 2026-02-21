@@ -24,7 +24,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import importlib
 import os
 import sys
 import json
@@ -50,17 +49,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.city_config import get_city_config, ensure_city_dirs
-
-# ---------------------------------------------------------------------------
-# City config module mapping
-# ---------------------------------------------------------------------------
-CITY_CONFIG_MODULES = {
-    "nyc": "config_expanded",
-    "chi": "config_chicago",
-    "phl": "config_philadelphia",
-    "atl": "config_atlanta",
-    "aus": "config_austin",
-}
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -1170,16 +1158,12 @@ def main() -> None:
     parser.add_argument(
         "--city",
         required=True,
-        choices=list(CITY_CONFIG_MODULES.keys()),
+        choices=["nyc", "chi", "phl", "atl", "aus"],
         help="City code to run backtest for (chi, phl, atl, aus).",
     )
     args = parser.parse_args()
 
     city_code: str = args.city
-
-    # Dynamically load the city-specific config module (ensures it is importable)
-    config_module_name = CITY_CONFIG_MODULES[city_code]
-    importlib.import_module(config_module_name)
 
     cfg = get_city_config(city_code)
     ensure_city_dirs(cfg)
