@@ -81,7 +81,9 @@ from src.advanced_model import (
     train_model,
     predict_model,
 )
-import config_philadelphia as city_config
+from src.city_config import get_city_runtime_config
+
+city_config = get_city_runtime_config("phl")
 
 # ---------------------------------------------------------------------------
 # Logging

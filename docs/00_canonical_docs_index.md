@@ -11,9 +11,9 @@ This index defines the **only active documentation set** for repository operatio
 2. `nyc_temp_prediction_project_plan.md` — delivery roadmap and city rollout execution plan.
 3. `docs/05_repository_rationalization_plan.md` — repository simplification phases, completion state, and guardrails.
 
-## Archived / superseded docs
+## Removed superseded docs
 
-The following docs are retained only as historical snapshots and are **not** normative:
+The previously archived overlap docs were removed during rationalization cleanup to eliminate redundant maintenance surface:
 
 - `docs/01_current_state_and_directory.md`
 - `docs/02_model_families_and_methods.md`

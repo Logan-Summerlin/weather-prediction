@@ -101,6 +101,7 @@
 - Consolidated runtime city metadata into `src/city_config.py` + `src/city_config_runtime_data.py` and expanded `CityConfig` with contract-spec, operational cutoff/source assumptions, and station-network metadata fields.
 - Updated `src/operational_data.py`, `src/wga_data_pipeline.py`, and all six unified stage scripts to consume `get_city_config()` / `get_city_runtime_config()` only (no runtime imports of per-city legacy config modules).
 - Replaced `config_chicago.py`, `config_philadelphia.py`, `config_atlanta.py`, `config_austin.py`, and `config_expanded.py` with compatibility stubs that re-export from `city_config`.
+- Follow-up cleanup removed those compatibility stubs after parity validation and migrated remaining references to unified `city_config` accessors.
 
 ---
 
@@ -173,6 +174,7 @@
 - Added `docs/00_canonical_docs_index.md` as the authoritative active-doc index and precedence contract.
 - Updated `README.md` to point at the canonical index and removed links to overlapping narrative docs as active references.
 - Minimized `docs/01_current_state_and_directory.md`, `docs/02_model_families_and_methods.md`, `docs/03_principles_and_city_portability.md`, and `docs/04_scripts_consolidation_plan.md` into explicit archived stubs to remove redundant guidance while preserving historical traceability.
+- Follow-up cleanup removed those superseded stubs entirely to eliminate redundant documentation files.
 
 ---
 

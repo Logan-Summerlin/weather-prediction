@@ -5,8 +5,8 @@ Provides utility functions to query and subset the expanded station list
 by count, radius, ring, and sector. Supports the sensitivity experiments
 that vary the number and geographic distribution of input stations.
 
-All station metadata is sourced from config_expanded.py, which in turn
-was generated from the GHCN station inventory.
+All station metadata is sourced from the unified city runtime configuration,
+which is generated from the GHCN station inventory.
 
 Usage
 -----
@@ -15,13 +15,11 @@ Usage
     subsets = get_station_subsets()
 """
 
-import os
-import sys
 from typing import Optional
 
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-import config_expanded
+from src.city_config import get_city_runtime_config
+
+NYC_RUNTIME = get_city_runtime_config("nyc")
 
 
 # ===========================================================================
@@ -36,7 +34,7 @@ def get_all_station_ids() -> list[str]:
     list[str]
         Station IDs sorted by ascending distance.
     """
-    metadata = config_expanded.STATION_METADATA
+    metadata = NYC_RUNTIME.STATION_METADATA
     sorted_ids = sorted(
         metadata.keys(),
         key=lambda sid: metadata[sid]["distance_mi"],
@@ -93,7 +91,7 @@ def get_stations_by_radius(miles: float) -> list[str]:
     if miles < 0:
         raise ValueError(f"miles must be >= 0, got {miles}")
 
-    metadata = config_expanded.STATION_METADATA
+    metadata = NYC_RUNTIME.STATION_METADATA
     result = [
         sid for sid in metadata
         if metadata[sid]["distance_mi"] <= miles
@@ -121,13 +119,13 @@ def get_stations_by_ring(ring_name: str) -> list[str]:
     ValueError
         If ring_name is not a valid ring.
     """
-    valid_rings = list(config_expanded.STATION_RINGS.keys())
+    valid_rings = list(NYC_RUNTIME.STATION_RINGS.keys())
     if ring_name not in valid_rings:
         raise ValueError(
             f"Invalid ring '{ring_name}'. Valid rings: {valid_rings}"
         )
-    ids = config_expanded.STATION_RINGS[ring_name]
-    metadata = config_expanded.STATION_METADATA
+    ids = NYC_RUNTIME.STATION_RINGS[ring_name]
+    metadata = NYC_RUNTIME.STATION_METADATA
     return sorted(ids, key=lambda sid: metadata[sid]["distance_mi"])
 
 
@@ -149,13 +147,13 @@ def get_stations_by_sector(sector_name: str) -> list[str]:
     ValueError
         If sector_name is not a valid sector.
     """
-    valid_sectors = list(config_expanded.STATION_SECTORS.keys())
+    valid_sectors = list(NYC_RUNTIME.STATION_SECTORS.keys())
     if sector_name not in valid_sectors:
         raise ValueError(
             f"Invalid sector '{sector_name}'. Valid sectors: {valid_sectors}"
         )
-    ids = config_expanded.STATION_SECTORS[sector_name]
-    metadata = config_expanded.STATION_METADATA
+    ids = NYC_RUNTIME.STATION_SECTORS[sector_name]
+    metadata = NYC_RUNTIME.STATION_METADATA
     return sorted(ids, key=lambda sid: metadata[sid]["distance_mi"])
 
 
@@ -184,13 +182,13 @@ def get_stations_by_met_sector(met_sector_name: str) -> list[str]:
     ValueError
         If met_sector_name is not valid.
     """
-    valid = list(config_expanded.METEOROLOGICAL_SECTORS.keys())
+    valid = list(NYC_RUNTIME.METEOROLOGICAL_SECTORS.keys())
     if met_sector_name not in valid:
         raise ValueError(
             f"Invalid met sector '{met_sector_name}'. Valid: {valid}"
         )
-    ids = config_expanded.METEOROLOGICAL_SECTORS[met_sector_name]
-    metadata = config_expanded.STATION_METADATA
+    ids = NYC_RUNTIME.METEOROLOGICAL_SECTORS[met_sector_name]
+    metadata = NYC_RUNTIME.STATION_METADATA
     return sorted(ids, key=lambda sid: metadata[sid]["distance_mi"])
 
 
@@ -213,11 +211,11 @@ def get_station_metadata(station_id: str) -> dict:
     KeyError
         If station_id is not in the expanded station list.
     """
-    if station_id not in config_expanded.STATION_METADATA:
+    if station_id not in NYC_RUNTIME.STATION_METADATA:
         raise KeyError(
             f"Station '{station_id}' not found in expanded config."
         )
-    return config_expanded.STATION_METADATA[station_id].copy()
+    return NYC_RUNTIME.STATION_METADATA[station_id].copy()
 
 
 # ===========================================================================
@@ -241,8 +239,8 @@ def _build_diverse_subset(n: int) -> list[str]:
     list[str]
         Station IDs in the subset, sorted by distance.
     """
-    metadata = config_expanded.STATION_METADATA
-    sectors = config_expanded.STATION_SECTORS
+    metadata = NYC_RUNTIME.STATION_METADATA
+    sectors = NYC_RUNTIME.STATION_SECTORS
     total_stations = len(metadata)
 
     if n >= total_stations:
@@ -317,7 +315,7 @@ def get_station_subsets() -> dict[int, list[str]]:
         Mapping of subset size -> list of station IDs.
         Predefined sizes: 15, 20, 30, 40, 50.
     """
-    total = len(config_expanded.STATION_METADATA)
+    total = len(NYC_RUNTIME.STATION_METADATA)
     sizes = [15, 20, 30, 40, 50]
 
     subsets = {}
@@ -336,7 +334,7 @@ def get_original_station_ids() -> list[str]:
     list[str]
         The 14 station IDs from the original config.py.
     """
-    return list(config_expanded.ORIGINAL_STATIONS.keys())
+    return list(NYC_RUNTIME.ORIGINAL_STATIONS.keys())
 
 
 def get_expanded_sector_assignments() -> dict[str, list[str]]:
@@ -356,7 +354,7 @@ def get_expanded_sector_assignments() -> dict[str, list[str]]:
     """
     return {
         sector: list(stations)
-        for sector, stations in config_expanded.METEOROLOGICAL_SECTORS.items()
+        for sector, stations in NYC_RUNTIME.METEOROLOGICAL_SECTORS.items()
     }
 
 
@@ -366,9 +364,9 @@ def get_expanded_sector_assignments() -> dict[str, list[str]]:
 
 def print_station_summary() -> None:
     """Print a formatted summary of the expanded station registry."""
-    metadata = config_expanded.STATION_METADATA
-    rings = config_expanded.STATION_RINGS
-    sectors = config_expanded.STATION_SECTORS
+    metadata = NYC_RUNTIME.STATION_METADATA
+    rings = NYC_RUNTIME.STATION_RINGS
+    sectors = NYC_RUNTIME.STATION_SECTORS
 
     print(f"Expanded Station Registry: {len(metadata)} surrounding stations")
     print(f"{'='*70}")
@@ -382,7 +380,7 @@ def print_station_summary() -> None:
         print(f"  {sector_name}: {len(sids)} stations")
 
     print("\nMeteorological Sectors:")
-    met_sectors = config_expanded.METEOROLOGICAL_SECTORS
+    met_sectors = NYC_RUNTIME.METEOROLOGICAL_SECTORS
     for met_name, sids in met_sectors.items():
         print(f"  {met_name}: {len(sids)} stations")
 
@@ -405,7 +403,7 @@ if __name__ == "__main__":
         # Show sector distribution
         sector_counts = {}
         for sid in ids:
-            s = config_expanded.STATION_METADATA[sid]["sector"]
+            s = NYC_RUNTIME.STATION_METADATA[sid]["sector"]
             sector_counts[s] = sector_counts.get(s, 0) + 1
         sectors_str = ", ".join(f"{k}:{v}" for k, v in sorted(sector_counts.items()))
         print(f"  {size} stations: {len(ids)} actual ({sectors_str})")
