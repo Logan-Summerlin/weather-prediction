@@ -8,7 +8,7 @@ This index defines the **only active documentation set** for repository operatio
 ## Active docs (authoritative)
 
 1. `README.md` — repository quickstart and navigation.
-2. `nyc_temp_prediction_project_plan.md` — delivery roadmap and city rollout execution plan.
+2. `Project_Plan` — delivery roadmap and city rollout execution plan.
 3. `docs/05_repository_rationalization_plan.md` — repository simplification phases, completion state, and guardrails.
 
 ## Removed superseded docs
@@ -23,6 +23,6 @@ The previously archived overlap docs were removed during rationalization cleanup
 When conflicts exist, follow this precedence:
 
 1. `README.md`
-2. `nyc_temp_prediction_project_plan.md`
+2. `Project_Plan`
 3. `docs/05_repository_rationalization_plan.md`
 4. Archived docs (historical context only)

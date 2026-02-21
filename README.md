@@ -12,5 +12,5 @@ Probabilistic daily temperature forecasting and Kalshi contract trading pipeline
 ## Canonical docs
 
 - Documentation index: `docs/00_canonical_docs_index.md`
-- NYC project plan: `nyc_temp_prediction_project_plan.md`
+- NYC project plan: `Project_Plan`
 - **Repository rationalization plan:** `docs/05_repository_rationalization_plan.md`
