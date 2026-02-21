@@ -14,8 +14,9 @@ import pytest
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-import config
-import config_expanded
+from src.city_config import get_city_runtime_config
+
+NYC_RUNTIME = get_city_runtime_config("nyc")
 from src.station_registry import (
     get_all_station_ids,
     get_stations_by_count,
@@ -47,21 +48,21 @@ class TestStationCount:
 
     def test_total_station_count(self):
         """Expanded config should have ~50 surrounding stations."""
-        count = len(config_expanded.SURROUNDING_STATIONS)
+        count = len(NYC_RUNTIME.SURROUNDING_STATIONS)
         assert 40 <= count <= 60, f"Expected 40-60 stations, got {count}"
 
     def test_all_stations_includes_target(self):
         """ALL_STATIONS should include Central Park target station."""
-        assert config.TARGET_STATION in config_expanded.ALL_STATIONS
+        assert NYC_RUNTIME.TARGET_STATION in NYC_RUNTIME.ALL_STATIONS
 
     def test_all_stations_count(self):
         """ALL_STATIONS = target + surrounding."""
-        expected = len(config_expanded.SURROUNDING_STATIONS) + 1
-        assert len(config_expanded.ALL_STATIONS) == expected
+        expected = len(NYC_RUNTIME.SURROUNDING_STATIONS) + 1
+        assert len(NYC_RUNTIME.ALL_STATIONS) == expected
 
     def test_target_not_in_surrounding(self):
         """Target station should not be in surrounding stations."""
-        assert config.TARGET_STATION not in config_expanded.SURROUNDING_STATIONS
+        assert NYC_RUNTIME.TARGET_STATION not in NYC_RUNTIME.SURROUNDING_STATIONS
 
 
 # ===========================================================================
@@ -73,27 +74,25 @@ class TestOriginalStations:
 
     def test_original_stations_count(self):
         """Original config should have exactly 14 surrounding stations."""
-        assert len(config_expanded.ORIGINAL_STATIONS) == 14
+        assert len(NYC_RUNTIME.ORIGINAL_STATIONS) == 14
 
     def test_all_original_in_expanded(self):
         """Every original station must appear in the expanded set."""
-        expanded_ids = set(config_expanded.SURROUNDING_STATIONS.keys())
-        for sid in config_expanded.ORIGINAL_STATIONS:
+        expanded_ids = set(NYC_RUNTIME.SURROUNDING_STATIONS.keys())
+        for sid in NYC_RUNTIME.ORIGINAL_STATIONS:
             assert sid in expanded_ids, (
                 f"Original station {sid} missing from expanded set"
             )
 
     def test_original_matches_base_config(self):
         """ORIGINAL_STATIONS should match the base config's list."""
-        assert set(config_expanded.ORIGINAL_STATIONS.keys()) == set(
-            config.SURROUNDING_STATIONS.keys()
-        )
+        assert set(NYC_RUNTIME.ORIGINAL_STATIONS.keys()) == set(get_original_station_ids())
 
     def test_get_original_station_ids(self):
         """get_original_station_ids should return the original 14 IDs."""
         ids = get_original_station_ids()
         assert len(ids) == 14
-        assert set(ids) == set(config.SURROUNDING_STATIONS.keys())
+        assert set(ids) == set(NYC_RUNTIME.ORIGINAL_STATIONS.keys())
 
 
 # ===========================================================================
@@ -105,8 +104,8 @@ class TestStationMetadata:
 
     def test_metadata_count_matches_surrounding(self):
         """Every surrounding station should have metadata."""
-        assert len(config_expanded.STATION_METADATA) == len(
-            config_expanded.SURROUNDING_STATIONS
+        assert len(NYC_RUNTIME.STATION_METADATA) == len(
+            NYC_RUNTIME.SURROUNDING_STATIONS
         )
 
     def test_metadata_has_required_fields(self):
@@ -115,7 +114,7 @@ class TestStationMetadata:
             "name", "state", "lat", "lon", "distance_mi",
             "bearing", "ring", "sector",
         }
-        for sid, meta in config_expanded.STATION_METADATA.items():
+        for sid, meta in NYC_RUNTIME.STATION_METADATA.items():
             for field in required_fields:
                 assert field in meta, (
                     f"Station {sid} missing field '{field}'"
@@ -123,7 +122,7 @@ class TestStationMetadata:
 
     def test_metadata_lat_lon_reasonable(self):
         """Lat/lon should be in reasonable range for NE US."""
-        for sid, meta in config_expanded.STATION_METADATA.items():
+        for sid, meta in NYC_RUNTIME.STATION_METADATA.items():
             assert 38.0 <= meta["lat"] <= 44.0, (
                 f"Station {sid} lat {meta['lat']} out of range"
             )
@@ -133,21 +132,21 @@ class TestStationMetadata:
 
     def test_metadata_distance_positive(self):
         """All distances should be positive (no station at zero)."""
-        for sid, meta in config_expanded.STATION_METADATA.items():
+        for sid, meta in NYC_RUNTIME.STATION_METADATA.items():
             assert meta["distance_mi"] > 0, (
                 f"Station {sid} has non-positive distance"
             )
 
     def test_metadata_distance_within_250(self):
         """All stations should be within 250 miles."""
-        for sid, meta in config_expanded.STATION_METADATA.items():
+        for sid, meta in NYC_RUNTIME.STATION_METADATA.items():
             assert meta["distance_mi"] <= 250, (
                 f"Station {sid} distance {meta['distance_mi']} exceeds 250mi"
             )
 
     def test_metadata_bearing_range(self):
         """Bearings should be in [0, 360)."""
-        for sid, meta in config_expanded.STATION_METADATA.items():
+        for sid, meta in NYC_RUNTIME.STATION_METADATA.items():
             assert 0 <= meta["bearing"] < 360, (
                 f"Station {sid} bearing {meta['bearing']} out of range"
             )
@@ -155,7 +154,7 @@ class TestStationMetadata:
     def test_metadata_ring_valid(self):
         """Ring should be one of the four valid rings."""
         valid = {"Ring1_Near", "Ring2_Regional", "Ring3_Extended", "Ring4_Far"}
-        for sid, meta in config_expanded.STATION_METADATA.items():
+        for sid, meta in NYC_RUNTIME.STATION_METADATA.items():
             assert meta["ring"] in valid, (
                 f"Station {sid} has invalid ring '{meta['ring']}'"
             )
@@ -163,7 +162,7 @@ class TestStationMetadata:
     def test_metadata_sector_valid(self):
         """Sector should be one of the eight valid sectors."""
         valid = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
-        for sid, meta in config_expanded.STATION_METADATA.items():
+        for sid, meta in NYC_RUNTIME.STATION_METADATA.items():
             assert meta["sector"] in valid, (
                 f"Station {sid} has invalid sector '{meta['sector']}'"
             )
@@ -190,7 +189,7 @@ class TestDistanceCalculations:
 
     def test_albany_distance(self):
         """Albany should be roughly 130-145 miles from Central Park."""
-        meta = config_expanded.STATION_METADATA.get("USW00014735")
+        meta = NYC_RUNTIME.STATION_METADATA.get("USW00014735")
         if meta:
             dist = haversine_distance(CP_LAT, CP_LON, meta["lat"], meta["lon"])
             assert 130 <= dist <= 145, (
@@ -199,7 +198,7 @@ class TestDistanceCalculations:
 
     def test_newark_distance(self):
         """Newark should be roughly 10-15 miles from Central Park."""
-        meta = config_expanded.STATION_METADATA.get("USW00014734")
+        meta = NYC_RUNTIME.STATION_METADATA.get("USW00014734")
         if meta:
             dist = haversine_distance(CP_LAT, CP_LON, meta["lat"], meta["lon"])
             assert 8 <= dist <= 18, (
@@ -213,7 +212,7 @@ class TestDistanceCalculations:
 
     def test_metadata_distance_matches_haversine(self):
         """Stored distances should match fresh haversine calculations."""
-        for sid, meta in config_expanded.STATION_METADATA.items():
+        for sid, meta in NYC_RUNTIME.STATION_METADATA.items():
             computed = haversine_distance(
                 CP_LAT, CP_LON, meta["lat"], meta["lon"]
             )
@@ -232,7 +231,7 @@ class TestBearingCalculations:
 
     def test_albany_roughly_north(self):
         """Albany is roughly north of Central Park."""
-        meta = config_expanded.STATION_METADATA.get("USW00014735")
+        meta = NYC_RUNTIME.STATION_METADATA.get("USW00014735")
         if meta:
             assert meta["sector"] == "N"
             # Bearing should be close to 0/360
@@ -240,7 +239,7 @@ class TestBearingCalculations:
 
     def test_jfk_roughly_southeast(self):
         """JFK should be in the SE sector."""
-        meta = config_expanded.STATION_METADATA.get("USW00094789")
+        meta = NYC_RUNTIME.STATION_METADATA.get("USW00094789")
         if meta:
             assert meta["sector"] == "SE"
             assert 112.5 <= meta["bearing"] < 157.5
@@ -272,29 +271,29 @@ class TestRingClassification:
         """Sum of all ring counts should equal total stations."""
         total = sum(
             len(sids)
-            for sids in config_expanded.STATION_RINGS.values()
+            for sids in NYC_RUNTIME.STATION_RINGS.values()
         )
-        assert total == len(config_expanded.SURROUNDING_STATIONS)
+        assert total == len(NYC_RUNTIME.SURROUNDING_STATIONS)
 
     def test_ring_no_overlap(self):
         """Stations should appear in exactly one ring."""
         all_ids = []
-        for sids in config_expanded.STATION_RINGS.values():
+        for sids in NYC_RUNTIME.STATION_RINGS.values():
             all_ids.extend(sids)
         assert len(all_ids) == len(set(all_ids)), "Duplicate station in rings"
 
     def test_ring1_near_field_distance(self):
         """Ring1_Near stations should be within 50 miles."""
-        for sid in config_expanded.STATION_RINGS["Ring1_Near"]:
-            meta = config_expanded.STATION_METADATA[sid]
+        for sid in NYC_RUNTIME.STATION_RINGS["Ring1_Near"]:
+            meta = NYC_RUNTIME.STATION_METADATA[sid]
             assert meta["distance_mi"] <= 50, (
                 f"{sid} in Ring1_Near but distance={meta['distance_mi']:.1f}"
             )
 
     def test_ring4_far_distance(self):
         """Ring4_Far stations should be between 150 and 250 miles."""
-        for sid in config_expanded.STATION_RINGS["Ring4_Far"]:
-            meta = config_expanded.STATION_METADATA[sid]
+        for sid in NYC_RUNTIME.STATION_RINGS["Ring4_Far"]:
+            meta = NYC_RUNTIME.STATION_METADATA[sid]
             assert 150 <= meta["distance_mi"] <= 250, (
                 f"{sid} in Ring4_Far but distance={meta['distance_mi']:.1f}"
             )
@@ -313,8 +312,8 @@ class TestRingClassification:
     def test_get_stations_by_ring(self):
         """get_stations_by_ring should return correct stations."""
         ring1 = get_stations_by_ring("Ring1_Near")
-        assert len(ring1) == len(config_expanded.STATION_RINGS["Ring1_Near"])
-        assert set(ring1) == set(config_expanded.STATION_RINGS["Ring1_Near"])
+        assert len(ring1) == len(NYC_RUNTIME.STATION_RINGS["Ring1_Near"])
+        assert set(ring1) == set(NYC_RUNTIME.STATION_RINGS["Ring1_Near"])
 
     def test_get_stations_by_ring_invalid(self):
         """Invalid ring name should raise ValueError."""
@@ -333,21 +332,21 @@ class TestSectorClassification:
         """Sum of all sector counts should equal total stations."""
         total = sum(
             len(sids)
-            for sids in config_expanded.STATION_SECTORS.values()
+            for sids in NYC_RUNTIME.STATION_SECTORS.values()
         )
-        assert total == len(config_expanded.SURROUNDING_STATIONS)
+        assert total == len(NYC_RUNTIME.SURROUNDING_STATIONS)
 
     def test_sector_no_overlap(self):
         """Stations should appear in exactly one sector."""
         all_ids = []
-        for sids in config_expanded.STATION_SECTORS.values():
+        for sids in NYC_RUNTIME.STATION_SECTORS.values():
             all_ids.extend(sids)
         assert len(all_ids) == len(set(all_ids)), "Duplicate station in sectors"
 
     def test_all_eight_sectors_present(self):
         """All 8 compass sectors should have at least 1 station."""
         for sector in ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]:
-            assert len(config_expanded.STATION_SECTORS[sector]) >= 1, (
+            assert len(NYC_RUNTIME.STATION_SECTORS[sector]) >= 1, (
                 f"Sector {sector} has no stations"
             )
 
@@ -369,8 +368,8 @@ class TestSectorClassification:
     def test_get_stations_by_sector(self):
         """get_stations_by_sector should return correct stations."""
         north = get_stations_by_sector("N")
-        assert len(north) == len(config_expanded.STATION_SECTORS["N"])
-        assert set(north) == set(config_expanded.STATION_SECTORS["N"])
+        assert len(north) == len(NYC_RUNTIME.STATION_SECTORS["N"])
+        assert set(north) == set(NYC_RUNTIME.STATION_SECTORS["N"])
 
     def test_get_stations_by_sector_invalid(self):
         """Invalid sector name should raise ValueError."""
@@ -380,14 +379,14 @@ class TestSectorClassification:
     def test_sector_assignments_geographic_sense(self):
         """Spot-check that sector assignments make geographic sense."""
         # Atlantic City should be roughly south
-        meta = config_expanded.STATION_METADATA.get("USW00093730")
+        meta = NYC_RUNTIME.STATION_METADATA.get("USW00093730")
         if meta:
             assert meta["sector"] == "S", (
                 f"Atlantic City sector={meta['sector']}, expected S"
             )
 
         # Allentown should be roughly west
-        meta = config_expanded.STATION_METADATA.get("USW00014737")
+        meta = NYC_RUNTIME.STATION_METADATA.get("USW00014737")
         if meta:
             assert meta["sector"] == "W", (
                 f"Allentown sector={meta['sector']}, expected W"
@@ -403,26 +402,26 @@ class TestMetSectors:
 
     def test_met_sector_wnw_contents(self):
         """WNW met sector should contain W + NW compass sectors."""
-        wnw = set(config_expanded.METEOROLOGICAL_SECTORS["WNW"])
+        wnw = set(NYC_RUNTIME.METEOROLOGICAL_SECTORS["WNW"])
         expected = set(
-            config_expanded.STATION_SECTORS["W"]
-            + config_expanded.STATION_SECTORS["NW"]
+            NYC_RUNTIME.STATION_SECTORS["W"]
+            + NYC_RUNTIME.STATION_SECTORS["NW"]
         )
         assert wnw == expected
 
     def test_met_sector_coastal_contents(self):
         """Coastal met sector should contain E + SE compass sectors."""
-        coastal = set(config_expanded.METEOROLOGICAL_SECTORS["Coastal"])
+        coastal = set(NYC_RUNTIME.METEOROLOGICAL_SECTORS["Coastal"])
         expected = set(
-            config_expanded.STATION_SECTORS["E"]
-            + config_expanded.STATION_SECTORS["SE"]
+            NYC_RUNTIME.STATION_SECTORS["E"]
+            + NYC_RUNTIME.STATION_SECTORS["SE"]
         )
         assert coastal == expected
 
     def test_met_sector_nearfield_is_ring1(self):
         """NearField met sector should be Ring 1 stations."""
-        nearfield = set(config_expanded.METEOROLOGICAL_SECTORS["NearField"])
-        ring1 = set(config_expanded.STATION_RINGS["Ring1_Near"])
+        nearfield = set(NYC_RUNTIME.METEOROLOGICAL_SECTORS["NearField"])
+        ring1 = set(NYC_RUNTIME.STATION_RINGS["Ring1_Near"])
         assert nearfield == ring1
 
     def test_get_stations_by_met_sector(self):
@@ -430,7 +429,7 @@ class TestMetSectors:
         wnw = get_stations_by_met_sector("WNW")
         assert len(wnw) > 0
         assert set(wnw) == set(
-            config_expanded.METEOROLOGICAL_SECTORS["WNW"]
+            NYC_RUNTIME.METEOROLOGICAL_SECTORS["WNW"]
         )
 
     def test_get_expanded_sector_assignments(self):
@@ -452,14 +451,14 @@ class TestGetStationsByCount:
     def test_returns_correct_count(self):
         """Should return exactly n stations."""
         for n in [5, 10, 15, 20, 30, 50]:
-            if n <= len(config_expanded.STATION_METADATA):
+            if n <= len(NYC_RUNTIME.STATION_METADATA):
                 result = get_stations_by_count(n)
                 assert len(result) == n
 
     def test_sorted_by_distance(self):
         """Returned stations should be sorted by ascending distance."""
         result = get_stations_by_count(20)
-        meta = config_expanded.STATION_METADATA
+        meta = NYC_RUNTIME.STATION_METADATA
         distances = [meta[sid]["distance_mi"] for sid in result]
         assert distances == sorted(distances)
 
@@ -473,7 +472,7 @@ class TestGetStationsByCount:
 
     def test_n_too_large_raises(self):
         """n exceeding total count should raise ValueError."""
-        total = len(config_expanded.STATION_METADATA)
+        total = len(NYC_RUNTIME.STATION_METADATA)
         with pytest.raises(ValueError):
             get_stations_by_count(total + 1)
 
@@ -498,21 +497,21 @@ class TestGetStationsByRadius:
     def test_radius_50_matches_ring1(self):
         """50-mile radius should match Ring1_Near stations."""
         result = set(get_stations_by_radius(50))
-        ring1 = set(config_expanded.STATION_RINGS["Ring1_Near"])
+        ring1 = set(NYC_RUNTIME.STATION_RINGS["Ring1_Near"])
         assert result == ring1
 
     def test_radius_100_includes_ring1_and_ring2(self):
         """100-mile radius should include Ring 1 and Ring 2."""
         result = set(get_stations_by_radius(100))
-        ring1 = set(config_expanded.STATION_RINGS["Ring1_Near"])
-        ring2 = set(config_expanded.STATION_RINGS["Ring2_Regional"])
+        ring1 = set(NYC_RUNTIME.STATION_RINGS["Ring1_Near"])
+        ring2 = set(NYC_RUNTIME.STATION_RINGS["Ring2_Regional"])
         expected = ring1 | ring2
         assert result == expected
 
     def test_radius_250_includes_all(self):
         """250-mile radius should include all stations."""
         result = get_stations_by_radius(250)
-        assert len(result) == len(config_expanded.STATION_METADATA)
+        assert len(result) == len(NYC_RUNTIME.STATION_METADATA)
 
     def test_radius_0_returns_empty(self):
         """0-mile radius should return no stations."""
@@ -527,7 +526,7 @@ class TestGetStationsByRadius:
     def test_radius_sorted_by_distance(self):
         """Results should be sorted by distance."""
         result = get_stations_by_radius(150)
-        meta = config_expanded.STATION_METADATA
+        meta = NYC_RUNTIME.STATION_METADATA
         distances = [meta[sid]["distance_mi"] for sid in result]
         assert distances == sorted(distances)
 
@@ -545,7 +544,7 @@ class TestStationSubsets:
         for size in [15, 20, 30, 40, 50]:
             assert size in subsets, f"Missing subset for size {size}"
             assert len(subsets[size]) == min(
-                size, len(config_expanded.STATION_METADATA)
+                size, len(NYC_RUNTIME.STATION_METADATA)
             )
 
     def test_subsets_are_nested(self):
@@ -568,7 +567,7 @@ class TestStationSubsets:
     def test_subset_diversity(self):
         """Each subset should have representation from multiple sectors."""
         subsets = get_station_subsets()
-        meta = config_expanded.STATION_METADATA
+        meta = NYC_RUNTIME.STATION_METADATA
 
         for size, ids in subsets.items():
             sectors_represented = set()
@@ -617,16 +616,16 @@ class TestDataFiles:
 
     def test_expanded_csv_exists(self):
         """stations_expanded.csv should exist."""
-        path = os.path.join(config.DATA_DIR, "stations_expanded.csv")
+        path = os.path.join(NYC_RUNTIME.DATA_DIR, "stations_expanded.csv")
         assert os.path.exists(path), f"Missing {path}"
 
     def test_station_csv_files_exist(self):
         """Each station should have a downloaded CSV file in data/raw/."""
-        if not os.path.isdir(config.RAW_DATA_DIR):
+        if not os.path.isdir(NYC_RUNTIME.RAW_DATA_DIR):
             pytest.skip("GHCN station CSVs not downloaded in this environment.")
-        raw_dir = config.RAW_DATA_DIR
+        raw_dir = NYC_RUNTIME.RAW_DATA_DIR
         missing = []
-        for sid in config_expanded.SURROUNDING_STATIONS:
+        for sid in NYC_RUNTIME.SURROUNDING_STATIONS:
             csv_path = os.path.join(raw_dir, f"{sid}.csv")
             if not os.path.exists(csv_path):
                 missing.append(sid)
@@ -641,7 +640,7 @@ class TestDataFiles:
     def test_target_station_csv_exists(self):
         """Central Park target station should have data."""
         csv_path = os.path.join(
-            config.RAW_DATA_DIR, f"{config.TARGET_STATION}.csv"
+            NYC_RUNTIME.RAW_DATA_DIR, f"{NYC_RUNTIME.TARGET_STATION}.csv"
         )
         if not os.path.exists(csv_path):
             pytest.skip("Target station CSV not downloaded in this environment.")
@@ -658,12 +657,12 @@ class TestGetAllStationIds:
     def test_returns_all(self):
         """Should return all surrounding station IDs."""
         ids = get_all_station_ids()
-        assert len(ids) == len(config_expanded.SURROUNDING_STATIONS)
+        assert len(ids) == len(NYC_RUNTIME.SURROUNDING_STATIONS)
 
     def test_sorted_by_distance(self):
         """Should be sorted by ascending distance."""
         ids = get_all_station_ids()
-        meta = config_expanded.STATION_METADATA
+        meta = NYC_RUNTIME.STATION_METADATA
         distances = [meta[sid]["distance_mi"] for sid in ids]
         assert distances == sorted(distances)
 
