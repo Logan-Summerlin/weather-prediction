@@ -29,7 +29,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import importlib
 import os
 import sys
 import json
@@ -58,20 +57,12 @@ import matplotlib.pyplot as plt  # noqa: E402
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.city_config import get_city_config, ensure_city_dirs
+from src.city_config import get_city_config, get_city_runtime_config, ensure_city_dirs
 from src.contract_brier import contract_brier_score
 
 # ---------------------------------------------------------------------------
 # City Mappings
 # ---------------------------------------------------------------------------
-CITY_CONFIG_MODULES = {
-    "nyc": "config_expanded",
-    "chi": "config_chicago",
-    "phl": "config_philadelphia",
-    "atl": "config_atlanta",
-    "aus": "config_austin",
-}
-
 CITY_TARGET_NAMES = {
     "nyc": "NYC_TMAX",
     "chi": "CHI_TMAX",
@@ -1184,14 +1175,14 @@ def main():
         "--city",
         type=str,
         required=True,
-        choices=list(CITY_CONFIG_MODULES.keys()),
+        choices=["nyc", "chi", "phl", "atl", "aus"],
         help="City code to benchmark (chi, phl, atl, aus).",
     )
     args = parser.parse_args()
     city_code = args.city
 
     # --- Dynamic config import ---
-    city_config = importlib.import_module(CITY_CONFIG_MODULES[city_code])
+    city_config = get_city_runtime_config(city_code)
 
     cfg = get_city_config(city_code)
     ensure_city_dirs(cfg)

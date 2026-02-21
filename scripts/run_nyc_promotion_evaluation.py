@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NYC Promotion Evaluation — backward-compatible wrapper.
+"""New York City Promotion Evaluation — backward-compatible wrapper.
 
 Delegates to the unified ``run_promotion_evaluation.py --city nyc``.
 """

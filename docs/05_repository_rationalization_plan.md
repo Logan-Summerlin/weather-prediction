@@ -54,7 +54,7 @@
 
 ## 4) Execution Plan (Aggressive, Ordered)
 
-## Phase A — Stop the bleeding (1 PR)
+## Phase A — Stop the bleeding (1 PR) ✅ COMPLETED (2026-02-21)
 
 ### A1. Canonicalize command surface
 - Keep canonical entrypoints:
@@ -72,9 +72,13 @@
 
 **Success metric:** no net growth in duplicate entrypoint logic.
 
+**Completion notes (2026-02-21):**
+- Added `scripts/generate_city_stage_wrappers.py` as the single wrapper template generator and regenerated all `run_<city>_<stage>.py` wrappers from it.
+- Added CI guardrails in `tests/test_script_wrapper_consolidation.py` and `tests/test_script_duplication_guardrails.py` to block wrapper drift and detect high-overlap copied orchestration scripts.
+
 ---
 
-## Phase B — Collapse configuration duplication (1–2 PRs)
+## Phase B — Collapse configuration duplication (1–2 PRs) ✅ COMPLETED (2026-02-21)
 
 ### B1. Define single `CityConfig` schema
 - Expand `src/city_config.py` to include station/ring/sector metadata currently split across `config_*.py` and `config_expanded.py`.
@@ -92,6 +96,11 @@
 - Remove stubs after one release cycle and parity verification.
 
 **Success metric:** one metadata source of truth; zero direct runtime dependency on legacy config modules.
+
+**Completion notes (2026-02-21):**
+- Consolidated runtime city metadata into `src/city_config.py` + `src/city_config_runtime_data.py` and expanded `CityConfig` with contract-spec, operational cutoff/source assumptions, and station-network metadata fields.
+- Updated `src/operational_data.py`, `src/wga_data_pipeline.py`, and all six unified stage scripts to consume `get_city_config()` / `get_city_runtime_config()` only (no runtime imports of per-city legacy config modules).
+- Replaced `config_chicago.py`, `config_philadelphia.py`, `config_atlanta.py`, `config_austin.py`, and `config_expanded.py` with compatibility stubs that re-export from `city_config`.
 
 ---
 

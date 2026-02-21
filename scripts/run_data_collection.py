@@ -23,7 +23,6 @@ Usage:
 """
 
 import argparse
-import importlib
 import os
 import sys
 import logging
@@ -33,19 +32,9 @@ import logging
 # ---------------------------------------------------------------------------
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from src.city_config import get_city_config, ensure_city_dirs
+from src.city_config import get_city_config, get_city_runtime_config, ensure_city_dirs
 from src.data_collection import process_station
 
-# ---------------------------------------------------------------------------
-# City code -> config module mapping
-# ---------------------------------------------------------------------------
-CITY_CONFIG_MODULES = {
-    "nyc": "config_expanded",
-    "chi": "config_chicago",
-    "phl": "config_philadelphia",
-    "atl": "config_atlanta",
-    "aus": "config_austin",
-}
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -65,7 +54,7 @@ def main():
     parser.add_argument(
         "--city",
         required=True,
-        choices=sorted(CITY_CONFIG_MODULES.keys()),
+        choices=["nyc", "chi", "phl", "atl", "aus"],
         help="City code (chi, phl, atl, aus)",
     )
     args = parser.parse_args()
@@ -75,7 +64,7 @@ def main():
     cfg = get_city_config(city_code)
     ensure_city_dirs(cfg)
 
-    city_config = importlib.import_module(CITY_CONFIG_MODULES[city_code])
+    city_config = get_city_runtime_config(city_code)
 
     raw_dir = os.path.join(cfg.data_dir, "raw")
     os.makedirs(raw_dir, exist_ok=True)

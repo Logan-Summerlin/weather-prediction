@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Philadelphia Preprocessing Pipeline — backward-compatible wrapper.
+"""Philadelphia Preprocessing — backward-compatible wrapper.
 
 Delegates to the unified ``run_preprocessing.py --city phl``.
 """

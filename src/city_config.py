@@ -13,8 +13,11 @@ Usage:
 """
 
 import os
+from types import SimpleNamespace
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
+
+from src.city_config_runtime_data import CITY_RUNTIME_DATA
 
 # ---------------------------------------------------------------------------
 # Project root (one level up from src/)
@@ -90,6 +93,34 @@ class CityConfig:
     models_dir: str = ""
     results_dir: str = ""
 
+    # Contract definition alignment
+    bucket_low_inclusive: bool = True
+    bucket_high_inclusive_last: bool = True
+    contract_daily_boundary_local: str = "00:00-23:59"
+    settlement_rounding: str = "integer_fahrenheit"
+
+    # Operational assumptions
+    observation_anchor_stations: List[str] = field(default_factory=list)
+    operational_cutoff_local: str = "06:00"
+    operational_sources: List[str] = field(default_factory=list)
+
+    # Extended metadata consolidated from legacy per-city config modules
+    all_stations: Dict[str, str] = field(default_factory=dict)
+    surrounding_stations: Dict[str, str] = field(default_factory=dict)
+    asos_station_map: Dict[str, str] = field(default_factory=dict)
+    station_metadata: Dict[str, Dict] = field(default_factory=dict)
+    station_rings: Dict[str, List[str]] = field(default_factory=dict)
+    station_sectors: Dict[str, List[str]] = field(default_factory=dict)
+    meteorological_sectors: Dict[str, List[str]] = field(default_factory=dict)
+    start_date: str = ""
+    end_date: str = ""
+    min_completeness: float = 0.8
+    train_ratio: float = 0.7
+    val_ratio: float = 0.15
+    input_variables: List[str] = field(default_factory=lambda: ["TMAX", "TMIN"])
+    max_forward_fill_days: int = 7
+    batch_size: int = 32
+
 
 # ---------------------------------------------------------------------------
 # Shared bucket definitions (2°F resolution matching Kalshi contracts)
@@ -136,6 +167,10 @@ _NYC_PHL_BUCKET_EDGES, _NYC_PHL_BUCKET_LABELS = _make_2f_bucket_grid(0, 110)
 
 # Chicago: -10°F floor, 110°F ceiling → 62 buckets (colder winters)
 _CHI_BUCKET_EDGES, _CHI_BUCKET_LABELS = _make_2f_bucket_grid(-10, 110)
+
+
+def _runtime(city_code: str, field_name: str, default):
+    return CITY_RUNTIME_DATA.get(city_code, {}).get(field_name, default)
 
 
 # ---------------------------------------------------------------------------
@@ -396,6 +431,66 @@ _CITY_REGISTRY: Dict[str, CityConfig] = {
     "aus": _AUS_CONFIG,
 }
 
+
+
+
+# ---------------------------------------------------------------------------
+# Runtime metadata hydration from consolidated city runtime data
+# ---------------------------------------------------------------------------
+
+def _hydrate_runtime_metadata(cfg: CityConfig) -> None:
+    runtime = CITY_RUNTIME_DATA.get(cfg.city_code, {})
+    cfg.all_stations = dict(runtime.get("ALL_STATIONS", {}))
+    cfg.surrounding_stations = dict(runtime.get("SURROUNDING_STATIONS", {}))
+    cfg.asos_station_map = dict(runtime.get("ASOS_STATION_MAP", {}))
+    cfg.station_metadata = dict(runtime.get("STATION_METADATA", {}))
+    cfg.station_rings = dict(runtime.get("STATION_RINGS", {}))
+    cfg.station_sectors = dict(runtime.get("STATION_SECTORS", {}))
+    cfg.meteorological_sectors = dict(runtime.get("METEOROLOGICAL_SECTORS", {}))
+    cfg.start_date = runtime.get("START_DATE", "")
+    cfg.end_date = runtime.get("END_DATE", "")
+    cfg.min_completeness = float(runtime.get("MIN_COMPLETENESS", 0.8))
+    cfg.train_ratio = float(runtime.get("TRAIN_RATIO", 0.7))
+    cfg.val_ratio = float(runtime.get("VAL_RATIO", 0.15))
+    cfg.input_variables = list(runtime.get("INPUT_VARIABLES", ["TMAX", "TMIN"]))
+    cfg.max_forward_fill_days = int(runtime.get("MAX_FORWARD_FILL_DAYS", 7))
+    cfg.batch_size = int(runtime.get("BATCH_SIZE", 32))
+
+    cfg.observation_anchor_stations = [cfg.target_station]
+    cfg.operational_sources = ["ghcn_daily", "asos", "nwp", "igra", "kalshi"]
+
+
+for _cfg in _CITY_REGISTRY.values():
+    _hydrate_runtime_metadata(_cfg)
+
+
+def get_city_runtime_config(city_code: str) -> SimpleNamespace:
+    """Compatibility runtime namespace used by legacy scripts/modules."""
+    cfg = get_city_config(city_code)
+    exports = dict(CITY_RUNTIME_DATA.get(cfg.city_code, {}))
+    exports.update(
+        {
+            "TARGET_STATION": cfg.target_station,
+            "TARGET_LAT": cfg.target_lat,
+            "TARGET_LON": cfg.target_lon,
+            "START_DATE": cfg.start_date,
+            "END_DATE": cfg.end_date,
+            "ALL_STATIONS": cfg.all_stations,
+            "SURROUNDING_STATIONS": cfg.surrounding_stations,
+            "ASOS_STATION_MAP": cfg.asos_station_map,
+            "STATION_METADATA": cfg.station_metadata,
+            "STATION_RINGS": cfg.station_rings,
+            "STATION_SECTORS": cfg.station_sectors,
+            "METEOROLOGICAL_SECTORS": cfg.meteorological_sectors,
+            "MIN_COMPLETENESS": cfg.min_completeness,
+            "TRAIN_RATIO": cfg.train_ratio,
+            "VAL_RATIO": cfg.val_ratio,
+            "INPUT_VARIABLES": cfg.input_variables,
+            "MAX_FORWARD_FILL_DAYS": cfg.max_forward_fill_days,
+            "BATCH_SIZE": cfg.batch_size,
+        }
+    )
+    return SimpleNamespace(**exports)
 
 # ---------------------------------------------------------------------------
 # Public API

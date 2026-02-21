@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Atlanta Preprocessing Pipeline — backward-compatible wrapper.
+"""Atlanta Preprocessing — backward-compatible wrapper.
 
 Delegates to the unified ``run_preprocessing.py --city atl``.
 """

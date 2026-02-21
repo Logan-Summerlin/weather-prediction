@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NYC Preprocessing — backward-compatible wrapper.
+"""New York City Preprocessing — backward-compatible wrapper.
 
 Delegates to the unified ``run_preprocessing.py --city nyc``.
 """

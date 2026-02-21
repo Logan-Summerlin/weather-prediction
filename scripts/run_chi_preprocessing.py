@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Chicago Preprocessing Pipeline — backward-compatible wrapper.
+"""Chicago Preprocessing — backward-compatible wrapper.
 
 Delegates to the unified ``run_preprocessing.py --city chi``.
 """

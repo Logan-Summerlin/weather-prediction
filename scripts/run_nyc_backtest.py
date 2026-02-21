@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NYC Backtest — backward-compatible wrapper.
+"""New York City Backtest — backward-compatible wrapper.
 
 Delegates to the unified ``run_backtest.py --city nyc``.
 """

@@ -6,8 +6,8 @@ collection modules to support Chicago (KORD network) and Philadelphia
 (KPHL network) in addition to NYC.
 
 ASOS stations:
-  - CHI: KORD + 45 surrounding stations from config_chicago.ASOS_STATION_MAP
-  - PHL: KPHL + 50 surrounding stations from config_philadelphia.ASOS_STATION_MAP
+  - CHI: KORD + surrounding station network from unified city_config runtime metadata
+  - PHL: KPHL + surrounding station network from unified city_config runtime metadata
 
 NWP grid points:
   - CHI: 41.97°N, 87.91°W (O'Hare)
@@ -33,7 +33,7 @@ from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from src.city_config import get_city_config, CityConfig
+from src.city_config import get_city_config, get_city_runtime_config, CityConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -92,43 +92,6 @@ class OperationalDataConfig:
     soundings_data_dir: str = ""
 
 
-def _get_city_config_module(city_code: str):
-    """Dynamically load the per-city config module.
-
-    Parameters
-    ----------
-    city_code : str
-        City identifier (chi, phl, atl, aus, nyc).
-
-    Returns
-    -------
-    module or None
-        The imported config module, or None on failure.
-    """
-    import importlib
-
-    _CONFIG_MODULES = {
-        "chi": "config_chicago",
-        "phl": "config_philadelphia",
-        "atl": "config_atlanta",
-        "aus": "config_austin",
-    }
-
-    try:
-        if city_code in _CONFIG_MODULES:
-            return importlib.import_module(_CONFIG_MODULES[city_code])
-        elif city_code == "nyc":
-            try:
-                return importlib.import_module("config_expanded")
-            except ImportError:
-                return importlib.import_module("config")
-        else:
-            logger.warning("Unknown city code: %s", city_code)
-            return None
-    except ImportError:
-        logger.warning("Could not import config for %s", city_code)
-        return None
-
 
 def _load_asos_map(city_code: str) -> Dict[str, str]:
     """Load ASOS station map for a city from its config module.
@@ -143,10 +106,8 @@ def _load_asos_map(city_code: str) -> Dict[str, str]:
     dict
         GHCN station ID → ICAO code mapping.
     """
-    cfg = _get_city_config_module(city_code)
-    if cfg is not None and hasattr(cfg, "ASOS_STATION_MAP"):
-        return dict(cfg.ASOS_STATION_MAP)
-    return {}
+    cfg = get_city_runtime_config(city_code)
+    return dict(cfg.ASOS_STATION_MAP)
 
 
 # Primary ASOS stations per city

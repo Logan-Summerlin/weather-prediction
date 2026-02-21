@@ -54,17 +54,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# City-specific config module mapping (for optional dynamic import)
-# ---------------------------------------------------------------------------
-CITY_CONFIG_MODULES = {
-    "nyc": "config_expanded",
-    "chi": "config_chicago",
-    "phl": "config_philadelphia",
-    "atl": "config_atlanta",
-    "aus": "config_austin",
-}
-
-# ---------------------------------------------------------------------------
 # City-specific promotion thresholds
 # ---------------------------------------------------------------------------
 CITY_THRESHOLDS = {
