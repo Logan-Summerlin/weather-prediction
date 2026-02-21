@@ -9,7 +9,6 @@ This index defines the **only active documentation set** for repository operatio
 
 1. `README.md` — repository quickstart and navigation.
 2. `Project_Plan` — delivery roadmap and city rollout execution plan.
-3. `docs/05_repository_rationalization_plan.md` — repository simplification phases, completion state, and guardrails.
 
 ## Removed superseded docs
 
@@ -24,5 +23,4 @@ When conflicts exist, follow this precedence:
 
 1. `README.md`
 2. `Project_Plan`
-3. `docs/05_repository_rationalization_plan.md`
-4. Archived docs (historical context only)
+3. Archived docs (historical context only)
