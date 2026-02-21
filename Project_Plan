@@ -234,3 +234,40 @@ A city is production ready only when all are true:
 - Backtested EV positive after conservative costs.
 - Drawdown/exposure/kill-switch constraints validated.
 - Daily runbook executes deterministically with complete audit artifacts.
+
+---
+
+## 10) Concise Denver Expansion Plan
+
+### Existing model stack we should reuse
+- **City portability framework is already in place** via `CityConfig` + runtime metadata hydration, so Denver can be onboarded without changing model architecture contracts.
+- **Current production-oriented modeling path** is already modular: baseline/distributional model, optional synthesis layer, explicit calibration, contract-level scoring, and EV/risk trading modules.
+- **Generic city pipeline entrypoints already exist** (`run_city_pipeline.py` + benchmark/calibration/backtest/promotion scripts), so Denver should be added by configuration + data/runtime wiring, not by bespoke one-off code.
+
+### Denver rollout checklist (minimal viable → promotion)
+1. **Contract/measurement alignment (hard gate):**
+   - Confirm Kalshi Denver ticker, settlement station, timezone/day boundary, rounding, and bucket inclusivity.
+   - Add Denver bucket edges only after exchange spec confirmation.
+
+2. **City registration + runtime metadata:**
+   - Add `den` entry to `src/city_config.py` with target station, sounding station, NWP gridpoint, climatology priors, and Denver-specific data/model/results paths.
+   - Add Denver block to `src/city_config_runtime_data.py` (station network, sectors/rings, split dates, completeness rules).
+
+3. **Operational data parity build:**
+   - Materialize `data/denver/raw/` and `data/denver/processed/` with the same schemas used by CHI/PHL.
+   - Enforce cutoff-safe feature computation using existing ASOS/NWP/sounding preprocessing modules.
+
+4. **Modeling + calibration sequence:**
+   - Run Denver through existing scripts in order: collection → preprocessing → benchmark baselines → synthesis calibration.
+   - Require calibration diagnostics (PIT/reliability/coverage) before any trading simulation.
+
+5. **Backtest + promotion gating:**
+   - Run contract-level Brier and EV backtests with conservative fee/slippage assumptions.
+   - Promote only if Denver beats persistence/climatology/market-implied baselines, passes risk caps/kill-switch checks, and preserves calibration across seasonal regimes.
+
+### Suggested first execution pass (paper-trade ready)
+- Day 1-2: contract spec + config/runtime wiring.
+- Day 3-4: deterministic data build + baseline benchmarks.
+- Day 5: synthesis + calibration report.
+- Day 6: conservative backtest + promotion evaluation.
+- Day 7+: paper trading with drift monitoring before any capital deployment.
