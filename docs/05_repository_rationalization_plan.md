@@ -133,7 +133,7 @@
 
 ---
 
-## Phase D — Rationalize tests (1 PR)
+## Phase D — Rationalize tests (1 PR) ✅ COMPLETED (2026-02-21)
 
 ### D1. Consolidate repetitive tests
 - Parameterize repeated city/test patterns.
@@ -150,9 +150,14 @@
 
 **Success metric:** lower test LOC and runtime with unchanged or improved defect detection.
 
+**Completion notes (2026-02-21):**
+- Added `tests/test_probabilistic_trading_invariants.py` to concentrate behavior-significant invariants (chronological no-leakage split ordering, bucketization sum-to-one bounds, and EV sensitivity to fees).
+- Removed redundant shape/type assertions from `tests/test_city_pipeline.py` that were duplicative of stronger configuration behavior tests.
+- Shifted test emphasis from structural checks to operationally critical probabilistic/trading correctness constraints.
+
 ---
 
-## Phase E — Documentation minimization with full clarity (1 PR)
+## Phase E — Documentation minimization with full clarity (1 PR) ✅ COMPLETED (2026-02-21)
 
 ### E1. Canonical documentation set
 - Keep a concise canonical set aligned to operations and model governance.
@@ -163,6 +168,11 @@
 - Mark superseded docs with deprecation headers (no silent drift).
 
 **Success metric:** no contradictory instructions across active docs.
+
+**Completion notes (2026-02-21):**
+- Added `docs/00_canonical_docs_index.md` as the authoritative active-doc index and precedence contract.
+- Updated `README.md` to point at the canonical index and removed links to overlapping narrative docs as active references.
+- Minimized `docs/01_current_state_and_directory.md`, `docs/02_model_families_and_methods.md`, `docs/03_principles_and_city_portability.md`, and `docs/04_scripts_consolidation_plan.md` into explicit archived stubs to remove redundant guidance while preserving historical traceability.
 
 ---
 
