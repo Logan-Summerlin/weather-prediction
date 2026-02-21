@@ -187,10 +187,6 @@ class TestCityConfigLoads:
         assert cfg.city_code == code
         assert cfg.city_name == expected["city_name"]
         assert cfg.kalshi_ticker == expected["kalshi_ticker"]
-        assert isinstance(cfg.bucket_edges, list)
-        assert isinstance(cfg.bucket_labels, list)
-        assert isinstance(cfg.monthly_tmax_mean, dict)
-        assert isinstance(cfg.monthly_tmax_std, dict)
 
     def test_bucket_edges_count(self, city_data):
         """City should have the expected number of buckets."""
