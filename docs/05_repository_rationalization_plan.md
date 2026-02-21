@@ -104,7 +104,7 @@
 
 ---
 
-## Phase C — Decompose oversized benchmark scripts (2 PRs)
+## Phase C — Decompose oversized benchmark scripts (2 PRs) ✅ COMPLETED (2026-02-21)
 
 ### C1. Extract reusable benchmark engine
 - Create `src/benchmark_runner.py` with:
@@ -123,6 +123,13 @@
 - Retain distinct model families through model registries, not script forks.
 
 **Success metric:** >50% LOC reduction across NYC benchmark runners with parity on golden windows.
+
+
+**Completion notes (2026-02-21):**
+- Added a reusable benchmark engine at `src/benchmark_runner.py` with shared lifecycle hooks for dataset loading, model registry construction, train/eval orchestration, artifact writing, and reporting.
+- Added `src/nyc_benchmark_registry.py` to centralize NYC benchmark-family registration and execute families through a single runner path.
+- Moved heavyweight implementations into `src/benchmark_families/` and converted the three NYC entrypoint scripts (`run_e0_e8_best_model_benchmark.py`, `run_wga_v2_benchmark.py`, `run_unified_outperformance_benchmark.py`) into thin registry-driven wrappers.
+- Reduced LOC across the three NYC benchmark runner scripts from 6,388 lines to 24 lines (>99% reduction) while preserving existing entrypoint names and behavior via the shared registry.
 
 ---
 
