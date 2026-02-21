@@ -8,7 +8,7 @@
 
 ## 1) Executive Summary (Current State)
 
-This repository contains an end-to-end, modular weather prediction market pipeline with code and artifacts for NYC-centered model development plus multi-city expansion assets (Chicago, Philadelphia, Atlanta, Austin).
+This repository contains an end-to-end, modular weather prediction market pipeline with code and artifacts for NYC-centered model development plus multi-city expansion assets (Chicago, Philadelphia, Atlanta, Austin), with **Denver and Washington DC now tracked as the next city model expansions**.
 
 The implemented architecture is already split into the required operational layers:
 1. **Ingestion** (`src/*collection*.py`, `src/operational_data.py`)
@@ -103,6 +103,10 @@ NYC-focused benchmark lineage scripts are present:
 - `scripts/run_e0_e8_best_model_benchmark.py`
 - `scripts/run_wga_v2_benchmark.py`
 - `scripts/run_unified_outperformance_benchmark.py`
+
+### Expansion tracking status
+- **Denver weather model:** Added to project expansion scope as the next implementation-track city using the standard city rollout path.
+- **Washington DC weather model:** Added as a parallel near-term expansion candidate with a concise rollout plan (Section 11).
 
 ---
 
@@ -271,3 +275,25 @@ A city is production ready only when all are true:
 - Day 5: synthesis + calibration report.
 - Day 6: conservative backtest + promotion evaluation.
 - Day 7+: paper trading with drift monitoring before any capital deployment.
+
+---
+
+## 11) Concise Washington DC Expansion Plan
+
+### Existing model stack we should reuse
+- Reuse the same city-portable framework (`CityConfig`, runtime metadata, generic city pipeline scripts) with no bespoke architecture fork.
+- Reuse the current distribution-first path: baseline/distributional forecast → calibration → bucketization → EV/risk gating.
+
+### Washington DC rollout checklist (concise)
+1. **Contract/measurement alignment:** Confirm Kalshi DC contract mapping (official station, day boundary, rounding, bucket inclusivity).
+2. **City wiring:** Add `dc` entry in `src/city_config.py` and a matching runtime block in `src/city_config_runtime_data.py` (station graph, sectors, split windows, completeness thresholds).
+3. **Data build:** Create `data/washington_dc/raw/` and `data/washington_dc/processed/` using the same schema and cutoff-safe feature generation path as existing cities.
+4. **Model + calibration pass:** Run collection/preprocessing/benchmark/synthesis calibration sequence, then require PIT/reliability/coverage checks on holdout.
+5. **Backtest + gate:** Run conservative-fee/slippage EV backtest and promote only if Brier + EV + risk controls beat required baselines.
+
+### Suggested first DC execution cadence
+- Day 1: contract spec validation + city config wiring.
+- Day 2-3: deterministic data pipeline build + baselines.
+- Day 4: synthesis and calibration diagnostics.
+- Day 5: backtest + promotion evaluation.
+- Day 6+: paper trading and drift monitoring.
