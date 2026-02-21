@@ -1,0 +1,236 @@
+# Project Plan — Weather Prediction Market Forecasting & Trading System
+
+**Last updated:** 2026-02-21
+**Repository:** `weather-prediction`
+**Primary objective:** Deliver calibrated probabilistic temperature forecasts aligned to Kalshi contract buckets and trade only when expected value remains positive after fees/slippage.
+
+---
+
+## 1) Executive Summary (Current State)
+
+This repository contains an end-to-end, modular weather prediction market pipeline with code and artifacts for NYC-centered model development plus multi-city expansion assets (Chicago, Philadelphia, Atlanta, Austin).
+
+The implemented architecture is already split into the required operational layers:
+1. **Ingestion** (`src/*collection*.py`, `src/operational_data.py`)
+2. **Feature engineering / preprocessing** (`src/*preprocessing*.py`, `src/operational_features.py`)
+3. **Forecast modeling** (`src/model.py`, `src/advanced_model.py`, `src/wind_gated_attention.py`, `src/synthesis_model.py`)
+4. **Calibration + bucketization + scoring** (`src/calibration.py`, `src/contract_brier.py`, `src/evaluate.py`)
+5. **Trading / backtesting / execution** (`src/trading.py`, `src/kalshi_backtester.py`, `src/live_trading.py`, `src/kalshi_client.py`)
+
+Operationally, the repo includes:
+- City-aware configs/registry (`src/city_config.py`, `src/city_config_runtime_data.py`)
+- Pipeline runner scripts (`scripts/run_*.py`)
+- Test coverage across ingestion, modeling, calibration, trading, and script guardrails (`tests/`)
+- Existing results and historical artifacts (`results/`, `ARCHIVE/`)
+
+---
+
+## 2) Contract Alignment & System Constraints
+
+### Contract alignment expectations
+Before model changes or live deployment for any city, enforce:
+- Observation site and settlement definition match the contract target exactly.
+- Bucket boundaries and inclusivity/exclusivity match exchange rules exactly.
+- Daily boundary (local day vs UTC) is explicitly encoded in preprocessing.
+
+### Non-negotiable operational constraint
+- Live decisions must use only inputs available by an early-morning cutoff.
+- Delayed training-grade datasets are allowed offline, but not as live-time features.
+
+### Promotion preconditions (repo policy)
+- No time leakage
+- Calibrated probabilities only
+- Positive EV after realistic costs
+- Risk controls and kill-switch checks validated
+
+---
+
+## 3) Architecture & Module Ownership
+
+## Layer 1 — Data ingestion
+- `src/data_collection.py`: historical station collection (training-oriented)
+- `src/asos_collection.py`: operational sub-daily observations
+- `src/nwp_collection.py`: forecast model input collection
+- `src/soundings_collection.py`: upper-air collection
+- `src/kalshi_client.py`: exchange/market API integration
+- `src/operational_data.py`: live pipeline data handling helpers
+
+## Layer 2 — Feature engineering / preprocessing
+- `src/data_preprocessing.py`: canonical historical feature pipeline
+- `src/asos_preprocessing.py`: operational observation transforms
+- `src/nwp_preprocessing.py`: NWP transforms
+- `src/soundings_preprocessing.py`: sounding transforms
+- `src/operational_features.py`: time-safe live feature assembly
+- `src/station_registry.py`: station metadata abstraction
+
+## Layer 3 — Modeling
+- `src/model.py`: baseline probabilistic model
+- `src/advanced_model.py`: richer architecture family
+- `src/wind_gated_attention.py`: wind-regime-aware model variant
+- `src/synthesis_model.py`: model-combination/synthesis logic
+- `src/extended_models.py`, `src/benchmark_families/*`: benchmark model families
+
+## Layer 4 — Calibration, conversion, and evaluation
+- `src/calibration.py`: calibration routines
+- `src/contract_brier.py`: contract-level scoring utility
+- `src/evaluate.py`: evaluation/reporting utilities
+- `src/baselines.py`: baseline forecasters for regression-to-baseline checks
+
+## Layer 5 — Trading & execution simulation
+- `src/trading.py`: EV logic, sizing, and risk utilities
+- `src/kalshi_backtester.py`: historical trading simulation
+- `src/live_trading.py`: live/paper execution workflow
+- `src/market_proxy.py`, `src/enhanced_market_proxy.py`, `src/mos_market_proxy.py`: market proxy support
+
+---
+
+## 4) City Rollout State from Repository Artifacts
+
+### Available city datasets and outputs
+- `data/chicago/`, `results/chicago/`
+- `data/philadelphia/`, `results/philadelphia/`
+- `data/atlanta/`, `results/atlanta/`
+- `data/austin/`, `results/austin/`
+- Cross-city outputs: `results/cross_city_comparison/`
+
+### Pipeline script status
+A generic city pipeline exists (`scripts/run_city_pipeline.py`) with supporting city-template and benchmark runners:
+- `scripts/run_city_nws_kalshi_template_benchmark.py`
+- `scripts/run_promotion_evaluation.py`
+- `scripts/run_backtest.py`
+
+NYC-focused benchmark lineage scripts are present:
+- `scripts/run_e0_e8_best_model_benchmark.py`
+- `scripts/run_wga_v2_benchmark.py`
+- `scripts/run_unified_outperformance_benchmark.py`
+
+---
+
+## 5) Gaps to Close for Production-Grade Expansion
+
+1. **Codify hard cutoff manifest** for each live feature (source, expected publish latency, fallback behavior).
+2. **Formalize calibration monitoring** in daily operations (PIT drift, reliability by season/regime).
+3. **Strengthen execution realism** (slippage, fill uncertainty, queue effects) in backtests.
+4. **Ensure promotion gates are reproducible** across all cities using one canonical metric/report format.
+5. **Automate kill-switch triggers** for missing critical inputs, schema drift, and miscalibration.
+
+---
+
+## 6) Implementation Plan (Next 30–60 Days)
+
+### Phase A — Reliability hardening
+- Define and version an operational data SLA manifest.
+- Add strict schema validation in daily pipeline entrypoints.
+- Add explicit run-fail behavior for missing critical data.
+
+### Phase B — Calibration and distribution quality
+- Expand calibration diagnostics in generated reports.
+- Add season/regime reliability slicing as standard outputs.
+- Enforce probability-sum and monotonicity checks in bucketization outputs.
+
+### Phase C — Trading quality controls
+- Refit EV thresholds under conservative fee/slippage assumptions.
+- Validate capped Kelly/exposure policy against drawdown constraints.
+- Add run-level audit log completeness checks.
+
+### Phase D — Promotion workflow unification
+- Standardize promotion report schema across cities.
+- Require baseline comparisons and market-implied benchmarks in one report artifact.
+
+---
+
+## 7) Accurate Repository Directory (Current)
+
+```text
+weather-prediction/
+├── AGENTS.md
+├── CLAUDE.md
+├── Project_Plan
+├── README.md
+├── SIMPLIFICATION_REPORT.md
+├── config.py
+├── requirements.txt
+├── src/
+│   ├── calibration.py
+│   ├── contract_brier.py
+│   ├── trading.py
+│   ├── kalshi_backtester.py
+│   ├── live_trading.py
+│   ├── city_config.py
+│   ├── city_config_runtime_data.py
+│   ├── operational_data.py
+│   ├── operational_features.py
+│   ├── model.py
+│   ├── advanced_model.py
+│   ├── synthesis_model.py
+│   ├── wind_gated_attention.py
+│   ├── benchmark_families/
+│   └── dashboard/
+├── scripts/
+│   ├── run_city_pipeline.py
+│   ├── run_city_nws_kalshi_template_benchmark.py
+│   ├── run_data_collection.py
+│   ├── run_preprocessing.py
+│   ├── run_benchmark.py
+│   ├── run_synthesis_calibration.py
+│   ├── run_backtest.py
+│   ├── run_promotion_evaluation.py
+│   ├── run_e0_e8_best_model_benchmark.py
+│   ├── run_wga_v2_benchmark.py
+│   ├── run_unified_outperformance_benchmark.py
+│   └── fetch_kalshi_*.py
+├── tests/
+│   ├── test_city_pipeline.py
+│   ├── test_run_city_pipeline.py
+│   ├── test_probabilistic_trading_invariants.py
+│   ├── test_calibration.py
+│   ├── test_contract_brier.py
+│   └── ... (module-level tests)
+├── docs/
+│   ├── 00_canonical_docs_index.md
+│   └── 05_repository_rationalization_plan.md
+├── data/
+│   ├── chicago/
+│   ├── philadelphia/
+│   ├── atlanta/
+│   ├── austin/
+│   ├── airport_mos/
+│   └── mos/
+├── results/
+│   ├── chicago/
+│   ├── philadelphia/
+│   ├── atlanta/
+│   ├── austin/
+│   ├── cross_city_comparison/
+│   └── audits/
+└── ARCHIVE/
+    ├── README.md
+    ├── legacy_root_docs/
+    └── results_legacy/
+```
+
+---
+
+## 8) Operational Runbook (Daily High-Level Checklist)
+
+1. Fetch operational data up to cutoff.
+2. Validate schema/completeness and stop on critical missing data.
+3. Build time-safe features.
+4. Generate distributional forecast.
+5. Apply post-hoc calibration.
+6. Convert to contract bucket probabilities.
+7. Pull market prices and compute EV net costs.
+8. Place orders only if edge and risk constraints pass.
+9. Persist logs/artifacts for audit and post-mortem.
+
+---
+
+## 9) Definition of Done for “Production Ready”
+
+A city is production ready only when all are true:
+- Contract-aligned target and bucketization validated.
+- Holdout reliability/calibration acceptable in relevant regimes.
+- Contract-level Brier beats required baselines.
+- Backtested EV positive after conservative costs.
+- Drawdown/exposure/kill-switch constraints validated.
+- Daily runbook executes deterministically with complete audit artifacts.
