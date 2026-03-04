@@ -402,12 +402,26 @@ def check_calibration(results_dir: str, thresholds: dict) -> list[PromotionGate]
     # Gate 1: ECE within tolerance
     gate = PromotionGate("ece", "Expected Calibration Error within tolerance")
     cal_path = os.path.join(results_dir, "synthesis", "calibration_summary.json")
+    cal_sweep_path = os.path.join(results_dir, "synthesis", "calibration_sweep_summary.json")
     if os.path.exists(cal_path):
         with open(cal_path) as f:
             cal = json.load(f)
         ece = cal.get("best_ece", 1.0)
         gate.evaluate(ece, ece_threshold, "less")
         gate.details = f"ECE: {ece:.4f} (threshold: {ece_threshold})"
+    elif os.path.exists(cal_sweep_path):
+        # Fallback: derive best_ece from calibration_sweep_summary.json
+        with open(cal_sweep_path) as f:
+            sweep = json.load(f)
+        best_method = sweep.get("best_method", "")
+        methods = sweep.get("methods", {})
+        if best_method and best_method in methods:
+            ece = methods[best_method].get("ece", 1.0)
+        else:
+            # Pick the method with lowest ECE
+            ece = min((m.get("ece", 1.0) for m in methods.values()), default=1.0)
+        gate.evaluate(ece, ece_threshold, "less")
+        gate.details = f"ECE: {ece:.4f} (threshold: {ece_threshold}, from sweep summary)"
     else:
         gate.details = f"Calibration results not found at {cal_path}"
         gate.passed = False
@@ -482,20 +496,38 @@ def check_trading(results_dir: str, thresholds: dict) -> list[PromotionGate]:
     gates.append(gate)
 
     # Gate 2: Max drawdown within limits
+    # NOTE: backtest_metrics.json stores max_drawdown as negative dollars and
+    # max_drawdown_pct as a negative percentage (e.g. -5.95 means -5.95%).
+    # backtest_summary.json stores max_drawdown as a fraction (e.g. -0.0879).
+    # The threshold is a fraction (e.g. -0.30 means -30%).
+    # We normalize everything to a fraction before comparing.
     gate2 = PromotionGate("max_drawdown", "Max drawdown within acceptable limits")
     if os.path.exists(bt_metrics_path):
         with open(bt_metrics_path) as f:
             bt_metrics = json.load(f)
-        max_dd = bt_metrics.get("max_drawdown", -1.0)
-        gate2.evaluate(max_dd, max_drawdown_threshold, "greater")
-        gate2.details = f"Max drawdown: {max_dd:.1%} (limit: {max_drawdown_threshold:.1%})"
+        # Use max_drawdown_pct (percentage) and convert to fraction
+        max_dd_pct = bt_metrics.get("max_drawdown_pct", None)
+        if max_dd_pct is not None:
+            max_dd_frac = max_dd_pct / 100.0  # e.g. -5.95 -> -0.0595
+        else:
+            # Fallback: compute fraction from dollar drawdown and bankroll
+            max_dd_dollars = bt_metrics.get("max_drawdown", -1.0)
+            bankroll = bt_metrics.get("initial_bankroll", 1000.0)
+            max_dd_frac = max_dd_dollars / bankroll if bankroll > 0 else -1.0
+        gate2.evaluate(max_dd_frac, max_drawdown_threshold, "greater")
+        gate2.details = f"Max drawdown: {max_dd_frac:.1%} (limit: {max_drawdown_threshold:.1%})"
     elif os.path.exists(bt_path):
         with open(bt_path) as f:
             bt_data = json.load(f)
         sim = bt_data.get("simulated_market", bt_data)
-        max_dd = sim.get("max_drawdown", sim.get("max_drawdown_pct", -1.0))
-        gate2.evaluate(max_dd, max_drawdown_threshold, "greater")
-        gate2.details = f"Max drawdown: {max_dd:.1%} (limit: {max_drawdown_threshold:.1%})"
+        # backtest_summary.json stores max_drawdown as a fraction already
+        max_dd_frac = sim.get("max_drawdown", -1.0)
+        # If this looks like a dollar value (magnitude > 1), convert using bankroll
+        if abs(max_dd_frac) > 1.0:
+            bankroll = sim.get("initial_bankroll", 1000.0)
+            max_dd_frac = max_dd_frac / bankroll if bankroll > 0 else -1.0
+        gate2.evaluate(max_dd_frac, max_drawdown_threshold, "greater")
+        gate2.details = f"Max drawdown: {max_dd_frac:.1%} (limit: {max_drawdown_threshold:.1%})"
     else:
         gate2.details = "Backtest results not found"
         gate2.passed = False

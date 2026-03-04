@@ -1091,7 +1091,7 @@ def _save_nn_predictions(
     logger.info("Saved NN predictions (%d rows) to %s", len(nn_preds_df), nn_preds_path)
 
 
-def _save_aus_extras(
+def _save_benchmark_extras(
     results_dir: str,
     city_code: str,
     summary_df: pd.DataFrame,
@@ -1099,7 +1099,7 @@ def _save_aus_extras(
     kalshi: pd.DataFrame,
     y_test: pd.Series,
 ) -> None:
-    """Save Austin-specific extra output files."""
+    """Save extra output files needed by promotion evaluation."""
     # benchmark_summary.json (used by promotion evaluation)
     benchmark_summary = {
         "best_brier": float(summary_df.iloc[0]["contract_brier"]),
@@ -1479,9 +1479,8 @@ def main():
         json.dump(metadata, f, indent=2)
     logger.info("Saved metadata to %s", metadata_path)
 
-    # --- Austin-specific extra outputs ---
-    if city_code == "aus":
-        _save_aus_extras(results_dir, city_code, summary_df, seasonal_all, kalshi, y_test)
+    # --- Save benchmark extras (promotion evaluation artifacts) ---
+    _save_benchmark_extras(results_dir, city_code, summary_df, seasonal_all, kalshi, y_test)
 
     logger.info("=" * 70)
     logger.info("%s Benchmark Complete", cfg.city_name)

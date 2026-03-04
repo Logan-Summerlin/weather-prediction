@@ -1,27 +1,31 @@
 {
   "city": "Philadelphia",
   "ticker": "KXHIGHPHL",
-  "n_total_days": 364,
-  "n_test_days": 56,
+  "evaluation_unit": "listed_contract_rows",
+  "contract_granularity": "day-specific Kalshi pre-settlement rows (typically 2F increments)",
+  "n_total_rows": 1455,
+  "n_total_dates": 364,
+  "n_test_rows": 224,
+  "n_test_dates": 56,
   "n_buckets": 57,
   "methods": {
     "1_raw_uncalibrated": {
-      "brier": 0.020802160397198458,
-      "ece": 0.016020293185628507
+      "brier": 0.20546758566097775,
+      "ece": 0.19871950270678454
     },
     "2_isotonic": {
-      "brier": 0.0193579279031864,
-      "ece": 0.013272015559095428
+      "brier": 0.16698797968557536,
+      "ece": 0.05624408736102863
     },
     "3_platt_scaling": {
-      "brier": 0.018938626156055755,
-      "ece": 0.010751471815218513
+      "brier": 0.1658527813118364,
+      "ece": 0.007522261047303552
     },
     "4_seasonal_regime": {
-      "brier": 0.019132765042756503,
-      "ece": 0.01371819483654131
+      "brier": 0.16718811787355112,
+      "ece": 0.0336954980512566
     }
   },
   "best_method": "3_platt_scaling",
-  "best_brier": 0.018938626156055755
+  "best_brier": 0.1658527813118364
 }
