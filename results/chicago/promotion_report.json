@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-02-19T14:25:33.703689",
+  "timestamp": "2026-03-04T03:34:15.428579",
   "city": "chi",
   "kalshi_ticker": "KXHIGHCHI",
   "target_station": "USW00094846",
   "target_station_name": "O'Hare International",
   "overall_status": "FAIL",
-  "gates_passed": 5,
-  "gates_total": 13,
-  "pass_rate": "5/13 (38%)",
+  "gates_passed": 12,
+  "gates_total": 14,
+  "pass_rate": "12/14 (86%)",
   "thresholds": {
     "brier_threshold": 0.16,
     "nws_brier_baseline": 0.14,
@@ -22,17 +22,25 @@
       "name": "overall_brier",
       "description": "OOS Brier score below threshold",
       "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Benchmark results not found (No benchmark results found)"
+      "value": 0.17808141909200906,
+      "threshold": 0.16,
+      "details": "Best model Brier: 0.1781 (threshold: 0.16, source: synthesis/3_platt_scaling from /home/user/weather-prediction/results/chicago/synthesis/calibration_sweep_summary.json)"
+    },
+    {
+      "name": "brier_sanity_floor",
+      "description": "OOS Brier is above minimum sanity floor",
+      "passed": true,
+      "value": 0.17808141909200906,
+      "threshold": 0.0,
+      "details": "Best model Brier: 0.1781 (minimum sanity floor: 0.0000, source: synthesis/3_platt_scaling from /home/user/weather-prediction/results/chicago/synthesis/calibration_sweep_summary.json)"
     },
     {
       "name": "beats_nws",
       "description": "Model Brier beats NWS baseline",
       "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Benchmark results not found"
+      "value": 0.17808141909200906,
+      "threshold": 0.14,
+      "details": "Model: 0.1781 vs NWS: 0.1400 (source: synthesis/3_platt_scaling from /home/user/weather-prediction/results/chicago/synthesis/calibration_sweep_summary.json)"
     },
     {
       "name": "beats_kalshi_market",
@@ -45,34 +53,34 @@
     {
       "name": "seasonal_brier",
       "description": "No season exceeds Brier threshold",
-      "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Seasonal results not found at /home/user/weather-prediction/results/chicago/seasonal_brier.json"
+      "passed": true,
+      "value": 0.18922475522233365,
+      "threshold": 0.22,
+      "details": "Worst season: SON=0.1892 (threshold: 0.22)"
     },
     {
       "name": "min_oos_days",
       "description": "Sufficient OOS evaluation days",
-      "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "OOS day count not found in benchmark results"
+      "passed": true,
+      "value": 2192,
+      "threshold": 200,
+      "details": "OOS days: 2192 (minimum: 200)"
     },
     {
       "name": "ece",
       "description": "Expected Calibration Error within tolerance",
-      "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Calibration results not found at /home/user/weather-prediction/results/chicago/synthesis/calibration_summary.json"
+      "passed": true,
+      "value": 0.03491526386977856,
+      "threshold": 0.05,
+      "details": "ECE: 0.0349 (threshold: 0.05, from sweep summary)"
     },
     {
       "name": "reliability_diagram",
       "description": "Reliability diagram artifact exists",
-      "passed": false,
+      "passed": true,
       "value": null,
       "threshold": null,
-      "details": "Reliability diagram not found at /home/user/weather-prediction/results/chicago/synthesis/reliability_diagram.png"
+      "details": "Found at /home/user/weather-prediction/results/chicago/synthesis/reliability_diagram.png"
     },
     {
       "name": "positive_pnl",
@@ -85,10 +93,10 @@
     {
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
-      "passed": false,
-      "value": -61.21063641965634,
+      "passed": true,
+      "value": -0.05951598560414931,
       "threshold": -0.3,
-      "details": "Max drawdown: -6121.1% (limit: -30.0%)"
+      "details": "Max drawdown: -6.0% (limit: -30.0%)"
     },
     {
       "name": "real_kalshi_pnl",
@@ -109,10 +117,10 @@
     {
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
-      "passed": false,
-      "value": 0,
+      "passed": true,
+      "value": 1,
       "threshold": null,
-      "details": "0 model file(s) found in /home/user/weather-prediction/models/chicago"
+      "details": "1 model file(s) found in /home/user/weather-prediction/models/chicago"
     },
     {
       "name": "scaler_artifact",

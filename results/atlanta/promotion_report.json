@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-02-19T14:26:03.713770",
+  "timestamp": "2026-03-04T03:34:48.784933",
   "city": "atl",
   "kalshi_ticker": "KXHIGHTATL",
   "target_station": "USW00013874",
   "target_station_name": "Hartsfield-Jackson Atlanta International Airport",
   "overall_status": "FAIL",
-  "gates_passed": 11,
-  "gates_total": 13,
-  "pass_rate": "11/13 (85%)",
+  "gates_passed": 12,
+  "gates_total": 14,
+  "pass_rate": "12/14 (86%)",
   "thresholds": {
     "brier_threshold": 0.14,
     "nws_brier_baseline": 0.12,
@@ -22,17 +22,25 @@
       "name": "overall_brier",
       "description": "OOS Brier score below threshold",
       "passed": true,
-      "value": 0.015268285786318045,
+      "value": 0.016367471986956164,
       "threshold": 0.14,
-      "details": "Best model Brier: 0.0153 (threshold: 0.14, source: base benchmark from /home/user/weather-prediction/results/atlanta/benchmark_summary.json)"
+      "details": "Best model Brier: 0.0164 (threshold: 0.14, source: synthesis/2_isotonic from /home/user/weather-prediction/results/atlanta/synthesis/calibration_sweep_summary.json)"
+    },
+    {
+      "name": "brier_sanity_floor",
+      "description": "OOS Brier is above minimum sanity floor",
+      "passed": true,
+      "value": 0.016367471986956164,
+      "threshold": 0.0,
+      "details": "Best model Brier: 0.0164 (minimum sanity floor: 0.0000, source: synthesis/2_isotonic from /home/user/weather-prediction/results/atlanta/synthesis/calibration_sweep_summary.json)"
     },
     {
       "name": "beats_nws",
       "description": "Model Brier beats NWS baseline",
       "passed": true,
-      "value": 0.015268285786318045,
+      "value": 0.016367471986956164,
       "threshold": 0.12,
-      "details": "Model: 0.0153 vs NWS: 0.1200 (source: base benchmark from /home/user/weather-prediction/results/atlanta/benchmark_summary.json)"
+      "details": "Model: 0.0164 vs NWS: 0.1200 (source: synthesis/2_isotonic from /home/user/weather-prediction/results/atlanta/synthesis/calibration_sweep_summary.json)"
     },
     {
       "name": "beats_kalshi_market",
@@ -86,9 +94,9 @@
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
       "passed": false,
-      "value": -1342.0292199481296,
+      "value": -1.343462765411324,
       "threshold": -0.3,
-      "details": "Max drawdown: -134202.9% (limit: -30.0%)"
+      "details": "Max drawdown: -134.3% (limit: -30.0%)"
     },
     {
       "name": "real_kalshi_pnl",

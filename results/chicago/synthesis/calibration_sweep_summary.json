@@ -1,27 +1,31 @@
 {
   "city": "Chicago",
   "ticker": "KXHIGHCHI",
-  "n_total_days": 1055,
-  "n_test_days": 159,
+  "evaluation_unit": "listed_contract_rows",
+  "contract_granularity": "day-specific Kalshi pre-settlement rows (typically 2F increments)",
+  "n_total_rows": 4115,
+  "n_total_dates": 1054,
+  "n_test_rows": 636,
+  "n_test_dates": 159,
   "n_buckets": 62,
   "methods": {
     "1_raw_uncalibrated": {
-      "brier": 0.01909389714569624,
-      "ece": 0.01670652909790031
+      "brier": 0.22524000299805005,
+      "ece": 0.2201069081804644
     },
     "2_isotonic": {
-      "brier": 0.015675317985984788,
-      "ece": 0.0014032352954405527
+      "brier": 0.17818372210712494,
+      "ece": 0.034945877865199135
     },
     "3_platt_scaling": {
-      "brier": 0.016780592350411985,
-      "ece": 0.00866408418470364
+      "brier": 0.17808141909200906,
+      "ece": 0.03491526386977856
     },
     "4_seasonal_regime": {
-      "brier": 0.016480751448534812,
-      "ece": 0.007850571890075618
+      "brier": 0.17831037546544048,
+      "ece": 0.021613795194518927
     }
   },
-  "best_method": "2_isotonic",
-  "best_brier": 0.015675317985984788
+  "best_method": "3_platt_scaling",
+  "best_brier": 0.17808141909200906
 }

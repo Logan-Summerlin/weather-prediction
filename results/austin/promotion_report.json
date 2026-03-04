@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-20T00:47:19.066911",
+  "timestamp": "2026-03-04T03:34:52.675090",
   "city": "aus",
   "kalshi_ticker": "KXHIGHAUS",
   "target_station": "USW00013904",
@@ -94,10 +94,10 @@
     {
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
-      "passed": false,
-      "value": -16.21176633293885,
+      "passed": true,
+      "value": -0.010476263521501656,
       "threshold": -0.3,
-      "details": "Max drawdown: -1621.2% (limit: -30.0%)"
+      "details": "Max drawdown: -1.0% (limit: -30.0%)"
     },
     {
       "name": "real_kalshi_pnl",
@@ -118,10 +118,10 @@
     {
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
-      "passed": true,
-      "value": 1,
+      "passed": false,
+      "value": 0,
       "threshold": null,
-      "details": "1 model file(s) found in /home/user/weather-prediction/models/austin"
+      "details": "0 model file(s) found in /home/user/weather-prediction/models/austin"
     },
     {
       "name": "scaler_artifact",
