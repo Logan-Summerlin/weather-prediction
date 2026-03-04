@@ -2,13 +2,15 @@
 
 > **RULE:** Keep this file concise, current, and operationally useful.
 
-## Current Project State (2026-02)
+## Current Project State (2026-03)
 - Repository focus: multi-city probabilistic weather forecasting for Kalshi daily max-temperature contracts.
 - Primary objective: calibrated predictive distributions converted into contract bucket probabilities, then EV-filtered trading decisions with risk controls.
 - Core city support: NYC, Chicago, Philadelphia, Atlanta, Austin.
+- Denver and Washington DC expansions are tracked as **hypothetical** — not on the active roadmap until the current portfolio is fully production-ready.
 - Architecture is modularized across ingestion, feature engineering, modeling, calibration/bucketization, and trading simulation.
 - Multi-city script flow has been unified (city passed via `--city`) with thin compatibility wrappers for legacy per-city commands.
 - Promotion evaluations are implemented; city readiness differs by market edge and calibration robustness.
+- **Critical data gap:** expansion cities (CHI, PHL, ATL, AUS) train on GHCN data but infer with ASOS-derived features. ASOS migration is the top data quality priority.
 
 ## Known Strategic Status by City
 - **NYC:** mature benchmark stack (E/WGA/U families), strongest reference implementation.
@@ -22,8 +24,9 @@
 2. Strict cutoff-time safety for live inputs (no delayed/training-only leakage into inference).
 3. Chronological splits only; never random shuffle time-series data.
 4. Train/inference feature parity is mandatory; quantify and correct mismatch when unavoidable.
-5. Trading requires calibrated probabilities and full-cost EV accounting (fees + slippage + execution uncertainty).
-6. Kill switch required for missing critical inputs, schema drift, calibration drift, or execution anomalies.
+5. **Train on ASOS (IEM hourly) data, not GHCN-Daily** — ASOS matches the operational inference source. GHCN may be used for secondary validation only.
+6. Trading requires calibrated probabilities and full-cost EV accounting (fees + slippage + execution uncertainty).
+7. Kill switch required for missing critical inputs, schema drift, calibration drift, or execution anomalies.
 
 ## Quality and Evaluation Expectations
 - Use proper probabilistic metrics (CRPS/NLL) and contract-level bucket metrics (including Brier).
