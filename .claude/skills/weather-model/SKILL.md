@@ -33,20 +33,30 @@ These should reuse shared modules and follow the same stage order as existing ci
 - Model outputs: `models/<city>/...`
 - Reports/results: `results/<city>/...`
 
-## 4) Modeling + calibration requirements
+## 4) Data source requirements: ASOS over GHCN for training
+- **Use ASOS (IEM hourly) data as the primary training data source**, not GHCN-Daily.
+- ASOS data matches the operational inference data source, ensuring training/inference parity.
+- GHCN-Daily TMAX can differ from ASOS-derived TMAX by 1–3°F due to observation time conventions, sensor siting, and temporal aggregation — training on GHCN creates a systematic bias in live performance.
+- Collect full ASOS history for the city's station network using `src/asos_collection.py`.
+- Aggregate to daily features using `src/asos_preprocessing.py` (TMAX, TMIN, dewpoint, wind, pressure, clouds).
+- Run ASOS vs GHCN cross-validation on the overlap period (`compare_asos_ghcn_tmax()`) to document any station-specific offsets.
+- GHCN data may still be used as a secondary validation source but must not be the primary training input.
+
+## 5) Modeling + calibration requirements
 - Use chronological splits only; no random shuffle.
 - Fit preprocessors/scalers on train partition only.
 - Train distributional models (not point-only) and benchmark against persistence/climatology/linear baselines.
 - Calibrate probabilities on held-out calibration data before bucketization.
 - Convert calibrated CDF to contract bucket probabilities with exact boundary semantics.
 
-## 5) Trading/backtest integration
+## 6) Trading/backtest integration
 - Compute EV vs market-implied probabilities including fees/slippage.
 - Apply risk controls (sizing caps, exposure limits, kill switch conditions).
 - Backtests must be time-faithful and include realistic execution assumptions.
 
-## 6) Promotion gate (must pass)
+## 7) Promotion gate (must pass)
 - Contract alignment verified.
+- Model trained on ASOS-derived features (not GHCN-only) with verified training/inference parity.
 - Calibration diagnostics acceptable out-of-sample.
 - Contract-level probabilistic performance beats required baselines.
 - Positive EV after conservative costs.

@@ -1,6 +1,6 @@
 # Project Plan — Weather Prediction Market Forecasting & Trading System
 
-**Last updated:** 2026-02-21
+**Last updated:** 2026-03-04
 **Repository:** `weather-prediction`
 **Primary objective:** Deliver calibrated probabilistic temperature forecasts aligned to Kalshi contract buckets and trade only when expected value remains positive after fees/slippage.
 
@@ -8,7 +8,7 @@
 
 ## 1) Executive Summary (Current State)
 
-This repository contains an end-to-end, modular weather prediction market pipeline with code and artifacts for NYC-centered model development plus multi-city expansion assets (Chicago, Philadelphia, Atlanta, Austin), with **Denver and Washington DC now tracked as the next city model expansions**.
+This repository contains an end-to-end, modular weather prediction market pipeline with code and artifacts for NYC-centered model development plus multi-city expansion assets (Chicago, Philadelphia, Atlanta, Austin).
 
 The implemented architecture is already split into the required operational layers:
 1. **Ingestion** (`src/*collection*.py`, `src/operational_data.py`)
@@ -22,6 +22,21 @@ Operationally, the repo includes:
 - Pipeline runner scripts (`scripts/run_*.py`)
 - Test coverage across ingestion, modeling, calibration, trading, and script guardrails (`tests/`)
 - Existing results and historical artifacts (`results/`, `ARCHIVE/`)
+
+### Strategic City Status
+
+| City | Data | Model | Calibration | Backtest Edge | Promotion Status |
+|------|------|-------|-------------|---------------|------------------|
+| **NYC** | ASOS-based (reference) | Mature (E/WGA/U families) | Strong | Reference impl | Strongest baseline |
+| **Chicago** | GHCN-based (needs ASOS migration) | Synthesis trained | Good | +240% return, 6.07 Sharpe on real Kalshi | Ready to promote |
+| **Atlanta** | GHCN-based (needs ASOS migration) | Synthesis trained | Acceptable | Positive | Promotion gates passed |
+| **Philadelphia** | GHCN-based (needs ASOS migration) | Synthesis trained | Weaker | Marginal | Calibration concerns |
+| **Austin** | GHCN-based (needs ASOS migration) | Synthesis trained | Variable | Inconsistent | Not yet meeting gates |
+
+### Known Issues
+- **Drawdown calculation bug** in promotion evaluation causes false gate failures across cities — must be fixed before trusting promotion reports.
+- **Chicago/Philadelphia missing benchmark files** block several promotion gate checks — regenerating these files will unblock the majority of failing gates.
+- **ASOS training gap** — only the NYC reference model was trained on ASOS (IEM) hourly data. All expansion cities currently train on GHCN daily data, creating a training/inference mismatch since live inference uses ASOS-derived features. This is the highest-priority data quality issue (see Section 6, Phase E).
 
 ---
 
@@ -48,19 +63,19 @@ Before model changes or live deployment for any city, enforce:
 ## 3) Architecture & Module Ownership
 
 ## Layer 1 — Data ingestion
-- `src/data_collection.py`: historical station collection (training-oriented)
-- `src/asos_collection.py`: operational sub-daily observations
+- `src/data_collection.py`: NOAA GHCN-Daily historical station collection (legacy training source)
+- `src/asos_collection.py`: IEM ASOS hourly observations (preferred training + operational source)
 - `src/nwp_collection.py`: forecast model input collection
 - `src/soundings_collection.py`: upper-air collection
 - `src/kalshi_client.py`: exchange/market API integration
 - `src/operational_data.py`: live pipeline data handling helpers
 
 ## Layer 2 — Feature engineering / preprocessing
-- `src/data_preprocessing.py`: canonical historical feature pipeline
-- `src/asos_preprocessing.py`: operational observation transforms
+- `src/data_preprocessing.py`: canonical historical feature pipeline (currently GHCN-based for expansion cities)
+- `src/asos_preprocessing.py`: ASOS hourly-to-daily aggregation and GHCN cross-validation
 - `src/nwp_preprocessing.py`: NWP transforms
 - `src/soundings_preprocessing.py`: sounding transforms
-- `src/operational_features.py`: time-safe live feature assembly
+- `src/operational_features.py`: time-safe live feature assembly (combines GHCN temps + ASOS features + soundings)
 - `src/station_registry.py`: station metadata abstraction
 
 ## Layer 3 — Modeling
@@ -104,42 +119,76 @@ NYC-focused benchmark lineage scripts are present:
 - `scripts/run_wga_v2_benchmark.py`
 - `scripts/run_unified_outperformance_benchmark.py`
 
-### Expansion tracking status
-- **Denver weather model:** Added to project expansion scope as the next implementation-track city using the standard city rollout path.
-- **Washington DC weather model:** Added as a parallel near-term expansion candidate with a concise rollout plan (Section 11).
+---
+
+## 5) Gaps to Close for Production-Grade Operation
+
+1. **Fix drawdown calculation bug** in promotion evaluation — currently causes false gate failures across all cities, blocking reliable promotion decisions.
+2. **Regenerate missing benchmark artifacts** for Chicago and Philadelphia — majority of their failing promotion gates are due to missing files, not actual performance failures.
+3. **Migrate all city training pipelines to ASOS data** — close the training/inference mismatch (see Phase E).
+4. **Codify hard cutoff manifest** for each live feature (source, expected publish latency, fallback behavior).
+5. **Formalize calibration monitoring** in daily operations (PIT drift, reliability by season/regime).
+6. **Strengthen execution realism** (slippage, fill uncertainty, queue effects) in backtests.
+7. **Ensure promotion gates are reproducible** across all cities using one canonical metric/report format.
+8. **Automate kill-switch triggers** for missing critical inputs, schema drift, and miscalibration.
+9. **Organize NYC data** into standard `data/nyc/` directory structure consistent with other cities.
 
 ---
 
-## 5) Gaps to Close for Production-Grade Expansion
+## 6) Implementation Plan
 
-1. **Codify hard cutoff manifest** for each live feature (source, expected publish latency, fallback behavior).
-2. **Formalize calibration monitoring** in daily operations (PIT drift, reliability by season/regime).
-3. **Strengthen execution realism** (slippage, fill uncertainty, queue effects) in backtests.
-4. **Ensure promotion gates are reproducible** across all cities using one canonical metric/report format.
-5. **Automate kill-switch triggers** for missing critical inputs, schema drift, and miscalibration.
+### Phase A — Critical bug fixes and unblocking (immediate)
+- Fix the drawdown calculation bug in the promotion evaluation code.
+- Regenerate missing Chicago and Philadelphia benchmark summary files.
+- Re-run promotion evaluations for all cities after fixes.
+- Promote Chicago (strongest real-market signal) once gates are clean.
 
----
-
-## 6) Implementation Plan (Next 30–60 Days)
-
-### Phase A — Reliability hardening
+### Phase B — Reliability hardening
 - Define and version an operational data SLA manifest.
 - Add strict schema validation in daily pipeline entrypoints.
 - Add explicit run-fail behavior for missing critical data.
 
-### Phase B — Calibration and distribution quality
+### Phase C — Calibration and distribution quality
 - Expand calibration diagnostics in generated reports.
 - Add season/regime reliability slicing as standard outputs.
 - Enforce probability-sum and monotonicity checks in bucketization outputs.
 
-### Phase C — Trading quality controls
+### Phase D — Trading quality controls
 - Refit EV thresholds under conservative fee/slippage assumptions.
 - Validate capped Kelly/exposure policy against drawdown constraints.
 - Add run-level audit log completeness checks.
 
-### Phase D — Promotion workflow unification
+### Phase E — ASOS training data migration (high priority)
+
+**Problem:** The NYC reference model trains on ASOS (IEM hourly) data, which matches the operational inference data source. All expansion cities (Chicago, Philadelphia, Atlanta, Austin) currently train on GHCN-Daily station data, but live inference constructs features from ASOS hourly observations via `src/operational_features.py`. This creates a systematic training/inference mismatch that violates the project's core principle of training/inference parity.
+
+**Why this matters:**
+- GHCN-Daily TMAX and ASOS-derived daily TMAX can differ by 1–3°F due to observation time conventions, sensor siting, and temporal aggregation methods.
+- Models trained on GHCN but scored on ASOS-derived features will have a persistent bias that degrades calibration.
+- The mismatch is invisible in offline evaluation (which also uses GHCN) but manifests in live performance.
+
+**Migration plan per city:**
+1. Collect full ASOS history for each city's station network using `src/asos_collection.py`.
+2. Aggregate to daily features using `src/asos_preprocessing.py` (TMAX, TMIN, dewpoint, wind, pressure, clouds).
+3. Run ASOS vs GHCN cross-validation on the overlap period to quantify biases and document any station-specific offsets.
+4. Rebuild `data/<city>/processed/` feature splits using ASOS-derived daily values as the primary temperature source.
+5. Retrain all city models on ASOS-based features.
+6. Re-run calibration, benchmarking, and promotion evaluation on the ASOS-trained models.
+7. Verify that training/inference feature distributions match (histogram comparison, KS test on key features).
+
+**Acceptance criteria:**
+- All city models trained and calibrated on ASOS-derived features.
+- ASOS vs GHCN cross-validation report generated for each city documenting any systematic offsets.
+- No regression in out-of-sample CRPS or contract-level Brier scores after migration (small improvements expected due to parity fix).
+- Feature distribution parity verified between training and live inference.
+
+### Phase F — Promotion workflow unification
 - Standardize promotion report schema across cities.
 - Require baseline comparisons and market-implied benchmarks in one report artifact.
+
+### Phase G — NYC data organization
+- Migrate NYC data from root-level CSV files into standard `data/nyc/raw/` and `data/nyc/processed/` structure.
+- Ensure NYC follows the same pipeline conventions as expansion cities.
 
 ---
 
@@ -229,10 +278,11 @@ weather-prediction/
 
 ---
 
-## 9) Definition of Done for “Production Ready”
+## 9) Definition of Done for "Production Ready"
 
 A city is production ready only when all are true:
 - Contract-aligned target and bucketization validated.
+- Model trained on ASOS-derived features matching the operational inference data source.
 - Holdout reliability/calibration acceptable in relevant regimes.
 - Contract-level Brier beats required baselines.
 - Backtested EV positive after conservative costs.
@@ -241,59 +291,32 @@ A city is production ready only when all are true:
 
 ---
 
-## 10) Concise Denver Expansion Plan
+## 10) Hypothetical City Expansions
 
-### Existing model stack we should reuse
-- **City portability framework is already in place** via `CityConfig` + runtime metadata hydration, so Denver can be onboarded without changing model architecture contracts.
-- **Current production-oriented modeling path** is already modular: baseline/distributional model, optional synthesis layer, explicit calibration, contract-level scoring, and EV/risk trading modules.
-- **Generic city pipeline entrypoints already exist** (`run_city_pipeline.py` + benchmark/calibration/backtest/promotion scripts), so Denver should be added by configuration + data/runtime wiring, not by bespoke one-off code.
+The following city expansions are tracked as hypothetical future work. They are **not on the active roadmap** and should only be pursued after the current city portfolio (NYC, Chicago, Philadelphia, Atlanta, Austin) is fully production-ready with ASOS-trained models, clean promotion gates, and live trading operational.
 
-### Denver rollout checklist (minimal viable → promotion)
-1. **Contract/measurement alignment (hard gate):**
-   - Confirm Kalshi Denver ticker, settlement station, timezone/day boundary, rounding, and bucket inclusivity.
-   - Add Denver bucket edges only after exchange spec confirmation.
+### Denver (hypothetical)
 
-2. **City registration + runtime metadata:**
-   - Add `den` entry to `src/city_config.py` with target station, sounding station, NWP gridpoint, climatology priors, and Denver-specific data/model/results paths.
-   - Add Denver block to `src/city_config_runtime_data.py` (station network, sectors/rings, split dates, completeness rules).
+**Prerequisites before starting:**
+- All Phase A–F work complete for existing cities.
+- Confirmed Kalshi Denver ticker availability and contract spec.
 
-3. **Operational data parity build:**
-   - Materialize `data/denver/raw/` and `data/denver/processed/` with the same schemas used by CHI/PHL.
-   - Enforce cutoff-safe feature computation using existing ASOS/NWP/sounding preprocessing modules.
+**Rollout checklist (if activated):**
+1. Contract/measurement alignment: confirm Kalshi Denver ticker, settlement station, timezone/day boundary, rounding, bucket inclusivity.
+2. City registration: add `den` entry to `src/city_config.py` and runtime block in `src/city_config_runtime_data.py`.
+3. ASOS data build: collect full ASOS history for Denver station network, aggregate to daily features, create `data/denver/raw/` and `data/denver/processed/` using ASOS as primary training data source.
+4. Modeling + calibration: run standard pipeline sequence (collection → preprocessing → benchmark → synthesis calibration) with ASOS-trained models.
+5. Backtest + promotion: run contract-level Brier and EV backtests, promote only if all gates pass.
 
-4. **Modeling + calibration sequence:**
-   - Run Denver through existing scripts in order: collection → preprocessing → benchmark baselines → synthesis calibration.
-   - Require calibration diagnostics (PIT/reliability/coverage) before any trading simulation.
+### Washington DC (hypothetical)
 
-5. **Backtest + promotion gating:**
-   - Run contract-level Brier and EV backtests with conservative fee/slippage assumptions.
-   - Promote only if Denver beats persistence/climatology/market-implied baselines, passes risk caps/kill-switch checks, and preserves calibration across seasonal regimes.
+**Prerequisites before starting:**
+- All Phase A–F work complete for existing cities.
+- Confirmed Kalshi DC contract spec.
 
-### Suggested first execution pass (paper-trade ready)
-- Day 1-2: contract spec + config/runtime wiring.
-- Day 3-4: deterministic data build + baseline benchmarks.
-- Day 5: synthesis + calibration report.
-- Day 6: conservative backtest + promotion evaluation.
-- Day 7+: paper trading with drift monitoring before any capital deployment.
-
----
-
-## 11) Concise Washington DC Expansion Plan
-
-### Existing model stack we should reuse
-- Reuse the same city-portable framework (`CityConfig`, runtime metadata, generic city pipeline scripts) with no bespoke architecture fork.
-- Reuse the current distribution-first path: baseline/distributional forecast → calibration → bucketization → EV/risk gating.
-
-### Washington DC rollout checklist (concise)
-1. **Contract/measurement alignment:** Confirm Kalshi DC contract mapping (official station, day boundary, rounding, bucket inclusivity).
-2. **City wiring:** Add `dc` entry in `src/city_config.py` and a matching runtime block in `src/city_config_runtime_data.py` (station graph, sectors, split windows, completeness thresholds).
-3. **Data build:** Create `data/washington_dc/raw/` and `data/washington_dc/processed/` using the same schema and cutoff-safe feature generation path as existing cities.
-4. **Model + calibration pass:** Run collection/preprocessing/benchmark/synthesis calibration sequence, then require PIT/reliability/coverage checks on holdout.
-5. **Backtest + gate:** Run conservative-fee/slippage EV backtest and promote only if Brier + EV + risk controls beat required baselines.
-
-### Suggested first DC execution cadence
-- Day 1: contract spec validation + city config wiring.
-- Day 2-3: deterministic data pipeline build + baselines.
-- Day 4: synthesis and calibration diagnostics.
-- Day 5: backtest + promotion evaluation.
-- Day 6+: paper trading and drift monitoring.
+**Rollout checklist (if activated):**
+1. Contract/measurement alignment: confirm Kalshi DC contract mapping (official station, day boundary, rounding, bucket inclusivity).
+2. City registration: add `dc` entry in `src/city_config.py` and runtime block in `src/city_config_runtime_data.py`.
+3. ASOS data build: collect full ASOS history for DC station network, aggregate to daily features, create `data/washington_dc/raw/` and `data/washington_dc/processed/` using ASOS as primary training data source.
+4. Modeling + calibration: run standard pipeline, require PIT/reliability/coverage checks on holdout.
+5. Backtest + promotion: run conservative-fee/slippage EV backtest, promote only if all gates pass.
