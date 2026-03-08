@@ -1,0 +1,162 @@
+{
+  "schema_version": "3.0",
+  "timestamp": "2026-03-08T05:30:36.229282",
+  "city": "New York City",
+  "city_code": "nyc",
+  "kalshi_ticker": "KXHIGHNY",
+  "target_station": "USW00094728",
+  "target_station_name": "Central Park",
+  "timezone": "America/New_York",
+  "overall_status": "FAIL",
+  "gates_passed": 1,
+  "gates_total": 11,
+  "pass_rate": "1/11 (9%)",
+  "thresholds": {
+    "brier_threshold": 0.14,
+    "brier_floor": 0.0,
+    "nws_brier_baseline": 0.12,
+    "ece_threshold": 0.05,
+    "min_positive_pnl": 0.0,
+    "max_drawdown_threshold": -0.3,
+    "min_oos_days": 200,
+    "seasonal_brier_threshold": 0.2,
+    "min_predictions_rows": 100
+  },
+  "gates": [
+    {
+      "name": "overall_brier",
+      "description": "OOS Brier score below threshold",
+      "category": "forecast_quality",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Benchmark results not found (no_results_found)"
+    },
+    {
+      "name": "brier_sanity_floor",
+      "description": "OOS Brier above minimum sanity floor",
+      "category": "forecast_quality",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Benchmark results not found"
+    },
+    {
+      "name": "beats_kalshi_market",
+      "description": "Model Brier beats Kalshi market",
+      "category": "forecast_quality",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Kalshi market Brier not available (non-blocking)"
+    },
+    {
+      "name": "seasonal_brier",
+      "description": "No season exceeds Brier threshold",
+      "category": "forecast_quality",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Seasonal results not found"
+    },
+    {
+      "name": "min_oos_days",
+      "description": "Sufficient OOS evaluation days",
+      "category": "forecast_quality",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "OOS day count not found"
+    },
+    {
+      "name": "calibration_ece",
+      "description": "Expected Calibration Error within tolerance",
+      "category": "calibration",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Calibration ECE not found"
+    },
+    {
+      "name": "reliability_diagram",
+      "description": "Reliability diagram artifact exists",
+      "category": "calibration",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Not found at /home/user/weather-prediction/results/synthesis/reliability_diagram.png"
+    },
+    {
+      "name": "positive_pnl",
+      "description": "Trading shows positive P&L",
+      "category": "trading",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Backtest results not found"
+    },
+    {
+      "name": "max_drawdown",
+      "description": "Max drawdown within acceptable limits",
+      "category": "trading",
+      "passed": false,
+      "value": null,
+      "threshold": null,
+      "details": "Drawdown data not found"
+    },
+    {
+      "name": "data_pipeline",
+      "description": "Processed data files exist",
+      "category": "operational",
+      "passed": false,
+      "value": 0,
+      "threshold": 7,
+      "details": "0/7 required files in /home/user/weather-prediction/data/processed"
+    },
+    {
+      "name": "model_checkpoints",
+      "description": "Model checkpoints saved",
+      "category": "operational",
+      "passed": false,
+      "value": 0,
+      "threshold": null,
+      "details": "0 model file(s) in /home/user/weather-prediction/models"
+    }
+  ],
+  "model_summary": {
+    "best_model": null,
+    "best_brier": null,
+    "brier_source": "no_results_found",
+    "edge_vs_market": null
+  },
+  "baseline_comparisons": {
+    "persistence_brier": null,
+    "climatology_brier": null,
+    "ridge_brier": null,
+    "model_beats_persistence": null,
+    "model_beats_climatology": null,
+    "model_beats_ridge": null
+  },
+  "market_benchmark": {
+    "kalshi_presettlement_brier": null,
+    "model_beats_market": null,
+    "brier_edge": null
+  },
+  "calibration_summary": {
+    "best_ece": null,
+    "best_method": null,
+    "methods": {}
+  },
+  "trading_summary": {
+    "source": null,
+    "best_variant": null,
+    "total_pnl": null,
+    "return_pct": null,
+    "sharpe_ratio": null,
+    "n_trades": null,
+    "win_rate": null,
+    "max_drawdown_frac": null
+  },
+  "seasonal_brier": {},
+  "trading_seasonal": {}
+}
