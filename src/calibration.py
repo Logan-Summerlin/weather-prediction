@@ -466,6 +466,94 @@ def plot_reliability_diagram(
 
 
 # ===========================================================================
+# 2b. Seasonal Reliability Breakdown
+# ===========================================================================
+
+def compute_seasonal_reliability(
+    mu: Union[np.ndarray, pd.Series, list],
+    sigma: Union[np.ndarray, pd.Series, list],
+    observations: Union[np.ndarray, pd.Series, list],
+    dates: Union[pd.DatetimeIndex, np.ndarray, list],
+    nominal_levels: Optional[list[float]] = None,
+    min_samples: int = 10,
+) -> dict[str, dict]:
+    """Compute reliability diagrams broken down by meteorological season.
+
+    Splits the data by season (DJF, MAM, JJA, SON) and calls
+    ``compute_reliability()`` on each subset.  Seasons with fewer than
+    *min_samples* observations are silently skipped.
+
+    Parameters
+    ----------
+    mu : array-like
+        Predicted means.
+    sigma : array-like
+        Predicted standard deviations (positive).
+    observations : array-like
+        Actual observed values.
+    dates : DatetimeIndex or array-like
+        Dates corresponding to each prediction.  Used to assign
+        observations to meteorological seasons.
+    nominal_levels : list[float], optional
+        Nominal coverage levels passed through to
+        ``compute_reliability()``.  If None, the default levels are used.
+    min_samples : int
+        Minimum number of samples required to compute reliability for
+        a given season (default 10).
+
+    Returns
+    -------
+    dict[str, dict]
+        Dictionary keyed by season name (e.g. "Winter (DJF)"), each
+        containing the output of ``compute_reliability()`` for that
+        season's subset.  Seasons with fewer than *min_samples*
+        observations are omitted.
+    """
+    mu_arr, sigma_arr, obs_arr = _validate_probabilistic_inputs(
+        mu, sigma, observations
+    )
+
+    if not isinstance(dates, pd.DatetimeIndex):
+        dates = pd.DatetimeIndex(dates)
+
+    # Align dates length with cleaned arrays
+    if len(dates) != len(mu_arr):
+        logger.warning(
+            "Date array length (%d) does not match cleaned input length (%d); "
+            "cannot compute seasonal reliability",
+            len(dates), len(mu_arr),
+        )
+        return {}
+
+    months = dates.month
+    result: dict[str, dict] = {}
+
+    for season_name in SEASON_ORDER:
+        season_months = [m for m, s in SEASON_MAP.items() if s == season_name]
+        mask = np.isin(months, season_months)
+        n_season = int(mask.sum())
+
+        if n_season < min_samples:
+            logger.info(
+                "Skipping season '%s' for reliability: only %d samples (min=%d)",
+                season_name, n_season, min_samples,
+            )
+            continue
+
+        rel = compute_reliability(
+            mu_arr[mask], sigma_arr[mask], obs_arr[mask],
+            nominal_levels=nominal_levels,
+        )
+        result[season_name] = rel
+
+    logger.info(
+        "Computed seasonal reliability for %d/%d seasons",
+        len(result), len(SEASON_ORDER),
+    )
+    return result
+
+
+# ===========================================================================
 # 3. Isotonic Regression Calibration
 # ===========================================================================
 
@@ -1055,7 +1143,99 @@ def compute_sharpness(
 
 
 # ===========================================================================
-# 7. Kalshi Bucket Probability Mapping
+# 7a. Bucket Probability Validation
+# ===========================================================================
+
+def validate_bucket_probabilities(
+    buckets: dict[str, float],
+    tolerance: float = 0.01,
+) -> dict:
+    """Validate probability-sum and monotonicity of bucket probabilities.
+
+    Enforces three invariants on the output of
+    ``cdf_to_kalshi_buckets()``:
+
+    1. All probabilities are non-negative.
+    2. Probabilities sum to approximately 1.0 (within *tolerance*).
+    3. CDF monotonicity: the cumulative sum of probabilities (in
+       bucket order) is non-decreasing.
+
+    Parameters
+    ----------
+    buckets : dict[str, float]
+        Mapping of bucket label to probability, as returned by
+        ``cdf_to_kalshi_buckets()``.
+    tolerance : float
+        Acceptable deviation of the probability sum from 1.0
+        (default 0.01).
+
+    Returns
+    -------
+    dict
+        Validation results with keys:
+
+        - ``is_valid`` (bool): True if all checks pass.
+        - ``prob_sum`` (float): Sum of all bucket probabilities.
+        - ``max_negative`` (float): Most-negative probability found
+          (0.0 if none are negative).
+        - ``sum_deviation`` (float): Absolute difference from 1.0.
+        - ``monotonicity_violations`` (int): Number of positions where
+          the cumulative sum decreased.
+        - ``warnings`` (list[str]): Human-readable descriptions of
+          any violations detected.
+    """
+    warnings_list: list[str] = []
+    probs = np.array(list(buckets.values()), dtype=np.float64)
+
+    # --- Non-negativity ---
+    neg_mask = probs < 0.0
+    max_negative = float(probs[neg_mask].min()) if neg_mask.any() else 0.0
+    if neg_mask.any():
+        n_neg = int(neg_mask.sum())
+        msg = (
+            f"Found {n_neg} negative bucket probabilit{'y' if n_neg == 1 else 'ies'} "
+            f"(most negative: {max_negative:.6f})"
+        )
+        warnings_list.append(msg)
+        logger.warning("validate_bucket_probabilities: %s", msg)
+
+    # --- Probability sum ---
+    prob_sum = float(probs.sum())
+    sum_deviation = abs(prob_sum - 1.0)
+    if sum_deviation > tolerance:
+        msg = (
+            f"Bucket probabilities sum to {prob_sum:.6f} "
+            f"(deviation {sum_deviation:.6f} exceeds tolerance {tolerance})"
+        )
+        warnings_list.append(msg)
+        logger.warning("validate_bucket_probabilities: %s", msg)
+
+    # --- CDF monotonicity ---
+    cumsum = np.cumsum(probs)
+    diffs = np.diff(cumsum)
+    mono_violations = int(np.sum(diffs < -1e-12))
+    if mono_violations > 0:
+        msg = (
+            f"CDF monotonicity violated at {mono_violations} "
+            f"position{'s' if mono_violations > 1 else ''}"
+        )
+        warnings_list.append(msg)
+        logger.warning("validate_bucket_probabilities: %s", msg)
+
+    is_valid = len(warnings_list) == 0
+
+    return {
+        "is_valid": is_valid,
+        "prob_sum": prob_sum,
+        "max_negative": max_negative,
+        "sum_deviation": sum_deviation,
+        "monotonicity_violations": mono_violations,
+        "warnings": warnings_list,
+    }
+
+
+# ===========================================================================
+# 7b. Kalshi Bucket Probability Mapping
 # ===========================================================================
 
 def cdf_to_kalshi_buckets(
@@ -1132,6 +1312,14 @@ def cdf_to_kalshi_buckets(
         max(buckets, key=buckets.get), max(buckets.values())
     )
 
+    # Validate bucket probabilities before returning
+    validation = validate_bucket_probabilities(buckets)
+    if not validation["is_valid"]:
+        logger.warning(
+            "Bucket probability validation failed for mu=%.1f, sigma=%.1f: %s",
+            mu, sigma, "; ".join(validation["warnings"]),
+        )
+
     return buckets
 
 
@@ -1173,6 +1361,9 @@ def generate_calibration_report(
         Dictionary with all calibration metrics:
         - "pit_ks_test": KS test results
         - "reliability": reliability diagram data
+        - "seasonal_reliability": seasonal reliability breakdown
+          (present only when *dates* are provided)
+        - "nll": negative log-likelihood results (overall and seasonal)
         - "coverage": interval coverage data
         - "crps": CRPS results
         - "sharpness": sharpness results
@@ -1203,6 +1394,58 @@ def generate_calibration_report(
     plot_reliability_diagram(reliability, save_path=rel_path,
                              title=f"{model_name}: Reliability Diagram")
 
+    # 2b. Seasonal reliability (when dates are available)
+    seasonal_reliability: Optional[dict] = None
+    dates_idx: Optional[pd.DatetimeIndex] = None
+    if dates is not None:
+        if not isinstance(dates, pd.DatetimeIndex):
+            dates_idx = pd.DatetimeIndex(dates)
+        else:
+            dates_idx = dates
+        # Only attempt if date length matches cleaned arrays
+        if len(dates_idx) == n:
+            seasonal_reliability = compute_seasonal_reliability(
+                mu_arr, sigma_arr, obs_arr, dates_idx,
+            )
+        else:
+            logger.warning(
+                "Date array length (%d) does not match cleaned sample count (%d); "
+                "skipping seasonal reliability",
+                len(dates_idx), n,
+            )
+
+    # 2c. NLL (Negative Log-Likelihood) for Gaussian predictions
+    sigma_safe = np.maximum(sigma_arr, 1e-10)
+    nll_values = (
+        0.5 * np.log(2.0 * np.pi * sigma_safe ** 2)
+        + (obs_arr - mu_arr) ** 2 / (2.0 * sigma_safe ** 2)
+    )
+    nll_result: dict = {
+        "mean_nll": float(np.mean(nll_values)),
+        "median_nll": float(np.median(nll_values)),
+        "n_samples": n,
+    }
+
+    # Seasonal NLL breakdown
+    if dates_idx is not None and len(dates_idx) == n:
+        months = dates_idx.month
+        seasonal_nll: dict[str, dict] = {}
+        for season_name in SEASON_ORDER:
+            season_months = [m for m, s in SEASON_MAP.items()
+                             if s == season_name]
+            mask = np.isin(months, season_months)
+            n_season = int(mask.sum())
+            if n_season == 0:
+                continue
+            seasonal_nll[season_name] = {
+                "mean_nll": float(np.mean(nll_values[mask])),
+                "median_nll": float(np.median(nll_values[mask])),
+                "n_samples": n_season,
+            }
+        nll_result["seasonal"] = seasonal_nll
+
+    logger.info("NLL — overall mean: %.4f", nll_result["mean_nll"])
+
     # 3. Interval coverage
     coverage = compute_interval_coverage(mu_arr, sigma_arr, obs_arr)
 
@@ -1229,9 +1472,17 @@ def generate_calibration_report(
         "pit_is_uniform": ks_result["is_uniform"],
         "mean_crps": crps_result["mean_crps"],
         "mean_sigma": sharpness["mean_sigma"],
+        "mean_nll": nll_result["mean_nll"],
+        "median_nll": nll_result["median_nll"],
     }
     for level, cov in zip(coverage["levels"], coverage["coverages"]):
         metrics_summary[f"coverage_{int(level*100)}pct"] = cov
+
+    # Add seasonal NLL columns to CSV
+    if "seasonal" in nll_result:
+        for season_name, snll in nll_result["seasonal"].items():
+            safe_key = season_name.lower().replace(" ", "_").replace("(", "").replace(")", "")
+            metrics_summary[f"nll_{safe_key}"] = snll["mean_nll"]
 
     csv_path = os.path.join(output_dir,
                             f"{model_name.lower().replace(' ', '_')}_calibration_metrics.csv")
@@ -1244,8 +1495,12 @@ def generate_calibration_report(
         "coverage": coverage,
         "crps": crps_result,
         "sharpness": sharpness,
+        "nll": nll_result,
         "model_name": model_name,
     }
+
+    if seasonal_reliability is not None:
+        report["seasonal_reliability"] = seasonal_reliability
 
     logger.info("Calibration report complete for '%s'", model_name)
     return report

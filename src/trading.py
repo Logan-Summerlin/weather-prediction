@@ -71,6 +71,15 @@ VALID_SIZING_METHODS = [
     "capped_kelly",
 ]
 
+# Conservative fee and slippage assumptions for EV threshold refitting
+CONSERVATIVE_FEE_RATE = 0.07
+SLIPPAGE_BPS = 0.02  # 2% slippage on execution price
+CONSERVATIVE_FEE_TOTAL = CONSERVATIVE_FEE_RATE + SLIPPAGE_BPS  # 9% total cost
+
+# Conservative EV thresholds (Phase D)
+CONSERVATIVE_EV_THRESHOLD = 0.03  # Minimum EV after conservative costs
+CONSERVATIVE_MIN_EV = 0.015  # Absolute minimum EV
+
 
 # ===========================================================================
 # Helpers
@@ -1666,3 +1675,201 @@ def generate_phase3_report(
     logger.info("Saved Phase 3 metrics to %s", metrics_path)
 
     return report_text
+
+
+# ===========================================================================
+# Phase D: Conservative EV, Kelly/Drawdown Validation, Strategy Factory
+# ===========================================================================
+
+def compute_conservative_ev(
+    model_prob: float,
+    market_price: float,
+    fee_rate: float = 0.07,
+    slippage: float = 0.02,
+) -> dict:
+    """Compute EV using conservative fee + slippage assumptions.
+
+    Wraps :func:`compute_ev_best` but uses total cost (fee_rate + slippage)
+    instead of fee_rate alone, giving a more conservative EV estimate that
+    accounts for execution friction.
+
+    Parameters
+    ----------
+    model_prob : float
+        Model's estimated probability of the event occurring (0 to 1).
+    market_price : float
+        Current market price for the YES contract (0 to 1).
+    fee_rate : float
+        Fee rate on winnings (default 0.07 = 7%).
+    slippage : float
+        Estimated slippage as a fraction (default 0.02 = 2%).
+
+    Returns
+    -------
+    dict
+        Same format as :func:`compute_ev_best`:
+        - "direction": "YES", "NO", or "NONE"
+        - "ev": float, expected value of the best direction
+        - "ev_yes": float, EV of buying YES
+        - "ev_no": float, EV of buying NO
+        - "total_cost": float, combined fee + slippage rate used
+    """
+    total_cost = fee_rate + slippage
+    result = compute_ev_best(model_prob, market_price, fee_rate=total_cost)
+    result["total_cost"] = total_cost
+    return result
+
+
+def validate_kelly_drawdown_policy(
+    strategy: "TradingStrategy",
+    max_acceptable_drawdown: float = 0.20,
+    max_daily_var: float = 0.05,
+) -> dict:
+    """Validate that a TradingStrategy's Kelly/exposure settings are consistent
+    with drawdown constraints.
+
+    Parameters
+    ----------
+    strategy : TradingStrategy
+        The trading strategy to validate.
+    max_acceptable_drawdown : float
+        Maximum acceptable single-trade loss as a fraction of bankroll
+        (default 0.20 = 20%).
+    max_daily_var : float
+        Maximum acceptable daily value-at-risk as a fraction of bankroll
+        (default 0.05 = 5%).
+
+    Returns
+    -------
+    dict
+        Validation result with keys:
+        - "is_valid": bool, True if all checks pass.
+        - "checks": list of dicts with "name", "passed", "detail".
+        - "warnings": list of str, human-readable warnings.
+        - "recommended_adjustments": dict, empty if valid.
+    """
+    checks = []
+    warnings = []
+    recommended = {}
+
+    # Check 1: max_position_frac <= max_acceptable_drawdown
+    check1_passed = strategy.max_position_frac <= max_acceptable_drawdown
+    checks.append({
+        "name": "max_position_vs_drawdown",
+        "passed": check1_passed,
+        "detail": (
+            f"max_position_frac={strategy.max_position_frac:.4f} "
+            f"{'<=' if check1_passed else '>'} "
+            f"max_acceptable_drawdown={max_acceptable_drawdown:.4f}"
+        ),
+    })
+    if not check1_passed:
+        msg = (
+            f"max_position_frac ({strategy.max_position_frac:.4f}) exceeds "
+            f"max_acceptable_drawdown ({max_acceptable_drawdown:.4f}). "
+            f"A single trade could lose more than the drawdown limit."
+        )
+        warnings.append(msg)
+        logger.warning("Kelly/drawdown policy violation: %s", msg)
+        recommended["max_position_frac"] = max_acceptable_drawdown
+
+    # Check 2: kelly_fraction * max_position_frac implies bounded worst-case loss
+    effective_max_kelly_bet = strategy.kelly_fraction_param * strategy.max_position_frac
+    worst_case_loss_frac = effective_max_kelly_bet  # worst case: lose entire bet
+    check2_passed = worst_case_loss_frac <= max_acceptable_drawdown
+    checks.append({
+        "name": "kelly_worst_case_loss",
+        "passed": check2_passed,
+        "detail": (
+            f"kelly_fraction * max_position_frac = "
+            f"{strategy.kelly_fraction_param:.4f} * {strategy.max_position_frac:.4f} "
+            f"= {effective_max_kelly_bet:.4f} "
+            f"{'<=' if check2_passed else '>'} "
+            f"max_acceptable_drawdown={max_acceptable_drawdown:.4f}"
+        ),
+    })
+    if not check2_passed:
+        msg = (
+            f"Effective max Kelly bet fraction ({effective_max_kelly_bet:.4f}) "
+            f"exceeds max_acceptable_drawdown ({max_acceptable_drawdown:.4f}). "
+            f"Worst-case loss exceeds drawdown limit."
+        )
+        warnings.append(msg)
+        logger.warning("Kelly/drawdown policy violation: %s", msg)
+        safe_kelly = max_acceptable_drawdown / max(strategy.max_position_frac, 1e-10)
+        recommended["kelly_fraction"] = round(safe_kelly, 4)
+
+    # Check 3: for fractional_kelly, effective max bet shouldn't exceed daily VaR
+    if strategy.sizing_method in ("fractional_kelly", "capped_kelly"):
+        effective_max_bet_dollars = (
+            strategy.kelly_fraction_param
+            * strategy.max_position_frac
+            * strategy.bankroll
+        )
+        max_var_dollars = max_daily_var * strategy.bankroll
+        check3_passed = effective_max_bet_dollars <= max_var_dollars
+        checks.append({
+            "name": "fractional_kelly_daily_var",
+            "passed": check3_passed,
+            "detail": (
+                f"effective_max_bet=${effective_max_bet_dollars:.2f} "
+                f"{'<=' if check3_passed else '>'} "
+                f"max_daily_var=${max_var_dollars:.2f} "
+                f"({max_daily_var:.1%} of bankroll=${strategy.bankroll:.2f})"
+            ),
+        })
+        if not check3_passed:
+            msg = (
+                f"Effective max bet (${effective_max_bet_dollars:.2f}) exceeds "
+                f"daily VaR limit (${max_var_dollars:.2f}). "
+                f"Single trade exposure too high relative to daily risk budget."
+            )
+            warnings.append(msg)
+            logger.warning("Kelly/drawdown policy violation: %s", msg)
+            safe_kelly = max_var_dollars / max(
+                strategy.max_position_frac * strategy.bankroll, 1e-10
+            )
+            recommended.setdefault("kelly_fraction", round(safe_kelly, 4))
+
+    is_valid = all(c["passed"] for c in checks)
+
+    return {
+        "is_valid": is_valid,
+        "checks": checks,
+        "warnings": warnings,
+        "recommended_adjustments": recommended,
+    }
+
+
+def create_conservative_strategy(
+    name: str = "PhaseD_Conservative",
+    bankroll: float = 10000.0,
+) -> "TradingStrategy":
+    """Create a TradingStrategy with conservative Phase D defaults.
+
+    Uses conservative fee + slippage assumptions, tighter Kelly sizing,
+    and lower position limits than the baseline strategy.
+
+    Parameters
+    ----------
+    name : str
+        Descriptive name for the strategy (default "PhaseD_Conservative").
+    bankroll : float
+        Initial bankroll in dollars (default 10000).
+
+    Returns
+    -------
+    TradingStrategy
+        A conservatively configured trading strategy.
+    """
+    return TradingStrategy(
+        name=name,
+        fee_rate=CONSERVATIVE_FEE_TOTAL,
+        ev_threshold=CONSERVATIVE_EV_THRESHOLD,
+        min_ev=CONSERVATIVE_MIN_EV,
+        sizing_method="fractional_kelly",
+        kelly_fraction=0.20,
+        max_position_frac=0.08,
+        max_contracts=25,
+        bankroll=bankroll,
+    )

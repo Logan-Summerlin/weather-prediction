@@ -22,7 +22,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -745,3 +745,246 @@ class MultiCityTradingOrchestrator:
         """Reset daily counters for all cities."""
         for harness in self.harnesses.values():
             harness.kill_switch.reset_daily()
+
+
+# ---------------------------------------------------------------------------
+# Audit log validation (Phase D)
+# ---------------------------------------------------------------------------
+
+_AUDIT_REQUIRED_TOP_KEYS = {
+    "city_code", "kalshi_ticker", "date", "mode", "n_trades",
+    "total_pnl", "kill_switch", "strategy", "trades",
+}
+
+_TRADE_REQUIRED_KEYS = {
+    "city_code", "date", "ticker", "bucket_label", "direction",
+    "size", "model_prob", "market_price", "ev", "mode", "pnl", "settled",
+}
+
+
+def validate_audit_log(audit: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate a single audit log dict for completeness and correctness.
+
+    Checks that all required top-level and per-trade keys are present,
+    and that trade field values fall within expected types and ranges.
+
+    Parameters
+    ----------
+    audit : dict
+        A single audit log dictionary (as produced by
+        :meth:`LiveTradingHarness.save_audit_log`).
+
+    Returns
+    -------
+    dict
+        Validation result with keys:
+        - "is_valid": bool
+        - "missing_fields": list of str (missing top-level keys)
+        - "invalid_trades": list of dicts with "trade_index" and "issues"
+        - "warnings": list of str
+    """
+    missing_fields: List[str] = []
+    invalid_trades: List[Dict[str, Any]] = []
+    warnings_list: List[str] = []
+
+    # Check top-level keys
+    for key in _AUDIT_REQUIRED_TOP_KEYS:
+        if key not in audit:
+            missing_fields.append(key)
+
+    # Validate trades
+    trades = audit.get("trades", [])
+    if not isinstance(trades, list):
+        warnings_list.append(
+            f"'trades' field is not a list (got {type(trades).__name__})"
+        )
+        trades = []
+
+    for idx, trade in enumerate(trades):
+        issues: List[str] = []
+
+        # Check required trade keys
+        for key in _TRADE_REQUIRED_KEYS:
+            if key not in trade:
+                issues.append(f"missing key '{key}'")
+
+        # Validate data types and ranges for present keys
+        direction = trade.get("direction")
+        if direction is not None and direction not in ("YES", "NO"):
+            issues.append(
+                f"direction must be 'YES' or 'NO', got '{direction}'"
+            )
+
+        size = trade.get("size")
+        if size is not None and (not isinstance(size, (int, float)) or size <= 0):
+            issues.append(f"size must be > 0, got {size}")
+
+        model_prob = trade.get("model_prob")
+        if model_prob is not None:
+            if not isinstance(model_prob, (int, float)):
+                issues.append(
+                    f"model_prob must be numeric, got {type(model_prob).__name__}"
+                )
+            elif not (0.0 <= model_prob <= 1.0):
+                issues.append(f"model_prob must be in [0, 1], got {model_prob}")
+
+        market_price = trade.get("market_price")
+        if market_price is not None:
+            if not isinstance(market_price, (int, float)):
+                issues.append(
+                    f"market_price must be numeric, got {type(market_price).__name__}"
+                )
+            elif not (0.0 <= market_price <= 1.0):
+                issues.append(
+                    f"market_price must be in [0, 1], got {market_price}"
+                )
+
+        mode = trade.get("mode")
+        if mode is not None and mode not in ("paper", "live"):
+            issues.append(f"mode must be 'paper' or 'live', got '{mode}'")
+
+        if issues:
+            invalid_trades.append({"trade_index": idx, "issues": issues})
+
+    # Cross-check n_trades
+    n_trades = audit.get("n_trades")
+    if n_trades is not None and n_trades != len(audit.get("trades", [])):
+        warnings_list.append(
+            f"n_trades ({n_trades}) does not match len(trades) "
+            f"({len(audit.get('trades', []))})"
+        )
+
+    is_valid = len(missing_fields) == 0 and len(invalid_trades) == 0
+
+    return {
+        "is_valid": is_valid,
+        "missing_fields": missing_fields,
+        "invalid_trades": invalid_trades,
+        "warnings": warnings_list,
+    }
+
+
+def validate_audit_log_file(file_path: str) -> Dict[str, Any]:
+    """Load and validate a JSON audit log file.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the JSON audit log file.
+
+    Returns
+    -------
+    dict
+        Validation result from :func:`validate_audit_log` plus:
+        - "file_path": str, the input file path.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file does not exist.
+    json.JSONDecodeError
+        If the file is not valid JSON.
+    """
+    with open(file_path, "r") as f:
+        audit = json.load(f)
+
+    result = validate_audit_log(audit)
+    result["file_path"] = file_path
+    return result
+
+
+def validate_run_audit_completeness(
+    audit_dir: str,
+    city_code: str,
+    start_date: str,
+    end_date: str,
+) -> Dict[str, Any]:
+    """Check all audit logs in a directory for a given date range.
+
+    For each date in [start_date, end_date], checks whether an audit log
+    file exists (pattern: ``trading_audit_{city}_{date}.json``) and
+    validates each existing file.
+
+    Parameters
+    ----------
+    audit_dir : str
+        Directory containing audit log JSON files.
+    city_code : str
+        City identifier (e.g., "nyc", "chi").
+    start_date : str
+        Start date (YYYY-MM-DD), inclusive.
+    end_date : str
+        End date (YYYY-MM-DD), inclusive.
+
+    Returns
+    -------
+    dict
+        Completeness report with keys:
+        - "total_expected": int, number of dates in range.
+        - "total_found": int, number of audit files found.
+        - "total_valid": int, number of valid audit files.
+        - "missing_dates": list of str, dates with no audit file.
+        - "invalid_logs": list of dicts with "date" and "issues".
+        - "completeness_pct": float, percentage of dates with valid logs.
+    """
+    city_code = city_code.strip().lower()
+    dt_start = datetime.strptime(start_date, "%Y-%m-%d")
+    dt_end = datetime.strptime(end_date, "%Y-%m-%d")
+
+    dates: List[str] = []
+    current = dt_start
+    while current <= dt_end:
+        dates.append(current.strftime("%Y-%m-%d"))
+        current += timedelta(days=1)
+
+    total_expected = len(dates)
+    total_found = 0
+    total_valid = 0
+    missing_dates: List[str] = []
+    invalid_logs: List[Dict[str, Any]] = []
+
+    for date_str in dates:
+        filename = f"trading_audit_{city_code}_{date_str}.json"
+        filepath = os.path.join(audit_dir, filename)
+
+        if not os.path.isfile(filepath):
+            missing_dates.append(date_str)
+            continue
+
+        total_found += 1
+
+        try:
+            result = validate_audit_log_file(filepath)
+        except (json.JSONDecodeError, OSError) as exc:
+            invalid_logs.append({
+                "date": date_str,
+                "issues": [f"Failed to load/parse file: {exc}"],
+            })
+            continue
+
+        if result["is_valid"]:
+            total_valid += 1
+        else:
+            issues: List[str] = []
+            if result["missing_fields"]:
+                issues.append(
+                    f"missing top-level fields: {result['missing_fields']}"
+                )
+            for inv in result["invalid_trades"]:
+                issues.append(
+                    f"trade #{inv['trade_index']}: {inv['issues']}"
+                )
+            invalid_logs.append({"date": date_str, "issues": issues})
+
+    completeness_pct = (
+        (total_valid / total_expected * 100.0) if total_expected > 0 else 0.0
+    )
+
+    return {
+        "total_expected": total_expected,
+        "total_found": total_found,
+        "total_valid": total_valid,
+        "missing_dates": missing_dates,
+        "invalid_logs": invalid_logs,
+        "completeness_pct": completeness_pct,
+    }
