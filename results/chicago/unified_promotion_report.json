@@ -1,0 +1,209 @@
+{
+  "schema_version": "3.0",
+  "timestamp": "2026-03-08T05:30:35.958078",
+  "city": "Chicago",
+  "city_code": "chi",
+  "kalshi_ticker": "KXHIGHCHI",
+  "target_station": "USW00094846",
+  "target_station_name": "O'Hare International",
+  "timezone": "America/Chicago",
+  "overall_status": "FAIL",
+  "gates_passed": 10,
+  "gates_total": 11,
+  "pass_rate": "10/11 (91%)",
+  "thresholds": {
+    "brier_threshold": 0.16,
+    "brier_floor": 0.0,
+    "nws_brier_baseline": 0.14,
+    "ece_threshold": 0.05,
+    "min_positive_pnl": 0.0,
+    "max_drawdown_threshold": -0.3,
+    "min_oos_days": 200,
+    "seasonal_brier_threshold": 0.22,
+    "min_predictions_rows": 100
+  },
+  "gates": [
+    {
+      "name": "overall_brier",
+      "description": "OOS Brier score below threshold",
+      "category": "forecast_quality",
+      "passed": true,
+      "value": 0.10867714282994935,
+      "threshold": 0.16,
+      "details": "Best model Brier: 0.1087 (threshold: 0.16, source: unified/U8_cv_ensemble)"
+    },
+    {
+      "name": "brier_sanity_floor",
+      "description": "OOS Brier above minimum sanity floor",
+      "category": "forecast_quality",
+      "passed": true,
+      "value": 0.10867714282994935,
+      "threshold": 0.0,
+      "details": "Best model Brier: 0.1087 (floor: 0.0000)"
+    },
+    {
+      "name": "beats_kalshi_market",
+      "description": "Model Brier beats Kalshi market",
+      "category": "forecast_quality",
+      "passed": true,
+      "value": 0.016626710697658018,
+      "threshold": 0.0,
+      "details": "Model: 0.1087 vs Market: 0.1253 (edge: +0.0166)"
+    },
+    {
+      "name": "seasonal_brier",
+      "description": "No season exceeds Brier threshold",
+      "category": "forecast_quality",
+      "passed": true,
+      "value": 0.18922475522233365,
+      "threshold": 0.22,
+      "details": "Worst: SON=0.1892 (threshold: 0.22) [DJF=0.1738, JJA=0.1758, MAM=0.1744, SON=0.1892]"
+    },
+    {
+      "name": "min_oos_days",
+      "description": "Sufficient OOS evaluation days",
+      "category": "forecast_quality",
+      "passed": true,
+      "value": 2192,
+      "threshold": 200,
+      "details": "OOS days: 2192 (minimum: 200)"
+    },
+    {
+      "name": "calibration_ece",
+      "description": "Expected Calibration Error within tolerance",
+      "category": "calibration",
+      "passed": true,
+      "value": 0.03491526386977856,
+      "threshold": 0.05,
+      "details": "ECE: 0.0349 (threshold: 0.05, method: 3_platt_scaling)"
+    },
+    {
+      "name": "reliability_diagram",
+      "description": "Reliability diagram artifact exists",
+      "category": "calibration",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Found at /home/user/weather-prediction/results/chicago/synthesis/reliability_diagram.png"
+    },
+    {
+      "name": "positive_pnl",
+      "description": "Trading shows positive P&L",
+      "category": "trading",
+      "passed": true,
+      "value": 2405.9500000000016,
+      "threshold": 0.0,
+      "details": "U7_extended P&L: $2405.95 (source: real_kalshi)"
+    },
+    {
+      "name": "max_drawdown",
+      "description": "Max drawdown within acceptable limits",
+      "category": "trading",
+      "passed": true,
+      "value": -0.0308435314062662,
+      "threshold": -0.3,
+      "details": "Max drawdown: -3.1% (limit: -30%)"
+    },
+    {
+      "name": "data_pipeline",
+      "description": "Processed data files exist",
+      "category": "operational",
+      "passed": true,
+      "value": 7,
+      "threshold": 7,
+      "details": "7/7 required files in /home/user/weather-prediction/data/chicago/processed"
+    },
+    {
+      "name": "model_checkpoints",
+      "description": "Model checkpoints saved",
+      "category": "operational",
+      "passed": false,
+      "value": 0,
+      "threshold": null,
+      "details": "0 model file(s) in /home/user/weather-prediction/models/chicago"
+    }
+  ],
+  "model_summary": {
+    "best_model": "U8_cv_ensemble",
+    "best_brier": 0.10867714282994935,
+    "brier_source": "unified/U8_cv_ensemble",
+    "edge_vs_market": 0.016626710697658018
+  },
+  "baseline_comparisons": {
+    "persistence_brier": 0.014957532831007777,
+    "climatology_brier": 0.015199758885593896,
+    "ridge_brier": 0.1181449687837333,
+    "model_beats_persistence": false,
+    "model_beats_climatology": false,
+    "model_beats_ridge": true
+  },
+  "market_benchmark": {
+    "kalshi_presettlement_brier": 0.12530385352760737,
+    "model_beats_market": true,
+    "brier_edge": 0.016626710697658018
+  },
+  "calibration_summary": {
+    "best_ece": 0.03491526386977856,
+    "best_method": "3_platt_scaling",
+    "methods": {
+      "1_raw_uncalibrated": {
+        "brier": 0.22524000299805005,
+        "ece": 0.2201069081804644
+      },
+      "2_isotonic": {
+        "brier": 0.17818372210712494,
+        "ece": 0.034945877865199135
+      },
+      "3_platt_scaling": {
+        "brier": 0.17808141909200906,
+        "ece": 0.03491526386977856
+      },
+      "4_seasonal_regime": {
+        "brier": 0.17831037546544048,
+        "ece": 0.021613795194518927
+      }
+    }
+  },
+  "trading_summary": {
+    "source": "real_kalshi",
+    "best_variant": "U7_extended",
+    "total_pnl": 2405.9500000000016,
+    "return_pct": 240.59500000000017,
+    "sharpe_ratio": 6.068667173332187,
+    "n_trades": 2042,
+    "win_rate": 0.7105778648383937,
+    "max_drawdown_frac": -0.0308435314062662
+  },
+  "seasonal_brier": {
+    "DJF": 0.17375448373038735,
+    "MAM": 0.1743754998545834,
+    "JJA": 0.17575789955815985,
+    "SON": 0.18922475522233365
+  },
+  "trading_seasonal": {
+    "DJF": {
+      "n_trades": 581,
+      "pnl": 564.0499999999995,
+      "win_rate": 0.6385542168674698,
+      "avg_ev": 0.13737020700464836
+    },
+    "MAM": {
+      "n_trades": 612,
+      "pnl": 820.8999999999994,
+      "win_rate": 0.7630718954248366,
+      "avg_ev": 0.15043582538526654
+    },
+    "JJA": {
+      "n_trades": 450,
+      "pnl": 530.5499999999996,
+      "win_rate": 0.7266666666666667,
+      "avg_ev": 0.13048047791546072
+    },
+    "SON": {
+      "n_trades": 399,
+      "pnl": 490.44999999999965,
+      "win_rate": 0.7167919799498746,
+      "avg_ev": 0.1291771364167294
+    }
+  }
+}
