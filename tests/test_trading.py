@@ -46,6 +46,7 @@ from src.trading import (
     generate_synthetic_market_data,
     generate_phase3_report,
     _compute_max_drawdown,
+    compute_drawdown_metrics,
     VALID_SIZING_METHODS,
 )
 
@@ -725,6 +726,56 @@ class TestMaxDrawdown:
         """Monotonically decreasing should return total decline."""
         cum_pnl = np.array([10, 8, 5, 2, 0])
         assert _compute_max_drawdown(cum_pnl) == 10.0
+
+
+class TestComputeDrawdownMetrics:
+    """Tests for compute_drawdown_metrics() (canonical bankroll drawdown)."""
+
+    def test_monotonically_increasing_is_zero(self):
+        result = compute_drawdown_metrics([1000, 1100, 1200, 1300], 1000.0)
+        assert result["max_drawdown"] == 0.0
+        assert result["max_drawdown_pct"] == 0.0
+
+    def test_known_series_exact_values(self):
+        # Peak 1200, trough 600 -> dd = -600 dollars, -50% of peak
+        result = compute_drawdown_metrics([1000, 1200, 600, 900], 1000.0)
+        assert result["max_drawdown"] == -600.0
+        assert result["max_drawdown_pct"] == -50.0
+
+    def test_total_loss_is_minus_100_pct(self):
+        result = compute_drawdown_metrics([1000, 500, 0], 1000.0)
+        assert result["max_drawdown"] == -1000.0
+        assert result["max_drawdown_pct"] == -100.0
+
+    def test_legacy_negative_bankroll_clamped_to_minus_100(self):
+        # Legacy series from before stake-capping could go below zero.
+        # The percent must never exceed -100% (e.g. Atlanta's -134.3%).
+        result = compute_drawdown_metrics([1000, 200, -343], 1000.0)
+        assert result["max_drawdown_pct"] == -100.0
+
+    def test_peak_floored_at_initial_bankroll(self):
+        # Series that never reaches the initial bankroll: percent is
+        # measured against the initial bankroll, not a lower local peak.
+        result = compute_drawdown_metrics([800, 700, 600], 1000.0)
+        assert result["max_drawdown_pct"] == pytest.approx(-40.0)
+
+    def test_empty_series(self):
+        result = compute_drawdown_metrics([], 1000.0)
+        assert result == {"max_drawdown": 0.0, "max_drawdown_pct": 0.0}
+
+    def test_accepts_pandas_series(self):
+        series = pd.Series([1000.0, 900.0, 1100.0])
+        result = compute_drawdown_metrics(series, 1000.0)
+        assert result["max_drawdown"] == -100.0
+        assert result["max_drawdown_pct"] == -10.0
+
+    def test_bounds_invariant(self):
+        rng = np.random.default_rng(42)
+        for _ in range(20):
+            series = 1000 + np.cumsum(rng.normal(0, 200, size=100))
+            result = compute_drawdown_metrics(series, 1000.0)
+            assert -100.0 <= result["max_drawdown_pct"] <= 0.0
+            assert result["max_drawdown"] <= 0.0
 
 
 # ===========================================================================

@@ -1340,6 +1340,20 @@ def main() -> None:
         pickle.dump(scaler, f)
     logger.info("  Saved scaler to %s", scaler_path)
 
+    # Also save to the canonical models directory — live inference and the
+    # model_checkpoints promotion gate read from cfg.models_dir.
+    os.makedirs(cfg.models_dir, exist_ok=True)
+    canonical_model_path = os.path.join(
+        cfg.models_dir, f"synthesis_model_{city_code}.pt"
+    )
+    torch.save(model.state_dict(), canonical_model_path)
+    canonical_scaler_path = os.path.join(
+        cfg.models_dir, f"synthesis_scaler_{city_code}.pkl"
+    )
+    with open(canonical_scaler_path, "wb") as f:
+        pickle.dump(scaler, f)
+    logger.info("  Saved canonical checkpoint to %s", canonical_model_path)
+
     # ---- Step 5: Generate synthesis predictions ----
     logger.info("Step 4: Generating synthesis predictions ...")
     synth_mu_all, synth_sigma_all = predict_synthesis(model, scaler, features)
