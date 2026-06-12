@@ -13,6 +13,7 @@ Usage:
 """
 
 import os
+from pathlib import Path
 from types import SimpleNamespace
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -464,10 +465,26 @@ for _cfg in _CITY_REGISTRY.values():
     _hydrate_runtime_metadata(_cfg)
 
 
+# The auto-generated runtime snapshot was captured in a container whose
+# repo root was /workspace/weather-prediction; rewrite that stale prefix to
+# the actual repo root so absolute paths work in any checkout location.
+_STALE_ROOT_PREFIX = "/workspace/weather-prediction"
+_REPO_ROOT = str(Path(__file__).resolve().parents[1])
+
+
+def _portable_path(value):
+    if isinstance(value, str) and value.startswith(_STALE_ROOT_PREFIX):
+        return _REPO_ROOT + value[len(_STALE_ROOT_PREFIX):]
+    return value
+
+
 def get_city_runtime_config(city_code: str) -> SimpleNamespace:
     """Compatibility runtime namespace used by legacy scripts/modules."""
     cfg = get_city_config(city_code)
-    exports = dict(CITY_RUNTIME_DATA.get(cfg.city_code, {}))
+    exports = {
+        key: _portable_path(value)
+        for key, value in CITY_RUNTIME_DATA.get(cfg.city_code, {}).items()
+    }
     exports.update(
         {
             "TARGET_STATION": cfg.target_station,
