@@ -31,6 +31,7 @@ from scipy.stats import norm
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+from src.bucket_semantics import bucket_prob_from_edges
 from src.city_config import get_city_config, CityConfig
 from src.trading import (
     TradingStrategy,
@@ -260,14 +261,11 @@ def gaussian_to_bucket_probs(
         Probability for each bucket, summing to 1.0.
     """
     sigma = max(sigma, 0.5)
-    probs = []
-    for lo, hi in bucket_edges:
-        cdf_lo = 0.0 if lo <= -900 else float(norm.cdf(lo, mu, sigma))
-        cdf_hi = 1.0 if hi >= 900 else float(norm.cdf(hi, mu, sigma))
-        p = max(cdf_hi - cdf_lo, PROB_CLIP_MIN)
-        probs.append(p)
-
-    probs = np.array(probs)
+    # Settlement-rounding-aware probabilities (see src/bucket_semantics.py)
+    probs = np.array([
+        max(float(bucket_prob_from_edges(mu, sigma, lo, hi)), PROB_CLIP_MIN)
+        for lo, hi in bucket_edges
+    ])
     probs = probs / probs.sum()
     return np.clip(probs, PROB_CLIP_MIN, PROB_CLIP_MAX)
 

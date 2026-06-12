@@ -50,6 +50,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.city_config import get_city_config, ensure_city_dirs
 from src.trading import compute_drawdown_metrics
+from src.bucket_semantics import (
+    bucket_outcome_from_edges,
+    bucket_prob_from_edges,
+    bucket_prob_gaussian,
+)
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -156,32 +161,19 @@ def generate_market_data(
         market_sigma = sig * 1.15  # Market slightly wider than model
 
         for b, ((lo, hi), label) in enumerate(zip(bucket_edges, bucket_labels)):
-            # True market probability (from market's Gaussian)
+            # True market probability (from market's Gaussian),
+            # settlement-rounding-aware (see bucket_semantics).
             market_sigma_safe = max(market_sigma, 1e-6)
-            if lo <= -900:
-                true_prob = norm.cdf(hi, loc=market_mu, scale=market_sigma_safe)
-            elif hi >= 900:
-                true_prob = 1.0 - norm.cdf(lo, loc=market_mu, scale=market_sigma_safe)
-            else:
-                true_prob = (
-                    norm.cdf(hi, loc=market_mu, scale=market_sigma_safe)
-                    - norm.cdf(lo, loc=market_mu, scale=market_sigma_safe)
-                )
+            true_prob = float(bucket_prob_from_edges(
+                market_mu, market_sigma_safe, lo, hi,
+            ))
 
             # Market price = true prob + noise
             noise = rng.normal(0, market_noise_std)
             market_prob = float(np.clip(true_prob + noise, 0.01, 0.99))
 
             # Model probability
-            if lo <= -900:
-                model_prob = norm.cdf(hi, loc=mu, scale=sig)
-            elif hi >= 900:
-                model_prob = 1.0 - norm.cdf(lo, loc=mu, scale=sig)
-            else:
-                model_prob = (
-                    norm.cdf(hi, loc=mu, scale=sig)
-                    - norm.cdf(lo, loc=mu, scale=sig)
-                )
+            model_prob = float(bucket_prob_from_edges(mu, sig, lo, hi))
             model_prob = float(np.clip(model_prob, PROB_CLIP_MIN, PROB_CLIP_MAX))
 
             # Bid-ask spread: tighter near-the-money
@@ -195,15 +187,11 @@ def generate_market_data(
             vol_center = max(true_prob * 500, 5)
             volume = max(1, int(rng.poisson(lam=vol_center)))
 
-            # Actual outcome: did TMAX fall in this bucket?
+            # Actual outcome: Kalshi settles on the rounded integer TMAX
             if np.isnan(tmax):
                 actual_outcome = np.nan
-            elif lo <= -900:
-                actual_outcome = 1 if tmax < hi else 0
-            elif hi >= 900:
-                actual_outcome = 1 if tmax >= lo else 0
             else:
-                actual_outcome = 1 if lo <= tmax < hi else 0
+                actual_outcome = int(bucket_outcome_from_edges(tmax, lo, hi))
 
             all_rows.append({
                 "date": date,
@@ -876,6 +864,14 @@ def load_calibrated_predictions(
         df = pd.read_csv(synthesis_path, parse_dates=["date"])
         required = {"date", "mu", "sigma", "actual_tmax"}
         if required.issubset(df.columns):
+            # Honest evaluation: only out-of-sample predictions may be
+            # traded/backtested when the split marker is available.
+            if "period" in df.columns:
+                n_before = len(df)
+                df = df[df["period"].astype(str).str.upper() == "OOS"].copy()
+                logger.info(
+                    "  OOS filter: %d -> %d prediction rows", n_before, len(df),
+                )
             return df
 
     # Fallback: check for base predictions
@@ -993,15 +989,12 @@ def run_real_kalshi_backtest(
         th_hi = float(row.get("threshold_high", float("nan")))
         direction = str(row.get("direction", "between"))
 
-        if direction in ("below", "less"):
-            model_prob = norm.cdf(th_hi, mu, sigma)
-        elif direction == "above":
-            model_prob = 1.0 - norm.cdf(th_lo, mu, sigma)
-        else:
-            # "between" bucket
-            if np.isnan(th_lo) or np.isnan(th_hi):
-                continue
-            model_prob = norm.cdf(th_hi, mu, sigma) - norm.cdf(th_lo, mu, sigma)
+        if direction not in ("below", "less", "above") and (
+            np.isnan(th_lo) or np.isnan(th_hi)
+        ):
+            continue
+        # Settlement-rounding-aware bucket probability (see bucket_semantics)
+        model_prob = float(bucket_prob_gaussian(mu, sigma, th_lo, th_hi, direction))
 
         model_prob = float(np.clip(model_prob, PROB_CLIP_MIN, PROB_CLIP_MAX))
         market_prob = float(np.clip(row["presettlement_prob"], PROB_CLIP_MIN, PROB_CLIP_MAX))

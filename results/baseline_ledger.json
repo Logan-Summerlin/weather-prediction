@@ -1,0 +1,180 @@
+{
+  "generated_at": "2026-06-12T13:31:54.422460+00:00",
+  "note": "Machine-generated honest baseline. Real-Kalshi presettlement backtests are the canonical trading evaluation; simulated-market results are excluded by design.",
+  "cities": {
+    "atl": {
+      "kalshi_ticker": "KXHIGHTATL",
+      "target_station": "USW00013874",
+      "oos_brier": 0.19042540549856493,
+      "oos_brier_source": "synthesis/3_platt_scaling",
+      "best_model": "3_platt_scaling",
+      "nws_brier_baseline": 0.12,
+      "market_brier": 0.12491111111111114,
+      "beats_nws": false,
+      "beats_market": false,
+      "ece": 0.05439946488363337,
+      "calibration_method": "3_platt_scaling",
+      "real_kalshi_backtest": {
+        "variant": "real_kalshi_presettlement",
+        "total_pnl": -19.69999999999959,
+        "return_pct": -1.969999999999959,
+        "sharpe_ratio": -4.455393980084202,
+        "max_drawdown_pct": -2.6804328402660347,
+        "n_trades": 53,
+        "win_rate": 0.4339622641509434,
+        "model_brier": 0.16501272113934798,
+        "market_brier": 0.12491111111111114,
+        "busted": false
+      },
+      "promotion": {
+        "overall_status": "FAIL",
+        "gates_passed": 8,
+        "gates_total": 14,
+        "failed_gates": [
+          "overall_brier",
+          "beats_nws",
+          "beats_kalshi_market",
+          "calibration_ece",
+          "positive_pnl",
+          "real_kalshi_pnl"
+        ]
+      }
+    },
+    "aus": {
+      "kalshi_ticker": "KXHIGHAUS",
+      "target_station": "USW00013904",
+      "oos_brier": 0.1598045332336466,
+      "oos_brier_source": "synthesis/3_platt_scaling",
+      "best_model": "3_platt_scaling",
+      "nws_brier_baseline": 0.14,
+      "market_brier": 0.144589156813939,
+      "beats_nws": false,
+      "beats_market": false,
+      "ece": 0.02250262642619472,
+      "calibration_method": "3_platt_scaling",
+      "real_kalshi_backtest": {
+        "variant": "real_kalshi_presettlement",
+        "total_pnl": -999.9999999999994,
+        "return_pct": -99.99999999999994,
+        "sharpe_ratio": -6.0750029835640245,
+        "max_drawdown_pct": -99.99999999999994,
+        "n_trades": 982,
+        "win_rate": 0.4979633401221996,
+        "model_brier": 0.23604820930127124,
+        "market_brier": 0.144589156813939,
+        "busted": false
+      },
+      "promotion": {
+        "overall_status": "FAIL",
+        "gates_passed": 8,
+        "gates_total": 14,
+        "failed_gates": [
+          "overall_brier",
+          "beats_nws",
+          "beats_kalshi_market",
+          "positive_pnl",
+          "max_drawdown",
+          "real_kalshi_pnl"
+        ]
+      }
+    },
+    "chi": {
+      "kalshi_ticker": "KXHIGHCHI",
+      "target_station": "USW00094846",
+      "oos_brier": 0.10867714282994935,
+      "oos_brier_source": "unified/U8_cv_ensemble",
+      "best_model": "U8_cv_ensemble",
+      "nws_brier_baseline": 0.14,
+      "market_brier": 0.12530385352760737,
+      "beats_nws": true,
+      "beats_market": true,
+      "ece": 0.039039697574118425,
+      "calibration_method": "3_platt_scaling",
+      "real_kalshi_backtest": {
+        "variant": "U9_kitchen",
+        "total_pnl": -44.50000000000091,
+        "return_pct": -4.450000000000091,
+        "sharpe_ratio": -0.4198938567986594,
+        "max_drawdown_pct": -12.546577760345123,
+        "n_trades": 467,
+        "win_rate": 0.43254817987152033,
+        "model_brier": 0.10460747717553211,
+        "market_brier": 0.10084624742268042,
+        "busted": false
+      },
+      "promotion": {
+        "overall_status": "FAIL",
+        "gates_passed": 12,
+        "gates_total": 14,
+        "failed_gates": [
+          "positive_pnl",
+          "real_kalshi_pnl"
+        ]
+      }
+    },
+    "nyc": {
+      "kalshi_ticker": "KXHIGHNY",
+      "target_station": "USW00094728",
+      "oos_brier": null,
+      "oos_brier_source": "no_results_found",
+      "best_model": null,
+      "nws_brier_baseline": 0.12,
+      "market_brier": null,
+      "beats_nws": null,
+      "beats_market": null,
+      "ece": null,
+      "calibration_method": null,
+      "real_kalshi_backtest": null,
+      "promotion": {
+        "overall_status": "FAIL",
+        "gates_passed": 1,
+        "gates_total": 11,
+        "failed_gates": [
+          "overall_brier",
+          "brier_sanity_floor",
+          "seasonal_brier",
+          "min_oos_days",
+          "calibration_ece",
+          "reliability_diagram",
+          "positive_pnl",
+          "max_drawdown",
+          "data_pipeline",
+          "model_checkpoints"
+        ]
+      }
+    },
+    "phl": {
+      "kalshi_ticker": "KXHIGHPHL",
+      "target_station": "USW00013739",
+      "oos_brier": 0.10578164750961976,
+      "oos_brier_source": "unified/U2_contract_ridge",
+      "best_model": "U2_contract_ridge",
+      "nws_brier_baseline": 0.13,
+      "market_brier": 0.10992065054368202,
+      "beats_nws": true,
+      "beats_market": true,
+      "ece": 0.007440299404585071,
+      "calibration_method": "2_isotonic",
+      "real_kalshi_backtest": {
+        "variant": "U9_kitchen",
+        "total_pnl": 8.750000000000796,
+        "return_pct": 0.8750000000000795,
+        "sharpe_ratio": 0.18420049457376822,
+        "max_drawdown_pct": -4.777300583892291,
+        "n_trades": 244,
+        "win_rate": 0.4344262295081967,
+        "model_brier": 0.10621500872432499,
+        "market_brier": 0.10804695407685098,
+        "busted": false
+      },
+      "promotion": {
+        "overall_status": "FAIL",
+        "gates_passed": 13,
+        "gates_total": 14,
+        "failed_gates": [
+          "seasonal_brier"
+        ]
+      }
+    }
+  }
+}

@@ -162,6 +162,17 @@ def load_unified_predictions(city_code: str) -> pd.DataFrame:
             f"Missing columns in {path}: {missing}"
         )
 
+    # Honest evaluation: trade only on out-of-sample predictions. The
+    # unified file also contains in-sample (period == "IS") rows, which
+    # would inflate every P&L and Brier number if included.
+    if "period" in df.columns:
+        n_before = len(df)
+        df = df[df["period"].astype(str).str.upper() == "OOS"].copy()
+        logger.info(
+            "OOS filter: %d -> %d rows (%d in-sample rows excluded)",
+            n_before, len(df), n_before - len(df),
+        )
+
     logger.info(
         "Loaded %d rows (%d unique dates) from %s",
         len(df), df["date"].nunique(), path,

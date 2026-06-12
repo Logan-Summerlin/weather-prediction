@@ -1,11 +1,11 @@
 {
-  "best_brier": 0.17946940877251213,
+  "best_brier": 0.17946940877251225,
   "best_model": "Ridge (a=100.0)",
   "n_oos_days": 366,
   "all_models": {
-    "Ridge (a=100.0)": 0.17946940877251213,
+    "Ridge (a=100.0)": 0.17946940877251225,
     "Persistence": 0.18698789342325028,
     "Climatology": 0.2007949392020855,
-    "HeteroscedasticNN": 0.21747915414556665
+    "HeteroscedasticNN": 0.2174141579831548
   }
 }

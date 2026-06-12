@@ -1,6 +1,6 @@
 {
   "schema_version": "3.0",
-  "timestamp": "2026-03-08T05:30:35.664185",
+  "timestamp": "2026-06-12T13:31:53.563578",
   "city": "Austin",
   "city_code": "aus",
   "kalshi_ticker": "KXHIGHAUS",
@@ -9,8 +9,8 @@
   "timezone": "America/Chicago",
   "overall_status": "FAIL",
   "gates_passed": 8,
-  "gates_total": 11,
-  "pass_rate": "8/11 (73%)",
+  "gates_total": 14,
+  "pass_rate": "8/14 (57%)",
   "thresholds": {
     "brier_threshold": 0.11,
     "brier_floor": 0.04,
@@ -28,34 +28,43 @@
       "description": "OOS Brier score below threshold",
       "category": "forecast_quality",
       "passed": false,
-      "value": 0.15958257671521614,
+      "value": 0.1598045332336466,
       "threshold": 0.11,
-      "details": "Best model Brier: 0.1596 (threshold: 0.11, source: synthesis/4_seasonal_regime)"
+      "details": "Best model Brier: 0.1598 (threshold: 0.11, source: synthesis/3_platt_scaling)"
     },
     {
       "name": "brier_sanity_floor",
       "description": "OOS Brier above minimum sanity floor",
       "category": "forecast_quality",
       "passed": true,
-      "value": 0.15958257671521614,
+      "value": 0.1598045332336466,
       "threshold": 0.04,
-      "details": "Best model Brier: 0.1596 (floor: 0.0400)"
+      "details": "Best model Brier: 0.1598 (floor: 0.0400)"
+    },
+    {
+      "name": "beats_nws",
+      "description": "Model Brier beats NWS baseline",
+      "category": "forecast_quality",
+      "passed": false,
+      "value": 0.1598045332336466,
+      "threshold": 0.14,
+      "details": "Model: 0.1598 vs NWS: 0.1400 (source: synthesis/3_platt_scaling)"
     },
     {
       "name": "beats_kalshi_market",
       "description": "Model Brier beats Kalshi market",
       "category": "forecast_quality",
       "passed": false,
-      "value": -0.014993419901277144,
+      "value": -0.015215376419707605,
       "threshold": 0.0,
-      "details": "Model: 0.1596 vs Market: 0.1446 (edge: -0.0150)"
+      "details": "Model: 0.1598 vs Market: 0.1446 (edge: -0.0152)"
     },
     {
       "name": "seasonal_brier",
       "description": "No season exceeds Brier threshold",
       "category": "forecast_quality",
       "passed": true,
-      "value": 0.1860405171692281,
+      "value": 0.1860405171692282,
       "threshold": 0.22,
       "details": "Worst: DJF=0.1860 (threshold: 0.22) [DJF=0.1860, JJA=0.1773, MAM=0.1741, SON=0.1808]"
     },
@@ -73,9 +82,9 @@
       "description": "Expected Calibration Error within tolerance",
       "category": "calibration",
       "passed": true,
-      "value": 0.008602648540745024,
+      "value": 0.02250262642619472,
       "threshold": 0.05,
-      "details": "ECE: 0.0086 (threshold: 0.05, method: 4_seasonal_regime)"
+      "details": "ECE: 0.0225 (threshold: 0.05, method: 3_platt_scaling)"
     },
     {
       "name": "reliability_diagram",
@@ -90,19 +99,37 @@
       "name": "positive_pnl",
       "description": "Trading shows positive P&L",
       "category": "trading",
-      "passed": true,
-      "value": 1762.658047135254,
+      "passed": false,
+      "value": -999.9999999999994,
       "threshold": 0.0,
-      "details": "simulated_market P&L: $1762.66 (source: simulated)"
+      "details": "real_kalshi_presettlement P&L: $-1000.00 (source: real_kalshi)"
     },
     {
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
       "category": "trading",
-      "passed": true,
-      "value": -0.010476263521501656,
+      "passed": false,
+      "value": -0.9999999999999994,
       "threshold": -0.3,
-      "details": "Max drawdown: -1.0% (limit: -30%)"
+      "details": "Max drawdown: -100.0% (limit: -30%)"
+    },
+    {
+      "name": "real_kalshi_pnl",
+      "description": "Real Kalshi backtest shows positive P&L",
+      "category": "trading",
+      "passed": false,
+      "value": -999.9999999999994,
+      "threshold": 0.0,
+      "details": "Real Kalshi P&L: $-1000.00, Sharpe: -6.08"
+    },
+    {
+      "name": "trading_source_real",
+      "description": "Trading evaluation uses real Kalshi presettlement prices",
+      "category": "trading",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Trading summary derived from real Kalshi presettlement prices"
     },
     {
       "name": "data_pipeline",
@@ -117,17 +144,17 @@
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
       "category": "operational",
-      "passed": false,
-      "value": 0,
+      "passed": true,
+      "value": 3,
       "threshold": null,
-      "details": "0 model file(s) in /home/user/weather-prediction/models/austin"
+      "details": "3 model file(s) in /home/user/weather-prediction/models/austin"
     }
   ],
   "model_summary": {
-    "best_model": "4_seasonal_regime",
-    "best_brier": 0.15958257671521614,
-    "brier_source": "synthesis/4_seasonal_regime",
-    "edge_vs_market": -0.014993419901277144
+    "best_model": "3_platt_scaling",
+    "best_brier": 0.1598045332336466,
+    "brier_source": "synthesis/3_platt_scaling",
+    "edge_vs_market": -0.015215376419707605
   },
   "baseline_comparisons": {
     "persistence_brier": null,
@@ -140,70 +167,71 @@
   "market_benchmark": {
     "kalshi_presettlement_brier": 0.144589156813939,
     "model_beats_market": false,
-    "brier_edge": -0.014993419901277144
+    "brier_edge": -0.015215376419707605
   },
   "calibration_summary": {
-    "best_ece": 0.008602648540745024,
-    "best_method": "4_seasonal_regime",
+    "best_ece": 0.02250262642619472,
+    "best_method": "3_platt_scaling",
     "methods": {
       "1_raw_uncalibrated": {
-        "brier": 0.19690449802397778,
-        "ece": 0.19380051905058795
+        "brier": 0.1857122999137124,
+        "ece": 0.16119912389805047
       },
       "2_isotonic": {
-        "brier": 0.15992637193702364,
-        "ece": 0.02280069870010265
+        "brier": 0.159887302105204,
+        "ece": 0.022830272596575024
       },
       "3_platt_scaling": {
-        "brier": 0.15981523612492285,
-        "ece": 0.02210838674113788
+        "brier": 0.1598045332336466,
+        "ece": 0.02250262642619472
       },
       "4_seasonal_regime": {
-        "brier": 0.15958257671521614,
-        "ece": 0.008602648540745024
+        "brier": 0.1613673527096725,
+        "ece": 0.029295719037325658
       }
     }
   },
   "trading_summary": {
-    "source": "simulated",
-    "best_variant": "simulated_market",
-    "total_pnl": 1762.658047135254,
-    "return_pct": 176.2658047135254,
-    "sharpe_ratio": 11.646895342870364,
-    "n_trades": 2027,
-    "win_rate": 0.9156388751850024,
-    "max_drawdown_frac": -0.010476263521501656
+    "source": "real_kalshi",
+    "best_variant": "real_kalshi_presettlement",
+    "total_pnl": -999.9999999999994,
+    "return_pct": -99.99999999999994,
+    "sharpe_ratio": -6.0750029835640245,
+    "n_trades": 982,
+    "win_rate": 0.4979633401221996,
+    "max_drawdown_frac": -0.9999999999999994,
+    "busted": false
   },
   "seasonal_brier": {
-    "DJF": 0.1860405171692281,
+    "DJF": 0.1860405171692282,
     "MAM": 0.17408686682185692,
-    "JJA": 0.17726877487652928,
-    "SON": 0.18076094649912428
+    "JJA": 0.17726877487652945,
+    "SON": 0.18076094649912436
   },
   "trading_seasonal": {
     "DJF": {
-      "n_trades": 344,
-      "pnl": 150.07633175531416,
-      "win_rate": 0.9738372093023255,
-      "avg_ev": 0.04900501951048908
+      "n_trades": 255,
+      "pnl": -203.30000000000015,
+      "win_rate": 0.5254901960784314,
+      "avg_ev": 0.19776540572231577
     },
     "MAM": {
-      "n_trades": 340,
-      "pnl": 156.41061349991674,
-      "win_rate": 0.9588235294117647,
-      "avg_ev": 0.058544003055518774
+      "n_trades": 288,
+      "pnl": -337.7000000000001,
+      "win_rate": 0.4479166666666667,
+      "avg_ev": 0.19975603542372225
     },
     "JJA": {
-      "n_trades": 741,
-      "pnl": 846.441772207859,
-      "win_rate": 0.8758434547908233,
-      "avg_ev": 0.12258095658067743
+      "n_trades": 202,
+      "pnl": -287.70000000000016,
+      "win_rate": 0.504950495049505,
+      "avg_ev": 0.2658699409287288
     },
     "SON": {
-      "n_trades": 602,
-      "pnl": 609.7293296721643,
-      "win_rate": 0.9069767441860465,
-      "avg_ev": 0.08408233300198838
+      "n_trades": 237,
+      "pnl": -171.30000000000013,
+      "win_rate": 0.5232067510548524,
+      "avg_ev": 0.22062501104003013
     }
   }
 }

@@ -1,13 +1,16 @@
 {
-  "timestamp": "2026-03-04T03:34:52.675090",
-  "city": "aus",
+  "schema_version": "3.0",
+  "timestamp": "2026-06-12T13:31:53.563578",
+  "city": "Austin",
+  "city_code": "aus",
   "kalshi_ticker": "KXHIGHAUS",
   "target_station": "USW00013904",
   "target_station_name": "Austin-Bergstrom International Airport",
+  "timezone": "America/Chicago",
   "overall_status": "FAIL",
-  "gates_passed": 9,
+  "gates_passed": 8,
   "gates_total": 14,
-  "pass_rate": "9/14 (64%)",
+  "pass_rate": "8/14 (57%)",
   "thresholds": {
     "brier_threshold": 0.11,
     "brier_floor": 0.04,
@@ -16,68 +19,77 @@
     "min_positive_pnl": 0.0,
     "max_drawdown_threshold": -0.3,
     "min_oos_days": 200,
-    "seasonal_brier_threshold": 0.22
+    "seasonal_brier_threshold": 0.22,
+    "min_predictions_rows": 100
   },
   "gates": [
     {
       "name": "overall_brier",
       "description": "OOS Brier score below threshold",
+      "category": "forecast_quality",
       "passed": false,
-      "value": 0.15958257671521614,
+      "value": 0.1598045332336466,
       "threshold": 0.11,
-      "details": "Best model Brier: 0.1596 (threshold: 0.11, source: synthesis/4_seasonal_regime from /home/user/weather-prediction/results/austin/synthesis/calibration_sweep_summary.json)"
+      "details": "Best model Brier: 0.1598 (threshold: 0.11, source: synthesis/3_platt_scaling)"
     },
     {
       "name": "brier_sanity_floor",
-      "description": "OOS Brier is above minimum sanity floor",
+      "description": "OOS Brier above minimum sanity floor",
+      "category": "forecast_quality",
       "passed": true,
-      "value": 0.15958257671521614,
+      "value": 0.1598045332336466,
       "threshold": 0.04,
-      "details": "Best model Brier: 0.1596 (minimum sanity floor: 0.0400, source: synthesis/4_seasonal_regime from /home/user/weather-prediction/results/austin/synthesis/calibration_sweep_summary.json)"
+      "details": "Best model Brier: 0.1598 (floor: 0.0400)"
     },
     {
       "name": "beats_nws",
       "description": "Model Brier beats NWS baseline",
+      "category": "forecast_quality",
       "passed": false,
-      "value": 0.15958257671521614,
+      "value": 0.1598045332336466,
       "threshold": 0.14,
-      "details": "Model: 0.1596 vs NWS: 0.1400 (source: synthesis/4_seasonal_regime from /home/user/weather-prediction/results/austin/synthesis/calibration_sweep_summary.json)"
+      "details": "Model: 0.1598 vs NWS: 0.1400 (source: synthesis/3_platt_scaling)"
     },
     {
       "name": "beats_kalshi_market",
       "description": "Model Brier beats Kalshi market",
+      "category": "forecast_quality",
       "passed": false,
-      "value": -0.09291781831956109,
+      "value": -0.015215376419707605,
       "threshold": 0.0,
-      "details": "Model: 0.2375, Market: 0.1446, Edge: -0.0929 (from real Kalshi presettlement)"
+      "details": "Model: 0.1598 vs Market: 0.1446 (edge: -0.0152)"
     },
     {
       "name": "seasonal_brier",
       "description": "No season exceeds Brier threshold",
+      "category": "forecast_quality",
       "passed": true,
-      "value": 0.1860405171692281,
+      "value": 0.1860405171692282,
       "threshold": 0.22,
-      "details": "Worst season: DJF=0.1860 (threshold: 0.22)"
+      "details": "Worst: DJF=0.1860 (threshold: 0.22) [DJF=0.1860, JJA=0.1773, MAM=0.1741, SON=0.1808]"
     },
     {
       "name": "min_oos_days",
       "description": "Sufficient OOS evaluation days",
+      "category": "forecast_quality",
       "passed": true,
       "value": 366,
       "threshold": 200,
       "details": "OOS days: 366 (minimum: 200)"
     },
     {
-      "name": "ece",
+      "name": "calibration_ece",
       "description": "Expected Calibration Error within tolerance",
+      "category": "calibration",
       "passed": true,
-      "value": 0.0005492086492269009,
+      "value": 0.02250262642619472,
       "threshold": 0.05,
-      "details": "ECE: 0.0005 (threshold: 0.05)"
+      "details": "ECE: 0.0225 (threshold: 0.05, method: 3_platt_scaling)"
     },
     {
       "name": "reliability_diagram",
       "description": "Reliability diagram artifact exists",
+      "category": "calibration",
       "passed": true,
       "value": null,
       "threshold": null,
@@ -85,51 +97,141 @@
     },
     {
       "name": "positive_pnl",
-      "description": "Simulated paper trading shows positive P&L",
-      "passed": true,
-      "value": 1762.658047135254,
+      "description": "Trading shows positive P&L",
+      "category": "trading",
+      "passed": false,
+      "value": -999.9999999999994,
       "threshold": 0.0,
-      "details": "Simulated P&L: $1762.66 (minimum: $0.00)"
+      "details": "real_kalshi_presettlement P&L: $-1000.00 (source: real_kalshi)"
     },
     {
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
-      "passed": true,
-      "value": -0.010476263521501656,
+      "category": "trading",
+      "passed": false,
+      "value": -0.9999999999999994,
       "threshold": -0.3,
-      "details": "Max drawdown: -1.0% (limit: -30.0%)"
+      "details": "Max drawdown: -100.0% (limit: -30%)"
     },
     {
       "name": "real_kalshi_pnl",
       "description": "Real Kalshi backtest shows positive P&L",
+      "category": "trading",
       "passed": false,
-      "value": -1059.5899999999997,
+      "value": -999.9999999999994,
       "threshold": 0.0,
-      "details": "Real Kalshi P&L: $-1059.59, Sharpe: -6.46 (minimum P&L: $0.00)"
+      "details": "Real Kalshi P&L: $-1000.00, Sharpe: -6.08"
+    },
+    {
+      "name": "trading_source_real",
+      "description": "Trading evaluation uses real Kalshi presettlement prices",
+      "category": "trading",
+      "passed": true,
+      "value": null,
+      "threshold": null,
+      "details": "Trading summary derived from real Kalshi presettlement prices"
     },
     {
       "name": "data_pipeline",
       "description": "Processed data files exist",
+      "category": "operational",
       "passed": true,
       "value": 7,
       "threshold": 7,
-      "details": "7/7 required files present in /home/user/weather-prediction/data/austin/processed"
+      "details": "7/7 required files in /home/user/weather-prediction/data/austin/processed"
     },
     {
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
-      "passed": false,
-      "value": 0,
-      "threshold": null,
-      "details": "0 model file(s) found in /home/user/weather-prediction/models/austin"
-    },
-    {
-      "name": "scaler_artifact",
-      "description": "Feature scaler artifact exists",
+      "category": "operational",
       "passed": true,
-      "value": null,
+      "value": 3,
       "threshold": null,
-      "details": "Scaler found at /home/user/weather-prediction/data/austin/processed/scaler.pkl"
+      "details": "3 model file(s) in /home/user/weather-prediction/models/austin"
     }
-  ]
+  ],
+  "model_summary": {
+    "best_model": "3_platt_scaling",
+    "best_brier": 0.1598045332336466,
+    "brier_source": "synthesis/3_platt_scaling",
+    "edge_vs_market": -0.015215376419707605
+  },
+  "baseline_comparisons": {
+    "persistence_brier": null,
+    "climatology_brier": null,
+    "ridge_brier": null,
+    "model_beats_persistence": null,
+    "model_beats_climatology": null,
+    "model_beats_ridge": null
+  },
+  "market_benchmark": {
+    "kalshi_presettlement_brier": 0.144589156813939,
+    "model_beats_market": false,
+    "brier_edge": -0.015215376419707605
+  },
+  "calibration_summary": {
+    "best_ece": 0.02250262642619472,
+    "best_method": "3_platt_scaling",
+    "methods": {
+      "1_raw_uncalibrated": {
+        "brier": 0.1857122999137124,
+        "ece": 0.16119912389805047
+      },
+      "2_isotonic": {
+        "brier": 0.159887302105204,
+        "ece": 0.022830272596575024
+      },
+      "3_platt_scaling": {
+        "brier": 0.1598045332336466,
+        "ece": 0.02250262642619472
+      },
+      "4_seasonal_regime": {
+        "brier": 0.1613673527096725,
+        "ece": 0.029295719037325658
+      }
+    }
+  },
+  "trading_summary": {
+    "source": "real_kalshi",
+    "best_variant": "real_kalshi_presettlement",
+    "total_pnl": -999.9999999999994,
+    "return_pct": -99.99999999999994,
+    "sharpe_ratio": -6.0750029835640245,
+    "n_trades": 982,
+    "win_rate": 0.4979633401221996,
+    "max_drawdown_frac": -0.9999999999999994,
+    "busted": false
+  },
+  "seasonal_brier": {
+    "DJF": 0.1860405171692282,
+    "MAM": 0.17408686682185692,
+    "JJA": 0.17726877487652945,
+    "SON": 0.18076094649912436
+  },
+  "trading_seasonal": {
+    "DJF": {
+      "n_trades": 255,
+      "pnl": -203.30000000000015,
+      "win_rate": 0.5254901960784314,
+      "avg_ev": 0.19776540572231577
+    },
+    "MAM": {
+      "n_trades": 288,
+      "pnl": -337.7000000000001,
+      "win_rate": 0.4479166666666667,
+      "avg_ev": 0.19975603542372225
+    },
+    "JJA": {
+      "n_trades": 202,
+      "pnl": -287.70000000000016,
+      "win_rate": 0.504950495049505,
+      "avg_ev": 0.2658699409287288
+    },
+    "SON": {
+      "n_trades": 237,
+      "pnl": -171.30000000000013,
+      "win_rate": 0.5232067510548524,
+      "avg_ev": 0.22062501104003013
+    }
+  }
 }

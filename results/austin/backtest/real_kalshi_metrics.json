@@ -1,0 +1,46 @@
+{
+  "source": "real_kalshi_presettlement",
+  "total_pnl": -999.9999999999994,
+  "initial_bankroll": 1000.0,
+  "final_bankroll": 5.972999872483342e-13,
+  "return_pct": -99.99999999999994,
+  "n_trades": 982,
+  "win_rate": 0.4979633401221996,
+  "n_trading_days": 592,
+  "n_contract_rows": 3214,
+  "n_unique_dates": 592,
+  "max_drawdown": -1007.8999999999995,
+  "max_drawdown_pct": -99.99999999999994,
+  "busted": false,
+  "bust_date": null,
+  "sharpe_ratio": -6.0750029835640245,
+  "model_brier": 0.23604820930127124,
+  "market_brier": 0.144589156813939,
+  "brier_edge": -0.09145905248733224,
+  "seasonal": {
+    "DJF": {
+      "n_trades": 255,
+      "pnl": -203.30000000000015,
+      "win_rate": 0.5254901960784314,
+      "avg_ev": 0.19776540572231577
+    },
+    "MAM": {
+      "n_trades": 288,
+      "pnl": -337.7000000000001,
+      "win_rate": 0.4479166666666667,
+      "avg_ev": 0.19975603542372225
+    },
+    "JJA": {
+      "n_trades": 202,
+      "pnl": -287.70000000000016,
+      "win_rate": 0.504950495049505,
+      "avg_ev": 0.2658699409287288
+    },
+    "SON": {
+      "n_trades": 237,
+      "pnl": -171.30000000000013,
+      "win_rate": 0.5232067510548524,
+      "avg_ev": 0.22062501104003013
+    }
+  }
+}

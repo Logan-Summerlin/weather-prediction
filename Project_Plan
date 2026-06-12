@@ -1,6 +1,6 @@
 # Project Plan — Weather Prediction Market Forecasting & Trading System
 
-**Last updated:** 2026-03-04
+**Last updated:** 2026-06-12
 **Repository:** `weather-prediction`
 **Primary objective:** Deliver calibrated probabilistic temperature forecasts aligned to Kalshi contract buckets and trade only when expected value remains positive after fees/slippage.
 
@@ -23,20 +23,53 @@ Operationally, the repo includes:
 - Test coverage across ingestion, modeling, calibration, trading, and script guardrails (`tests/`)
 - Existing results and historical artifacts (`results/`, `ARCHIVE/`)
 
-### Strategic City Status
+### Strategic City Status (honest baseline, 2026-06-12)
 
-| City | Data | Model | Calibration | Backtest Edge | Promotion Status |
-|------|------|-------|-------------|---------------|------------------|
-| **NYC** | ASOS-based (reference) | Mature (E/WGA/U families) | Strong | Reference impl | Strongest baseline |
-| **Chicago** | GHCN-based (needs ASOS migration) | Synthesis trained | Good | +240% return, 6.07 Sharpe on real Kalshi | Ready to promote |
-| **Atlanta** | GHCN-based (needs ASOS migration) | Synthesis trained | Acceptable | Positive | Promotion gates passed |
-| **Philadelphia** | GHCN-based (needs ASOS migration) | Synthesis trained | Weaker | Marginal | Calibration concerns |
-| **Austin** | GHCN-based (needs ASOS migration) | Synthesis trained | Variable | Inconsistent | Not yet meeting gates |
+Authoritative per-city numbers live in the machine-generated
+`results/baseline_ledger.json` (regenerate with
+`python scripts/build_baseline_ledger.py`). Real Kalshi presettlement
+backtests are the canonical trading evaluation; simulated-market backtests
+are smoke tests only and proved wildly optimistic (e.g. Austin +$1,762
+simulated vs a bust on real prices).
+
+| City | Data | Real-price edge (model vs market Brier) | Promotion Status |
+|------|------|------------------------------------------|------------------|
+| **NYC** | ASOS-based (reference) | Not yet evaluated under unified gates (data at repo root; Phase G) | No unified report yet |
+| **Chicago** | GHCN-based (needs ASOS migration) | Small genuine edge on U-family models (OOS); synthesis MLP much weaker | FAIL — beats NWS, but trading gates need U-family promotion path |
+| **Philadelphia** | GHCN-based (needs ASOS migration) | No edge (≈0 or negative on real prices) | FAIL — fall (SON) seasonal Brier above threshold, negative real P&L |
+| **Atlanta** | GHCN-based (needs ASOS migration) | Negative on real prices (limited settled history) | FAIL — does not beat NWS or market on real prices |
+| **Austin** | GHCN-based (needs ASOS migration) | Strongly negative (model Brier ~0.24 vs market ~0.14) | FAIL — model is far worse than the market |
+
+The earlier claims in this section (Chicago "+240% return, 6.07 Sharpe",
+"ready to promote"; Atlanta "gates passed") did not survive contact with
+regenerated artifacts and real presettlement prices, and have been removed.
 
 ### Known Issues
-- **Drawdown calculation bug** in promotion evaluation causes false gate failures across cities — must be fixed before trusting promotion reports.
-- **Chicago/Philadelphia missing benchmark files** block several promotion gate checks — regenerating these files will unblock the majority of failing gates.
-- **ASOS training gap** — only the NYC reference model was trained on ASOS (IEM) hourly data. All expansion cities currently train on GHCN daily data, creating a training/inference mismatch since live inference uses ASOS-derived features. This is the highest-priority data quality issue (see Section 6, Phase E).
+- ~~**Drawdown calculation bug**~~ FIXED 2026-06-12: stake is capped at
+  available bankroll, backtests halt at bankruptcy (`busted` flag), and
+  drawdown percent is bounded in [-100%, 0]
+  (`src/trading.py::compute_drawdown_metrics`).
+- ~~**Real/simulated metrics filename mismatch**~~ FIXED 2026-06-12: canonical
+  artifact is `backtest/real_kalshi_metrics.json`; the promotion framework
+  reads both legacy schemas and fails the new `trading_source_real` gate when
+  only simulated evidence exists.
+- **Settlement rounding semantics** VERIFIED 2026-06-12 against every settled
+  contract row (n=14,116, 100% agreement): Kalshi settles on the rounded
+  integer °F with `lo <= round(TMAX) < hi` bucket semantics. All bucket
+  probability/outcome code now routes through `src/bucket_semantics.py`.
+- **Synthesis MLP is weak**: the pipeline's synthesis stage is a 6-feature
+  recalibration of the base model's own (mu, sigma) — it uses NO NWP/MOS
+  forecast data (the richer `src/synthesis_model.py` station+NWP fusion is
+  not wired into the pipeline). This is the single most likely reason cities
+  fail the `beats_nws` gate. A Gaussian-NLL convergence pathology (sigma
+  absorbing the initial mu residual) was also fixed 2026-06-12; the Phase-2
+  model work should replace this stage with MOS-residual models.
+- **ASOS training gap** — only the NYC reference model was trained on ASOS
+  (IEM) hourly data. All expansion cities currently train on GHCN daily data,
+  creating a training/inference mismatch since live inference uses
+  ASOS-derived features. ASOS also publishes hourly — it is the only
+  temperature source available by the 7am ET market-day cutoff, which GHCN
+  (multi-day lag) can never satisfy (see Section 6, Phase E).
 
 ---
 
