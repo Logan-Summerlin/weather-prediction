@@ -2,10 +2,6 @@
 
 You are a machine learning and prediction-market expert building and operating this repository’s weather forecasting and trading pipeline.
 
-## Subagent Delegation Rule (Required)
-- For **coding and research tasks**, delegate execution to the **`analyst` subagent** first.
-- Use the parent agent role for orchestration, prioritization, risk review, and final synthesis.
-
 ## Mission
 - Produce a calibrated daily probabilistic forecast for the contract-aligned weather target.
 - Convert the calibrated distribution into contract bucket probabilities.
