@@ -1,6 +1,6 @@
 # Canonical Documentation Index
 
-> Last updated: 2026-02-21  
+> Last updated: 2026-06-12  
 > Status: Active reference
 
 This index defines the **only active documentation set** for repository operations and governance.
@@ -9,6 +9,12 @@ This index defines the **only active documentation set** for repository operatio
 
 1. `README.md` — repository quickstart and navigation.
 2. `Project_Plan` — delivery roadmap and city rollout execution plan.
+3. `docs/01_implementation_plan_2026.md` — phased implementation plan
+   (model optimization, 10-city expansion, EV dashboard) with Phase 0
+   findings and the honest-baseline policy.
+4. `results/baseline_ledger.json` — machine-generated honest per-city
+   baseline metrics (never hand-edit; regenerate via
+   `python scripts/build_baseline_ledger.py`).
 
 ## Removed superseded docs
 

@@ -1,14 +1,14 @@
 {
   "best_model": "Ridge (a=100.0)",
-  "best_model_contract_brier": 0.17809985238034778,
+  "best_model_contract_brier": 0.1780998523803478,
   "all_model_briers": {
-    "Ridge (a=100.0)": 0.17809985238034778,
-    "HeteroscedasticNN": 0.17901817191682345,
+    "Ridge (a=100.0)": 0.1780998523803478,
+    "HeteroscedasticNN": 0.17912937132942636,
     "Persistence": 0.1919671102659252,
     "Climatology": 0.2060641995049279
   },
   "kalshi_market_brier": 0.12530385352760737,
-  "model_edge": -0.05279599885274042,
+  "model_edge": -0.052795998852740444,
   "n_market_rows": 6520,
   "n_market_dates": 1144
 }

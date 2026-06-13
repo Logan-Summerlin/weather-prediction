@@ -44,6 +44,21 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # ---------------------------------------------------------------------------
 # Canonical promotion thresholds — unified across all cities
+#
+# Threshold derivation notes:
+#   - brier_threshold: contract-level Brier ceiling per city. Cities with
+#     lower day-to-day TMAX variance (e.g. Austin) concentrate probability
+#     in fewer buckets, so both model and market Briers run lower and the
+#     ceiling is legitimately tighter. Set from climatological bucket
+#     entropy: roughly the Brier a well-calibrated climatology forecast
+#     achieves, minus the margin a skillful model must add.
+#   - brier_floor: sanity floor — a Brier *below* this on a full OOS year
+#     indicates leakage or a broken evaluation rather than genuine skill
+#     (only meaningful for low-variance cities; 0.0 disables).
+#   - nws_brier_baseline: contract Brier of the local NWS point forecast
+#     converted to bucket probabilities; the model must beat the public
+#     forecast to claim any edge.
+#   - max_drawdown_threshold is a FRACTION (-0.30 = -30% of peak bankroll).
 # ---------------------------------------------------------------------------
 CITY_THRESHOLDS: dict[str, dict[str, Any]] = {
     "nyc": {
@@ -311,6 +326,51 @@ def _extract_calibration_summary(results_dir: str) -> dict[str, Any]:
     return result
 
 
+def _load_real_kalshi_metrics(results_dir: str) -> dict | None:
+    """Load real-Kalshi backtest metrics, normalized to a flat best-variant dict.
+
+    Supports both on-disk schemas:
+      - variants schema: {"market_brier": ..., "variants": {name: metrics}}
+        (written by scripts/experiments/trading/run_real_kalshi_backtest.py)
+      - flat schema: a single metrics dict
+        (written by scripts/run_backtest.py)
+
+    Returns the best variant's metrics dict with a "best_variant" key added,
+    or None if no real-Kalshi metrics exist.
+    """
+    rk = None
+    for fname in ("real_kalshi_metrics.json", "real_kalshi_backtest_metrics.json"):
+        rk = _load_json(os.path.join(results_dir, "backtest", fname))
+        if rk is not None:
+            break
+    if rk is None:
+        return None
+
+    if rk.get("variants"):
+        best_name = None
+        best_pnl = -float("inf")
+        best_metrics: dict = {}
+        for name, metrics in rk["variants"].items():
+            pnl = metrics.get("total_pnl", -float("inf"))
+            if pnl > best_pnl:
+                best_pnl = pnl
+                best_name = name
+                best_metrics = metrics
+        if best_name is None:
+            return None
+        best_metrics = dict(best_metrics)
+        best_metrics["best_variant"] = best_name
+        best_metrics.setdefault("market_brier", rk.get("market_brier"))
+        return best_metrics
+
+    if rk.get("total_pnl") is not None:
+        flat = dict(rk)
+        flat["best_variant"] = rk.get("source", "ev_gated")
+        return flat
+
+    return None
+
+
 def _extract_trading_summary(results_dir: str) -> dict[str, Any]:
     """Extract best trading variant summary."""
     result: dict[str, Any] = {
@@ -325,39 +385,33 @@ def _extract_trading_summary(results_dir: str) -> dict[str, Any]:
         "return_pct": None,
         "model_brier": None,
         "brier_edge": None,
+        "busted": None,
         "seasonal": {},
     }
 
     # Prefer real Kalshi metrics
-    rk = _load_json(os.path.join(results_dir, "backtest", "real_kalshi_metrics.json"))
-    if rk is not None and rk.get("variants"):
-        best_name = None
-        best_pnl = -float("inf")
-        best_metrics: dict = {}
-        for name, metrics in rk["variants"].items():
-            pnl = metrics.get("total_pnl", -float("inf"))
-            if pnl > best_pnl:
-                best_pnl = pnl
-                best_name = name
-                best_metrics = metrics
-
-        if best_name is not None:
-            dd_pct = best_metrics.get("max_drawdown_pct", -100.0)
-            result.update({
-                "source": "real_kalshi",
-                "best_variant": best_name,
-                "total_pnl": best_metrics.get("total_pnl"),
-                "sharpe_ratio": best_metrics.get("sharpe_ratio"),
-                "n_trades": best_metrics.get("n_trades"),
-                "win_rate": best_metrics.get("win_rate"),
-                "max_drawdown_pct": dd_pct,
-                "max_drawdown_frac": dd_pct / 100.0 if dd_pct is not None else None,
-                "return_pct": best_metrics.get("return_pct"),
-                "model_brier": best_metrics.get("model_brier"),
-                "brier_edge": best_metrics.get("brier_edge"),
-                "seasonal": best_metrics.get("seasonal", {}),
-            })
-            return result
+    best_metrics = _load_real_kalshi_metrics(results_dir)
+    if best_metrics is not None:
+        # No sentinel default: a missing drawdown must surface as None so
+        # the drawdown gate fails with "data not found" rather than passing
+        # or failing on a fabricated -100%.
+        dd_pct = best_metrics.get("max_drawdown_pct")
+        result.update({
+            "source": "real_kalshi",
+            "best_variant": best_metrics.get("best_variant"),
+            "total_pnl": best_metrics.get("total_pnl"),
+            "sharpe_ratio": best_metrics.get("sharpe_ratio"),
+            "n_trades": best_metrics.get("n_trades"),
+            "win_rate": best_metrics.get("win_rate"),
+            "max_drawdown_pct": dd_pct,
+            "max_drawdown_frac": dd_pct / 100.0 if dd_pct is not None else None,
+            "return_pct": best_metrics.get("return_pct"),
+            "model_brier": best_metrics.get("model_brier"),
+            "brier_edge": best_metrics.get("brier_edge"),
+            "busted": best_metrics.get("busted"),
+            "seasonal": best_metrics.get("seasonal", {}),
+        })
+        return result
 
     # Fallback to simulated backtest
     bt = _load_json(os.path.join(results_dir, "backtest", "backtest_metrics.json"))
@@ -423,6 +477,7 @@ def _check_all_gates(
     data_dir: str,
     models_dir: str,
     thresholds: dict[str, Any],
+    city_code: str = "",
 ) -> list[PromotionGate]:
     """Evaluate all promotion gates. Returns list of PromotionGate objects."""
     gates: list[PromotionGate] = []
@@ -458,6 +513,20 @@ def _check_all_gates(
         g.details = f"Best model Brier: {best_brier:.4f} (floor: {brier_floor:.4f})"
     else:
         g.details = "Benchmark results not found"
+    gates.append(g)
+
+    # Gate: Beats NWS baseline
+    g = PromotionGate("beats_nws", "Model Brier beats NWS baseline", "forecast_quality")
+    nws_baseline = thresholds.get("nws_brier_baseline")
+    if nws_baseline is not None and best_brier < 1.0:
+        g.evaluate(best_brier, nws_baseline, "less")
+        g.details = f"Model: {best_brier:.4f} vs NWS: {nws_baseline:.4f} (source: {brier_source})"
+    elif nws_baseline is None:
+        g.details = "No NWS baseline configured for this city"
+        g.passed = False
+    else:
+        g.details = "Benchmark results not found"
+        g.passed = False
     gates.append(g)
 
     # Gate 3: Beats Kalshi market
@@ -563,12 +632,69 @@ def _check_all_gates(
     # Gate 9: Max drawdown within limits
     g = PromotionGate("max_drawdown", "Max drawdown within acceptable limits", "trading")
     dd_frac = trading.get("max_drawdown_frac")
-    if dd_frac is not None:
+    if trading.get("busted"):
+        g.passed = False
+        g.value = dd_frac
+        g.threshold = max_dd_threshold
+        g.details = "Backtest went bankrupt (bankroll exhausted) — hard fail"
+    elif dd_frac is not None:
         g.evaluate(dd_frac, max_dd_threshold, "greater")
         g.details = f"Max drawdown: {dd_frac:.1%} (limit: {max_dd_threshold:.0%})"
     else:
         g.details = "Drawdown data not found"
         g.passed = False
+    gates.append(g)
+
+    # Gate: Real Kalshi backtest positive P&L
+    g = PromotionGate("real_kalshi_pnl", "Real Kalshi backtest shows positive P&L", "trading")
+    rk_metrics = _load_real_kalshi_metrics(results_dir)
+    if rk_metrics is not None:
+        rk_pnl = rk_metrics.get("total_pnl")
+        rk_sharpe = rk_metrics.get("sharpe_ratio")
+        if rk_pnl is not None:
+            g.evaluate(rk_pnl, thresholds.get("min_positive_pnl", 0.0), "greater")
+            sharpe_txt = f"{rk_sharpe:.2f}" if rk_sharpe is not None else "N/A"
+            g.details = f"Real Kalshi P&L: ${rk_pnl:.2f}, Sharpe: {sharpe_txt}"
+        else:
+            g.details = "Real Kalshi metrics found but P&L missing"
+            g.passed = False
+    else:
+        g.details = "Real Kalshi backtest metrics not found"
+        g.passed = False
+    gates.append(g)
+
+    # Gate: Trading evaluation must come from real market prices.
+    # Simulated-market backtests have proven wildly optimistic (e.g. Austin
+    # +$1762 simulated vs -$1059 on real presettlement prices), so any city
+    # with presettlement data on disk must be judged on real prices.
+    g = PromotionGate(
+        "trading_source_real",
+        "Trading evaluation uses real Kalshi presettlement prices",
+        "trading",
+    )
+    presettlement_path = (
+        PROJECT_ROOT / "data" / f"kalshi_presettlement_{city_code}.csv"
+        if city_code else None
+    )
+    has_presettlement = (
+        presettlement_path is not None and presettlement_path.exists()
+    )
+    source = trading.get("source")
+    if not has_presettlement:
+        g.passed = True
+        g.details = (
+            f"No presettlement data on disk for '{city_code}' — gate not applicable "
+            f"(collect real market data before promotion)"
+        )
+    elif source == "real_kalshi":
+        g.passed = True
+        g.details = "Trading summary derived from real Kalshi presettlement prices"
+    else:
+        g.passed = False
+        g.details = (
+            f"Presettlement data exists but trading summary source is "
+            f"'{source}' — re-run the real-price backtest"
+        )
     gates.append(g)
 
     # ---- Category: Operational Readiness ----
@@ -645,7 +771,9 @@ def evaluate_city(city_code: str) -> tuple[list[PromotionGate], dict]:
     models_dir = cfg.models_dir
 
     # Evaluate gates
-    gates = _check_all_gates(results_dir, data_dir, models_dir, thresholds)
+    gates = _check_all_gates(
+        results_dir, data_dir, models_dir, thresholds, city_code=city_code,
+    )
 
     total = len(gates)
     passed = sum(1 for g in gates if g.passed)
@@ -747,6 +875,7 @@ def evaluate_city(city_code: str) -> tuple[list[PromotionGate], dict]:
             "n_trades": trading.get("n_trades"),
             "win_rate": trading.get("win_rate"),
             "max_drawdown_frac": trading.get("max_drawdown_frac"),
+            "busted": trading.get("busted"),
         },
 
         # Seasonal breakdown

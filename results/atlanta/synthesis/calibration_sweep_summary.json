@@ -1,27 +1,31 @@
 {
   "city": "Atlanta",
   "ticker": "KXHIGHTATL",
-  "n_total_days": 18024,
-  "n_test_days": 2705,
+  "evaluation_unit": "listed_contract_rows",
+  "contract_granularity": "day-specific Kalshi pre-settlement rows (typically 2F increments)",
+  "n_total_rows": 192,
+  "n_total_dates": 12,
+  "n_test_rows": 48,
+  "n_test_dates": 3,
   "n_buckets": 57,
   "methods": {
     "1_raw_uncalibrated": {
-      "brier": 0.019794095527973874,
-      "ece": 0.013716608249315516
+      "brier": 0.21161586018276282,
+      "ece": 0.15648654501254441
     },
     "2_isotonic": {
-      "brier": 0.016367471986956164,
-      "ece": 0.0004585704113040103
+      "brier": 0.2445754279650274,
+      "ece": 0.14638654721377178
     },
     "3_platt_scaling": {
-      "brier": 0.01801014519092795,
-      "ece": 0.009363943763728214
+      "brier": 0.19042540549856493,
+      "ece": 0.05439946488363337
     },
     "4_seasonal_regime": {
-      "brier": 0.017278559438896106,
-      "ece": 0.006950633661094238
+      "brier": 0.2445754279650274,
+      "ece": 0.14638654721377178
     }
   },
-  "best_method": "2_isotonic",
-  "best_brier": 0.016367471986956164
+  "best_method": "3_platt_scaling",
+  "best_brier": 0.19042540549856493
 }

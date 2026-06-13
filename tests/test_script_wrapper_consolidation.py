@@ -33,15 +33,18 @@ def _wrapper_paths() -> list[Path]:
     return paths
 
 
-def test_expected_city_stage_wrappers_exist() -> None:
-    """All city/stage compatibility wrappers should exist explicitly."""
-    expected = {
-        SCRIPTS_DIR / f"run_{city}_{stage}.py"
-        for city in CITIES
-        for stage in STAGES
-    }
+def test_city_stage_wrappers_stay_removed() -> None:
+    """Per-city wrappers were intentionally deleted (commit 7575da3).
+
+    The unified ``scripts/run_<stage>.py --city <code>`` entrypoints are the
+    only supported invocation; new per-city copies must not reappear.
+    """
     discovered = set(_wrapper_paths())
-    assert discovered == expected
+    assert discovered == set(), (
+        "Per-city wrapper scripts were removed in favor of "
+        "'run_<stage>.py --city <code>'. Do not reintroduce: "
+        f"{sorted(p.name for p in discovered)}"
+    )
 
 
 def test_city_wrappers_are_thin_delegators() -> None:

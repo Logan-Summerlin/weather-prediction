@@ -57,10 +57,11 @@ import matplotlib.ticker as mticker  # noqa: E402
 # ---------------------------------------------------------------------------
 # Path setup
 # ---------------------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.city_config import get_city_config, ensure_city_dirs  # noqa: E402
+from src.trading import compute_drawdown_metrics  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -161,6 +162,17 @@ def load_unified_predictions(city_code: str) -> pd.DataFrame:
             f"Missing columns in {path}: {missing}"
         )
 
+    # Honest evaluation: trade only on out-of-sample predictions. The
+    # unified file also contains in-sample (period == "IS") rows, which
+    # would inflate every P&L and Brier number if included.
+    if "period" in df.columns:
+        n_before = len(df)
+        df = df[df["period"].astype(str).str.upper() == "OOS"].copy()
+        logger.info(
+            "OOS filter: %d -> %d rows (%d in-sample rows excluded)",
+            n_before, len(df), n_before - len(df),
+        )
+
     logger.info(
         "Loaded %d rows (%d unique dates) from %s",
         len(df), df["date"].nunique(), path,
@@ -218,10 +230,20 @@ def run_variant_backtest(
     trades: List[Dict[str, Any]] = []
     bankroll = initial_bankroll
     bankroll_history: List[Dict[str, Any]] = []
+    busted = False
+    bust_date = None
 
     dates_sorted = sorted(df["date"].unique())
 
     for date in dates_sorted:
+        # Halt at bankruptcy — continuing to "trade" with no capital
+        # silently inflates losses and corrupts drawdown statistics.
+        if bankroll <= 0:
+            busted = True
+            bust_date = str(date)
+            logger.warning("Bankroll exhausted on %s — halting backtest", date)
+            break
+
         day_df = df[df["date"] == date]
         day_pnl = 0.0
 
@@ -288,11 +310,16 @@ def run_variant_backtest(
 
             frac_kelly = full_kelly * kelly_fraction
 
-            # Size in contracts (1 contract = $1 face value)
+            # Size in contracts (1 contract = $1 face value).
+            # Stake can never exceed the current bankroll.
+            affordable = int(max(0.0, bankroll) / price)
             n_contracts = min(
                 max_contracts,
                 max(1, int(frac_kelly * bankroll / price)),
+                affordable,
             )
+            if n_contracts < 1:
+                continue
 
             # Compute trade P&L
             cost = n_contracts * price
@@ -360,6 +387,8 @@ def run_variant_backtest(
         "n_trades": n_trades,
         "initial_bankroll": initial_bankroll,
         "final_bankroll": float(bankroll),
+        "busted": busted,
+        "bust_date": bust_date,
     }
 
 
@@ -417,17 +446,11 @@ def compute_variant_metrics(
         metrics["avg_ev_traded"] = 0.0
 
     # ---- Drawdown metrics ----
-    if len(bankroll_series) > 0:
-        cummax = bankroll_series.cummax()
-        drawdown = bankroll_series - cummax
-        metrics["max_drawdown"] = float(drawdown.min())
-        if cummax.max() > 0:
-            metrics["max_drawdown_pct"] = float((drawdown / cummax).min() * 100)
-        else:
-            metrics["max_drawdown_pct"] = 0.0
-    else:
-        metrics["max_drawdown"] = 0.0
-        metrics["max_drawdown_pct"] = 0.0
+    metrics.update(compute_drawdown_metrics(
+        bankroll_series, backtest_result["initial_bankroll"],
+    ))
+    metrics["busted"] = backtest_result.get("busted", False)
+    metrics["bust_date"] = backtest_result.get("bust_date")
 
     # ---- Sharpe ratio (annualized, 252 trading days) ----
     if len(daily_pnl) > 1:

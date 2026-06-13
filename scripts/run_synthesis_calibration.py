@@ -62,6 +62,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.city_config import get_city_config, ensure_city_dirs
+from src.bucket_semantics import (
+    bucket_outcome_from_edges,
+    bucket_prob_from_edges,
+    bucket_prob_gaussian,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -221,10 +226,12 @@ def compute_bucket_probs_gaussian(
     n_buckets = len(bucket_edges)
     probs = np.zeros((n_days, n_buckets))
 
+    # Settlement-rounding-aware probabilities (see src/bucket_semantics.py)
     for b, (lo, hi) in enumerate(bucket_edges):
-        cdf_lo = 0.0 if lo <= -900 else norm.cdf(lo, loc=mu, scale=sigma)
-        cdf_hi = 1.0 if hi >= 900 else norm.cdf(hi, loc=mu, scale=sigma)
-        probs[:, b] = np.clip(cdf_hi - cdf_lo, PROB_CLIP_MIN, PROB_CLIP_MAX)
+        probs[:, b] = np.clip(
+            bucket_prob_from_edges(mu, sigma, lo, hi),
+            PROB_CLIP_MIN, PROB_CLIP_MAX,
+        )
 
     # Normalize rows to sum to 1
     row_sums = probs.sum(axis=1, keepdims=True)
@@ -371,7 +378,10 @@ class SynthesisMLP(nn.Module):
         hidden = self.trunk(x)
         mu = self.mu_head(hidden)
         log_sigma = self.log_sigma_head(hidden)
-        log_sigma = log_sigma.clamp(min=-10.0, max=5.0)
+        # Tight clamp: an unconstrained sigma absorbs the large initial
+        # mu residual (targets ~60F, mu init ~0), killing the mu gradient
+        # and stalling training at MAE ~ 60F. Max sigma = e^3 ~ 20F.
+        log_sigma = log_sigma.clamp(min=-1.0, max=3.0)
         sigma = torch.exp(log_sigma)
 
         return {"mu": mu, "sigma": sigma, "log_sigma": log_sigma}
@@ -491,8 +501,12 @@ def train_synthesis_mlp(
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    # Initialize model
+    # Initialize model. Start the mu head at the training-target mean so
+    # the initial residual is centered — otherwise the NLL loss inflates
+    # sigma to absorb the ~60F offset and mu never converges.
     model = SynthesisMLP(n_features=n_features).to(DEVICE)
+    with torch.no_grad():
+        model.mu_head.bias.fill_(float(np.mean(y_train)))
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", patience=5, factor=0.5,
@@ -964,19 +978,15 @@ def _build_outcome_matrix(
     n_buckets = len(bucket_edges)
     outcomes = np.zeros((n_days, n_buckets))
 
+    # Kalshi settles on the rounded integer TMAX (see src/bucket_semantics.py)
     for d in range(n_days):
         t = actual_tmax[d]
         if np.isnan(t):
             continue
         for b, (lo, hi) in enumerate(bucket_edges):
-            if b == n_buckets - 1:
-                if lo <= t <= hi:
-                    outcomes[d, b] = 1.0
-                    break
-            else:
-                if lo <= t < hi:
-                    outcomes[d, b] = 1.0
-                    break
+            if bucket_outcome_from_edges(t, lo, hi):
+                outcomes[d, b] = 1.0
+                break
 
     return outcomes
 
@@ -1121,17 +1131,8 @@ def run_calibration_sweep(
     hi = contracts["threshold_high"].values.astype(float)
     direction = contracts["direction"].astype(str).str.lower().values
 
-    probs = np.full(len(contracts), np.nan, dtype=float)
-    below = (direction == "below") | (direction == "less")
-    above = direction == "above"
-    between = ~(below | above)
-
-    probs[below] = norm.cdf(hi[below], loc=mu[below], scale=sigma[below])
-    probs[above] = 1.0 - norm.cdf(lo[above], loc=mu[above], scale=sigma[above])
-    probs[between] = (
-        norm.cdf(hi[between], loc=mu[between], scale=sigma[between])
-        - norm.cdf(lo[between], loc=mu[between], scale=sigma[between])
-    )
+    # Settlement-rounding-aware probabilities (see src/bucket_semantics.py)
+    probs = bucket_prob_gaussian(mu, sigma, lo, hi, direction)
     contracts["raw_prob"] = np.clip(probs, PROB_CLIP_MIN, PROB_CLIP_MAX)
     contracts["outcome"] = contracts["actual_outcome"].astype(float)
 
@@ -1340,6 +1341,20 @@ def main() -> None:
         pickle.dump(scaler, f)
     logger.info("  Saved scaler to %s", scaler_path)
 
+    # Also save to the canonical models directory — live inference and the
+    # model_checkpoints promotion gate read from cfg.models_dir.
+    os.makedirs(cfg.models_dir, exist_ok=True)
+    canonical_model_path = os.path.join(
+        cfg.models_dir, f"synthesis_model_{city_code}.pt"
+    )
+    torch.save(model.state_dict(), canonical_model_path)
+    canonical_scaler_path = os.path.join(
+        cfg.models_dir, f"synthesis_scaler_{city_code}.pkl"
+    )
+    with open(canonical_scaler_path, "wb") as f:
+        pickle.dump(scaler, f)
+    logger.info("  Saved canonical checkpoint to %s", canonical_model_path)
+
     # ---- Step 5: Generate synthesis predictions ----
     logger.info("Step 4: Generating synthesis predictions ...")
     synth_mu_all, synth_sigma_all = predict_synthesis(model, scaler, features)
@@ -1348,6 +1363,11 @@ def main() -> None:
     synth_df = base_df[["date", "actual_tmax"]].copy()
     synth_df["mu"] = synth_mu_all
     synth_df["sigma"] = synth_sigma_all
+    # Mark the chronological split so downstream consumers (backtests,
+    # promotion gates) can restrict to out-of-sample rows.
+    period = np.full(len(synth_df), "IS", dtype=object)
+    period[n_train + n_val:] = "OOS"
+    synth_df["period"] = period
 
     # Compute MAE on test set
     test_mu = synth_mu_all[n_train + n_val:]

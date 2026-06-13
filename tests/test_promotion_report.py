@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from src.promotion_report import (
     CITY_THRESHOLDS,
     PromotionGate,
+    _check_all_gates,
     _extract_baseline_briers,
     _extract_calibration_summary,
     _extract_market_brier,
@@ -28,6 +29,7 @@ from src.promotion_report import (
     _find_best_u_variant,
     _load_best_brier,
     _load_json,
+    _load_real_kalshi_metrics,
     evaluate_city,
     save_unified_report,
 )
@@ -181,6 +183,157 @@ class TestExtractMarketBrier:
     def test_not_found(self, tmp_path):
         result = _extract_market_brier(str(tmp_path))
         assert result is None
+
+
+# ===========================================================================
+# Real-Kalshi trading summary extraction (both on-disk schemas)
+# ===========================================================================
+
+class TestLoadRealKalshiMetrics:
+    def _write(self, tmp_path, payload, fname="real_kalshi_metrics.json"):
+        bt_dir = tmp_path / "backtest"
+        bt_dir.mkdir(exist_ok=True)
+        (bt_dir / fname).write_text(json.dumps(payload))
+
+    def test_variants_schema_picks_best_pnl(self, tmp_path):
+        self._write(tmp_path, {
+            "market_brier": 0.125,
+            "variants": {
+                "U3": {"total_pnl": 10.0, "max_drawdown_pct": -5.0},
+                "U7": {"total_pnl": 48.0, "max_drawdown_pct": -6.0},
+            },
+        })
+        m = _load_real_kalshi_metrics(str(tmp_path))
+        assert m["best_variant"] == "U7"
+        assert m["total_pnl"] == 48.0
+        assert m["market_brier"] == 0.125
+
+    def test_flat_schema(self, tmp_path):
+        self._write(tmp_path, {
+            "source": "real_kalshi_presettlement",
+            "total_pnl": -1059.59,
+            "max_drawdown_pct": -42.0,
+            "market_brier": 0.1446,
+        })
+        m = _load_real_kalshi_metrics(str(tmp_path))
+        assert m["total_pnl"] == -1059.59
+        assert m["best_variant"] == "real_kalshi_presettlement"
+
+    def test_legacy_filename_fallback(self, tmp_path):
+        self._write(
+            tmp_path,
+            {"total_pnl": 5.0, "max_drawdown_pct": -1.0},
+            fname="real_kalshi_backtest_metrics.json",
+        )
+        m = _load_real_kalshi_metrics(str(tmp_path))
+        assert m["total_pnl"] == 5.0
+
+    def test_missing_returns_none(self, tmp_path):
+        assert _load_real_kalshi_metrics(str(tmp_path)) is None
+
+
+class TestExtractTradingSummarySentinel:
+    def test_missing_drawdown_stays_none(self, tmp_path):
+        """A missing drawdown must NOT be fabricated as -100%."""
+        bt_dir = tmp_path / "backtest"
+        bt_dir.mkdir()
+        (bt_dir / "real_kalshi_metrics.json").write_text(json.dumps({
+            "variants": {"U7": {"total_pnl": 48.0}},
+        }))
+        summary = _extract_trading_summary(str(tmp_path))
+        assert summary["source"] == "real_kalshi"
+        assert summary["max_drawdown_pct"] is None
+        assert summary["max_drawdown_frac"] is None
+
+    def test_busted_flag_propagates(self, tmp_path):
+        bt_dir = tmp_path / "backtest"
+        bt_dir.mkdir()
+        (bt_dir / "real_kalshi_metrics.json").write_text(json.dumps({
+            "total_pnl": -1000.0,
+            "max_drawdown_pct": -100.0,
+            "busted": True,
+        }))
+        summary = _extract_trading_summary(str(tmp_path))
+        assert summary["busted"] is True
+
+
+# ===========================================================================
+# New gates: beats_nws, real_kalshi_pnl, trading_source_real, bust handling
+# ===========================================================================
+
+class TestNewGates:
+    def _gates_by_name(self, tmp_path, city_code="zzz"):
+        thresholds = dict(CITY_THRESHOLDS["chi"])
+        gates = _check_all_gates(
+            str(tmp_path / "results"),
+            str(tmp_path / "data"),
+            str(tmp_path / "models"),
+            thresholds,
+            city_code=city_code,
+        )
+        return {g.name: g for g in gates}
+
+    def _setup_real_metrics(self, tmp_path, payload):
+        bt_dir = tmp_path / "results" / "backtest"
+        bt_dir.mkdir(parents=True, exist_ok=True)
+        (bt_dir / "real_kalshi_metrics.json").write_text(json.dumps(payload))
+
+    def _setup_benchmark(self, tmp_path, brier):
+        results = tmp_path / "results"
+        results.mkdir(parents=True, exist_ok=True)
+        (results / "unified_benchmark_results.json").write_text(json.dumps({
+            "U7_extended_mlp": {"contract_brier": brier},
+        }))
+
+    def test_beats_nws_pass(self, tmp_path):
+        self._setup_benchmark(tmp_path, 0.10)  # chi NWS baseline = 0.14
+        gates = self._gates_by_name(tmp_path)
+        assert gates["beats_nws"].passed is True
+
+    def test_beats_nws_fail(self, tmp_path):
+        self._setup_benchmark(tmp_path, 0.1781)
+        gates = self._gates_by_name(tmp_path)
+        assert gates["beats_nws"].passed is False
+
+    def test_real_kalshi_pnl_fail_when_negative(self, tmp_path):
+        self._setup_real_metrics(tmp_path, {
+            "total_pnl": -1059.59, "max_drawdown_pct": -42.0,
+        })
+        gates = self._gates_by_name(tmp_path)
+        assert gates["real_kalshi_pnl"].passed is False
+
+    def test_real_kalshi_pnl_fail_when_missing(self, tmp_path):
+        gates = self._gates_by_name(tmp_path)
+        assert gates["real_kalshi_pnl"].passed is False
+
+    def test_busted_backtest_fails_drawdown_gate(self, tmp_path):
+        self._setup_real_metrics(tmp_path, {
+            "total_pnl": -1000.0,
+            "max_drawdown_pct": -100.0,
+            "busted": True,
+        })
+        gates = self._gates_by_name(tmp_path)
+        assert gates["max_drawdown"].passed is False
+        assert "bankrupt" in gates["max_drawdown"].details
+
+    def test_trading_source_real_not_applicable_without_presettlement(self, tmp_path):
+        # City "zzz" has no presettlement CSV on disk -> gate passes as N/A
+        gates = self._gates_by_name(tmp_path, city_code="zzz")
+        assert gates["trading_source_real"].passed is True
+
+    def test_trading_source_real_fails_on_simulated_fallback(self, tmp_path):
+        # All current cities have presettlement CSVs; with only a simulated
+        # backtest on disk, the gate must fail.
+        bt_dir = tmp_path / "results" / "backtest"
+        bt_dir.mkdir(parents=True, exist_ok=True)
+        (bt_dir / "backtest_metrics.json").write_text(json.dumps({
+            "total_pnl": 1762.66, "max_drawdown_pct": -1.0,
+        }))
+        presettlement = os.path.join(PROJECT_ROOT, "data", "kalshi_presettlement_aus.csv")
+        if not os.path.exists(presettlement):
+            pytest.skip("aus presettlement CSV not on disk")
+        gates = self._gates_by_name(tmp_path, city_code="aus")
+        assert gates["trading_source_real"].passed is False
 
 
 # ===========================================================================

@@ -10,7 +10,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
+
+from src.bucket_semantics import bucket_prob_gaussian
 
 PROB_CLIP_MIN = 1e-4
 PROB_CLIP_MAX = 1.0 - 1e-4
@@ -81,29 +82,13 @@ def contract_probabilities_from_gaussian(
             f"({int(np.sum(missing))} rows)."
         )
 
-    probs = np.zeros(len(contract_rows), dtype=float)
-    below = contract_rows["direction"] == "below"
-    above = contract_rows["direction"] == "above"
-    between = contract_rows["direction"] == "between"
-
-    probs[below] = norm.cdf(
-        contract_rows.loc[below, "threshold_high"].values,
-        loc=mu[below],
-        scale=sigma[below],
-    )
-    probs[above] = 1.0 - norm.cdf(
-        contract_rows.loc[above, "threshold_low"].values,
-        loc=mu[above],
-        scale=sigma[above],
-    )
-    probs[between] = norm.cdf(
-        contract_rows.loc[between, "threshold_high"].values,
-        loc=mu[between],
-        scale=sigma[between],
-    ) - norm.cdf(
-        contract_rows.loc[between, "threshold_low"].values,
-        loc=mu[between],
-        scale=sigma[between],
+    # Settlement-rounding-aware probabilities (see src/bucket_semantics.py)
+    probs = bucket_prob_gaussian(
+        mu,
+        sigma,
+        contract_rows["threshold_low"].values,
+        contract_rows["threshold_high"].values,
+        contract_rows["direction"].values,
     )
     return np.clip(probs, PROB_CLIP_MIN, PROB_CLIP_MAX)
 

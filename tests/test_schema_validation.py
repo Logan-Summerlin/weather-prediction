@@ -319,14 +319,31 @@ class TestValidatePipelinePreconditions:
 class TestEnforcePreconditions:
     """Tests for enforce_preconditions()."""
 
-    def test_enforce_raises_on_failure(self):
+    def _broken_city_cfg(self, tmp_path, monkeypatch):
+        """Point the chi config at an empty directory so preconditions fail."""
+        import dataclasses
+
+        import src.schema_validation as sv
+        from src.city_config import get_city_config
+
+        real_cfg = get_city_config("chi")
+        broken = dataclasses.replace(
+            real_cfg,
+            data_dir=str(tmp_path / "data"),
+            results_dir=str(tmp_path / "results"),
+        )
+        monkeypatch.setattr(sv, "get_city_config", lambda code: broken)
+
+    def test_enforce_raises_on_failure(self, tmp_path, monkeypatch):
         """enforce_preconditions should raise PipelineValidationError when
-        preconditions are not met (processed files won't exist in test env)."""
+        required processed files are missing."""
+        self._broken_city_cfg(tmp_path, monkeypatch)
         with pytest.raises(PipelineValidationError):
             enforce_preconditions("chi", "benchmark")
 
-    def test_enforce_carries_stage_and_city(self):
+    def test_enforce_carries_stage_and_city(self, tmp_path, monkeypatch):
         """The raised exception should carry stage, city_code, and errors."""
+        self._broken_city_cfg(tmp_path, monkeypatch)
         with pytest.raises(PipelineValidationError) as exc_info:
             enforce_preconditions("chi", "benchmark")
         exc = exc_info.value
@@ -334,6 +351,14 @@ class TestEnforcePreconditions:
         assert exc.city_code == "chi"
         assert isinstance(exc.errors, list)
         assert len(exc.errors) > 0
+
+    def test_enforce_passes_with_real_artifacts(self):
+        """With the repo's real processed data, benchmark preconditions pass
+        (scaled features and city-prefixed targets are valid)."""
+        cfg_dir = os.path.join("data", "chicago", "processed")
+        if not os.path.isdir(cfg_dir):
+            pytest.skip("chi processed data not on disk")
+        enforce_preconditions("chi", "benchmark")  # must not raise
 
 
 # ===========================================================================

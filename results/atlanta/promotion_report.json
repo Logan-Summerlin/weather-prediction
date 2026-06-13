@@ -1,82 +1,95 @@
 {
-  "timestamp": "2026-03-04T03:34:48.784933",
-  "city": "atl",
+  "schema_version": "3.0",
+  "timestamp": "2026-06-12T13:31:51.989014",
+  "city": "Atlanta",
+  "city_code": "atl",
   "kalshi_ticker": "KXHIGHTATL",
   "target_station": "USW00013874",
   "target_station_name": "Hartsfield-Jackson Atlanta International Airport",
+  "timezone": "America/New_York",
   "overall_status": "FAIL",
-  "gates_passed": 12,
+  "gates_passed": 8,
   "gates_total": 14,
-  "pass_rate": "12/14 (86%)",
+  "pass_rate": "8/14 (57%)",
   "thresholds": {
     "brier_threshold": 0.14,
+    "brier_floor": 0.0,
     "nws_brier_baseline": 0.12,
     "ece_threshold": 0.05,
     "min_positive_pnl": 0.0,
     "max_drawdown_threshold": -0.3,
     "min_oos_days": 200,
-    "seasonal_brier_threshold": 0.2
+    "seasonal_brier_threshold": 0.2,
+    "min_predictions_rows": 100
   },
   "gates": [
     {
       "name": "overall_brier",
       "description": "OOS Brier score below threshold",
-      "passed": true,
-      "value": 0.016367471986956164,
+      "category": "forecast_quality",
+      "passed": false,
+      "value": 0.19042540549856493,
       "threshold": 0.14,
-      "details": "Best model Brier: 0.0164 (threshold: 0.14, source: synthesis/2_isotonic from /home/user/weather-prediction/results/atlanta/synthesis/calibration_sweep_summary.json)"
+      "details": "Best model Brier: 0.1904 (threshold: 0.14, source: synthesis/3_platt_scaling)"
     },
     {
       "name": "brier_sanity_floor",
-      "description": "OOS Brier is above minimum sanity floor",
+      "description": "OOS Brier above minimum sanity floor",
+      "category": "forecast_quality",
       "passed": true,
-      "value": 0.016367471986956164,
+      "value": 0.19042540549856493,
       "threshold": 0.0,
-      "details": "Best model Brier: 0.0164 (minimum sanity floor: 0.0000, source: synthesis/2_isotonic from /home/user/weather-prediction/results/atlanta/synthesis/calibration_sweep_summary.json)"
+      "details": "Best model Brier: 0.1904 (floor: 0.0000)"
     },
     {
       "name": "beats_nws",
       "description": "Model Brier beats NWS baseline",
-      "passed": true,
-      "value": 0.016367471986956164,
+      "category": "forecast_quality",
+      "passed": false,
+      "value": 0.19042540549856493,
       "threshold": 0.12,
-      "details": "Model: 0.0164 vs NWS: 0.1200 (source: synthesis/2_isotonic from /home/user/weather-prediction/results/atlanta/synthesis/calibration_sweep_summary.json)"
+      "details": "Model: 0.1904 vs NWS: 0.1200 (source: synthesis/3_platt_scaling)"
     },
     {
       "name": "beats_kalshi_market",
       "description": "Model Brier beats Kalshi market",
-      "passed": true,
-      "value": null,
-      "threshold": null,
-      "details": "Real Kalshi backtest not found at /home/user/weather-prediction/results/atlanta/backtest/real_kalshi_backtest_metrics.json (skipped, non-blocking)"
+      "category": "forecast_quality",
+      "passed": false,
+      "value": -0.06551429438745379,
+      "threshold": 0.0,
+      "details": "Model: 0.1904 vs Market: 0.1249 (edge: -0.0655)"
     },
     {
       "name": "seasonal_brier",
       "description": "No season exceeds Brier threshold",
+      "category": "forecast_quality",
       "passed": true,
-      "value": 0.02238039112612542,
+      "value": 0.17418330799345727,
       "threshold": 0.2,
-      "details": "Worst season: JJA=0.0224 (threshold: 0.2)"
+      "details": "Worst: DJF=0.1742 (threshold: 0.2) [DJF=0.1742]"
     },
     {
       "name": "min_oos_days",
       "description": "Sufficient OOS evaluation days",
+      "category": "forecast_quality",
       "passed": true,
-      "value": 2192,
+      "value": 2253,
       "threshold": 200,
-      "details": "OOS days: 2192 (minimum: 200)"
+      "details": "OOS days: 2253 (minimum: 200)"
     },
     {
-      "name": "ece",
+      "name": "calibration_ece",
       "description": "Expected Calibration Error within tolerance",
-      "passed": true,
-      "value": 0.0001935091354459053,
+      "category": "calibration",
+      "passed": false,
+      "value": 0.05439946488363337,
       "threshold": 0.05,
-      "details": "ECE: 0.0002 (threshold: 0.05)"
+      "details": "ECE: 0.0544 (threshold: 0.05, method: 3_platt_scaling)"
     },
     {
       "name": "reliability_diagram",
       "description": "Reliability diagram artifact exists",
+      "category": "calibration",
       "passed": true,
       "value": null,
       "threshold": null,
@@ -84,51 +97,135 @@
     },
     {
       "name": "positive_pnl",
-      "description": "Simulated paper trading shows positive P&L",
-      "passed": true,
-      "value": 1112.479091018129,
+      "description": "Trading shows positive P&L",
+      "category": "trading",
+      "passed": false,
+      "value": -19.69999999999959,
       "threshold": 0.0,
-      "details": "Simulated P&L: $1112.48 (minimum: $0.00)"
+      "details": "real_kalshi_presettlement P&L: $-19.70 (source: real_kalshi)"
     },
     {
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
-      "passed": false,
-      "value": -1.343462765411324,
+      "category": "trading",
+      "passed": true,
+      "value": -0.02680432840266035,
       "threshold": -0.3,
-      "details": "Max drawdown: -134.3% (limit: -30.0%)"
+      "details": "Max drawdown: -2.7% (limit: -30%)"
     },
     {
       "name": "real_kalshi_pnl",
       "description": "Real Kalshi backtest shows positive P&L",
+      "category": "trading",
+      "passed": false,
+      "value": -19.69999999999959,
+      "threshold": 0.0,
+      "details": "Real Kalshi P&L: $-19.70, Sharpe: -4.46"
+    },
+    {
+      "name": "trading_source_real",
+      "description": "Trading evaluation uses real Kalshi presettlement prices",
+      "category": "trading",
       "passed": true,
       "value": null,
       "threshold": null,
-      "details": "Real Kalshi backtest not found at /home/user/weather-prediction/results/atlanta/backtest/real_kalshi_backtest_metrics.json (skipped, non-blocking)"
+      "details": "Trading summary derived from real Kalshi presettlement prices"
     },
     {
       "name": "data_pipeline",
       "description": "Processed data files exist",
+      "category": "operational",
       "passed": true,
       "value": 7,
       "threshold": 7,
-      "details": "7/7 required files present in /home/user/weather-prediction/data/atlanta/processed"
+      "details": "7/7 required files in /home/user/weather-prediction/data/atlanta/processed"
     },
     {
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
-      "passed": false,
-      "value": 0,
-      "threshold": null,
-      "details": "0 model file(s) found in /home/user/weather-prediction/models/atlanta"
-    },
-    {
-      "name": "scaler_artifact",
-      "description": "Feature scaler artifact exists",
+      "category": "operational",
       "passed": true,
-      "value": null,
+      "value": 3,
       "threshold": null,
-      "details": "Scaler found at /home/user/weather-prediction/data/atlanta/processed/scaler.pkl"
+      "details": "3 model file(s) in /home/user/weather-prediction/models/atlanta"
     }
-  ]
+  ],
+  "model_summary": {
+    "best_model": "3_platt_scaling",
+    "best_brier": 0.19042540549856493,
+    "brier_source": "synthesis/3_platt_scaling",
+    "edge_vs_market": -0.06551429438745379
+  },
+  "baseline_comparisons": {
+    "persistence_brier": null,
+    "climatology_brier": null,
+    "ridge_brier": null,
+    "model_beats_persistence": null,
+    "model_beats_climatology": null,
+    "model_beats_ridge": null
+  },
+  "market_benchmark": {
+    "kalshi_presettlement_brier": 0.12491111111111114,
+    "model_beats_market": false,
+    "brier_edge": -0.06551429438745379
+  },
+  "calibration_summary": {
+    "best_ece": 0.05439946488363337,
+    "best_method": "3_platt_scaling",
+    "methods": {
+      "1_raw_uncalibrated": {
+        "brier": 0.21161586018276282,
+        "ece": 0.15648654501254441
+      },
+      "2_isotonic": {
+        "brier": 0.2445754279650274,
+        "ece": 0.14638654721377178
+      },
+      "3_platt_scaling": {
+        "brier": 0.19042540549856493,
+        "ece": 0.05439946488363337
+      },
+      "4_seasonal_regime": {
+        "brier": 0.2445754279650274,
+        "ece": 0.14638654721377178
+      }
+    }
+  },
+  "trading_summary": {
+    "source": "real_kalshi",
+    "best_variant": "real_kalshi_presettlement",
+    "total_pnl": -19.69999999999959,
+    "return_pct": -1.969999999999959,
+    "sharpe_ratio": -4.455393980084202,
+    "n_trades": 53,
+    "win_rate": 0.4339622641509434,
+    "max_drawdown_frac": -0.02680432840266035,
+    "busted": false
+  },
+  "seasonal_brier": {
+    "DJF": 0.17418330799345727
+  },
+  "trading_seasonal": {
+    "DJF": {
+      "n_trades": 53,
+      "pnl": -19.700000000000017,
+      "win_rate": 0.4339622641509434,
+      "avg_ev": 0.1643108185505992
+    },
+    "MAM": {
+      "n_trades": 0,
+      "pnl": 0.0,
+      "win_rate": 0.0
+    },
+    "JJA": {
+      "n_trades": 0,
+      "pnl": 0.0,
+      "win_rate": 0.0
+    },
+    "SON": {
+      "n_trades": 0,
+      "pnl": 0.0,
+      "win_rate": 0.0
+    }
+  }
 }

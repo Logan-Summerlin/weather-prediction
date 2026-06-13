@@ -1,0 +1,14 @@
+{
+  "best_model": "HeteroscedasticNN",
+  "best_model_contract_brier": 0.17418330799345727,
+  "all_model_briers": {
+    "HeteroscedasticNN": 0.17418330799345727,
+    "Ridge (a=100.0)": 0.18045359520959656,
+    "Persistence": 0.18996288861962884,
+    "Climatology": 0.20345060249161215
+  },
+  "kalshi_market_brier": 0.12478878205128204,
+  "model_edge": -0.049394525942175235,
+  "n_market_rows": 78,
+  "n_market_dates": 13
+}

@@ -588,11 +588,15 @@ class TestMigrationSteps:
 
     def test_step1_write_mapping(self, tmp_path):
         """Step 1 creates a valid mapping CSV."""
+        import dataclasses
+
         from src.city_config import get_city_config
 
-        cfg = get_city_config("chi")
-        # Override data_dir to tmp_path
-        cfg.data_dir = str(tmp_path / "data")
+        # Copy the config: get_city_config returns the shared registry
+        # singleton, and mutating it in place pollutes every later test.
+        cfg = dataclasses.replace(
+            get_city_config("chi"), data_dir=str(tmp_path / "data"),
+        )
         os.makedirs(cfg.data_dir, exist_ok=True)
 
         from scripts.run_asos_migration import step1_write_mapping

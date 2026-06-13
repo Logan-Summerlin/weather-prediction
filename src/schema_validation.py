@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -621,6 +621,39 @@ def _check_preprocessing(
     stats["raw_files_failed"] = files_failed
 
 
+def _scaled_features_sla(features_sla: DataSourceSLA) -> DataSourceSLA:
+    """Return a copy of the features SLA with value bounds removed.
+
+    Processed feature files on disk are standardized (z-scored) by
+    data_preprocessing.py, including the cyclical sin_day/cos_day columns,
+    so the raw [-1, 1] bounds do not apply. Presence, dtype, NaN/inf and
+    completeness checks still do.
+    """
+    relaxed_columns = [
+        replace(col, min_value=None, max_value=None)
+        for col in features_sla.columns
+    ]
+    return replace(features_sla, columns=relaxed_columns)
+
+
+def _resolve_target_column(df: pd.DataFrame, context: str, errors: List[str]) -> pd.DataFrame:
+    """Normalize the city-prefixed target column to the SLA name 'TMAX'.
+
+    Target files contain exactly one column matching ``TMAX`` or
+    ``*_TMAX`` (e.g. CHI_TMAX); the SLA spec validates it as 'TMAX'.
+    """
+    candidates = [
+        c for c in df.columns if c == "TMAX" or c.endswith("_TMAX")
+    ]
+    if len(candidates) == 1:
+        return df.rename(columns={candidates[0]: "TMAX"})
+    errors.append(
+        f"[{context}] Expected exactly one TMAX/*_TMAX target column, "
+        f"found {candidates or list(df.columns)}"
+    )
+    return df
+
+
 def _check_benchmark(
     cfg,
     errors: List[str],
@@ -637,7 +670,7 @@ def _check_benchmark(
         return
 
     required_splits = ["train", "val", "test"]
-    features_sla = get_sla("processed_features")
+    features_sla = _scaled_features_sla(get_sla("processed_features"))
     target_sla = get_sla("processed_targets")
 
     for split in required_splits:
@@ -668,6 +701,7 @@ def _check_benchmark(
         else:
             try:
                 df = pd.read_csv(target_path)
+                df = _resolve_target_column(df, f"target_{split}", errors)
                 result = validate_dataframe_schema(
                     df, target_sla,
                     context=f"target_{split}",

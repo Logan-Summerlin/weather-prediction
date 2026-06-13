@@ -11,5 +11,5 @@
   "n_test": 2192,
   "n_buckets": 62,
   "best_model": "Ridge (a=100.0)",
-  "best_contract_brier": 0.17809985238034778
+  "best_contract_brier": 0.1780998523803478
 }

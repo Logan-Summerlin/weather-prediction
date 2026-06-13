@@ -901,6 +901,42 @@ class BacktestEngine:
         return results
 
 
+def compute_drawdown_metrics(
+    bankroll_series,
+    initial_bankroll: float,
+) -> dict:
+    """Compute max drawdown in dollars and as a percent of peak bankroll.
+
+    The peak is floored at ``initial_bankroll`` so the percentage stays in
+    [-100, 0] even for legacy bankroll series that dipped below zero
+    (before stake-capping, backtests could "bet" with negative bankroll,
+    producing nonsense values like -134%).
+
+    Parameters
+    ----------
+    bankroll_series : array-like or pd.Series
+        Bankroll value over time (chronological order).
+    initial_bankroll : float
+        Starting bankroll in dollars (must be > 0).
+
+    Returns
+    -------
+    dict
+        Keys: max_drawdown (dollars, <= 0), max_drawdown_pct (in [-100, 0]).
+    """
+    values = np.asarray(bankroll_series, dtype=float)
+    if values.size == 0 or initial_bankroll <= 0:
+        return {"max_drawdown": 0.0, "max_drawdown_pct": 0.0}
+
+    peak = np.maximum.accumulate(values)
+    peak = np.clip(peak, initial_bankroll, None)
+    drawdown = values - peak
+
+    max_dd = float(drawdown.min())
+    max_dd_pct = float(max(-100.0, (drawdown / peak).min() * 100.0))
+    return {"max_drawdown": max_dd, "max_drawdown_pct": max_dd_pct}
+
+
 def _compute_max_drawdown(cumulative_pnl: np.ndarray) -> float:
     """Compute maximum peak-to-trough drawdown.
 

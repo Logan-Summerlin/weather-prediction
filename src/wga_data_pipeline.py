@@ -42,7 +42,7 @@ from torch.utils.data import Dataset, DataLoader
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from src.city_config import get_city_config
+from src.city_config import get_city_config, get_city_runtime_config
 
 logging.basicConfig(
     level=logging.INFO,
