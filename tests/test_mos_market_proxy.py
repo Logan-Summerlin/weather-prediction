@@ -631,7 +631,7 @@ class TestIntegrationWithRealData:
             PROJECT_ROOT, "data", "mos", "combined_mos_knyc.csv"
         )
         actual_path = os.path.join(
-            PROJECT_ROOT, "data", "central_park_tmax_full_history.csv"
+            PROJECT_ROOT, "data", "nyc", "central_park_tmax_full_history.csv"
         )
         if not os.path.exists(combined_path):
             pytest.skip("Combined MOS data not found. Run download_iem_mos.py first.")
@@ -648,7 +648,7 @@ class TestIntegrationWithRealData:
     @pytest.fixture
     def real_actual_df(self):
         path = os.path.join(
-            PROJECT_ROOT, "data", "central_park_tmax_full_history.csv"
+            PROJECT_ROOT, "data", "nyc", "central_park_tmax_full_history.csv"
         )
         return pd.read_csv(path)
 

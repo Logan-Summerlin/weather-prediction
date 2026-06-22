@@ -34,7 +34,18 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from src.data_sla import DataSourceSLA, ColumnSpec, get_sla, SLA_MANIFEST_VERSION
+from src.data_sla import (
+    DataSourceSLA,
+    ColumnSpec,
+    get_sla,
+    SLA_MANIFEST_VERSION,
+    CutoffFeatureSpec,
+    get_cutoff_spec,
+    get_cutoff_manifest_version,
+    get_critical_cutoff_features,
+    cutoff_instant_utc,
+    latest_usable_timestamp,
+)
 from src.city_config import get_city_config
 
 logger = logging.getLogger(__name__)
@@ -76,6 +87,32 @@ class ValidationResult:
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     stats: Dict[str, Any] = field(default_factory=dict)
+
+
+class KillSwitchError(RuntimeError):
+    """Raised when a critical inference input violates the 7am-ET cutoff.
+
+    Per the project ground rules, a critical operational feature that cannot be
+    proven available (and not stale) by the 7:00 AM Eastern cutoff is a
+    kill-switch event: live inference / trading for that city-day must halt
+    rather than run on leaked or stale data.
+
+    Attributes:
+        city_code: City the inference run was for (``""`` if not city-scoped).
+        market_date: ISO date string of the affected market day.
+        violations: Human-readable descriptions of each cutoff violation.
+    """
+
+    def __init__(self, city_code: str, market_date: str, violations: List[str]):
+        self.city_code = city_code
+        self.market_date = market_date
+        self.violations = violations
+        scope = f"{city_code}/" if city_code else ""
+        msg = (
+            f"KILL SWITCH — cutoff freshness violation for {scope}{market_date}:\n"
+            + "\n".join(f"  - {v}" for v in violations)
+        )
+        super().__init__(msg)
 
 
 class PipelineValidationError(RuntimeError):
@@ -854,3 +891,287 @@ def enforce_preconditions(city_code: str, stage: str) -> None:
         "Preconditions enforced successfully for %s/%s",
         city_code, stage,
     )
+
+
+# ---------------------------------------------------------------------------
+# 7am-ET cutoff freshness validation
+# ---------------------------------------------------------------------------
+def _to_utc_datetime(value):
+    """Coerce a timestamp-like value to a timezone-aware UTC datetime.
+
+    Accepts ``datetime`` (naive assumed UTC), ISO strings, ``date`` objects,
+    and pandas ``Timestamp``.  Returns ``None`` for missing values (``None``,
+    NaN/NaT) so callers can treat them as "feature absent".
+    """
+    from datetime import datetime, date, timezone
+
+    if value is None:
+        return None
+    # pandas NaT / float NaN
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    elif isinstance(value, pd.Timestamp):
+        value = value.to_pydatetime()
+    elif isinstance(value, date) and not isinstance(value, datetime):
+        value = datetime(value.year, value.month, value.day)
+
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    raise TypeError(f"Unsupported timestamp type for freshness check: {type(value)!r}")
+
+
+def validate_cutoff_freshness(
+    feature: str,
+    latest_available,
+    market_date,
+    context: str = "",
+) -> ValidationResult:
+    """Validate one inference feature against the 7am-ET cutoff manifest.
+
+    Two failure modes are enforced for every feature, using its
+    :class:`CutoffFeatureSpec`:
+
+    1. **Leakage** — the freshest record's valid/issue time is *after* the
+       feature's ``latest_usable_timestamp`` for the market day.  Using it
+       would leak post-cutoff information; this is always an error.
+    2. **Staleness** — the freshest record is older than
+       ``max_staleness_hours`` measured back from the cutoff, i.e. the source
+       has gone missing.  This is an error for the feature regardless of
+       criticality; the *aggregate* validator decides whether it trips the
+       kill switch (critical) or merely degrades (recommended).
+
+    A missing timestamp (``None``/NaT) is reported as an error ("feature
+    absent at cutoff").
+
+    Parameters
+    ----------
+    feature : str
+        Registered cutoff feature identifier (see
+        :func:`src.data_sla.list_cutoff_features`).
+    latest_available : datetime-like or None
+        Valid/issue time of the freshest record the operational path has for
+        this feature.  Naive datetimes are assumed UTC.
+    market_date : date-like
+        The market day the inference is for.
+    context : str, optional
+        Extra context for log messages.
+
+    Returns
+    -------
+    ValidationResult
+        ``source_name`` is ``"cutoff/<feature>"``; ``stats`` carries the
+        resolved timestamps and the feature criticality.
+    """
+    ctx = f" ({context})" if context else ""
+    spec: CutoffFeatureSpec = get_cutoff_spec(feature)
+    cutoff = cutoff_instant_utc(market_date)
+    newest_usable = latest_usable_timestamp(feature, market_date)
+    oldest_usable = cutoff - _timedelta_hours(spec.max_staleness_hours)
+
+    errors: List[str] = []
+    warnings: List[str] = []
+    stats: Dict[str, Any] = {
+        "feature": feature,
+        "criticality": spec.criticality,
+        "cutoff_utc": cutoff.isoformat(),
+        "latest_usable_utc": newest_usable.isoformat(),
+        "max_staleness_hours": spec.max_staleness_hours,
+    }
+
+    ts = _to_utc_datetime(latest_available)
+    if ts is None:
+        errors.append(
+            f"Feature '{feature}' has no available record at the 7am ET "
+            f"cutoff for {market_date}{ctx}. Fallback: {spec.fallback_behavior}"
+        )
+        return ValidationResult(
+            valid=False,
+            source_name=f"cutoff/{feature}",
+            sla_version=get_cutoff_manifest_version(),
+            errors=errors,
+            warnings=warnings,
+            stats=stats,
+        )
+
+    stats["latest_available_utc"] = ts.isoformat()
+
+    # 1. Leakage: record is newer than the cutoff-safe horizon.
+    if ts > newest_usable:
+        errors.append(
+            f"Feature '{feature}' freshest record {ts.isoformat()} is after "
+            f"the latest cutoff-safe time {newest_usable.isoformat()} "
+            f"(post-cutoff leakage){ctx}."
+        )
+
+    # 2. Staleness: source has gone missing relative to the cutoff.
+    if ts < oldest_usable:
+        age_h = (cutoff - ts).total_seconds() / 3600.0
+        errors.append(
+            f"Feature '{feature}' is stale: freshest record {ts.isoformat()} "
+            f"is {age_h:.1f}h before the cutoff, exceeding the "
+            f"{spec.max_staleness_hours:.1f}h limit{ctx}. "
+            f"Fallback: {spec.fallback_behavior}"
+        )
+
+    valid = len(errors) == 0
+    if valid:
+        logger.info(
+            "Cutoff freshness PASSED for %s%s (record %s <= %s)",
+            feature, ctx, ts.isoformat(), newest_usable.isoformat(),
+        )
+    else:
+        log = logger.error if spec.criticality == "critical" else logger.warning
+        log("Cutoff freshness FAILED for %s%s: %d issue(s)", feature, ctx, len(errors))
+        for e in errors:
+            log("  %s", e)
+
+    return ValidationResult(
+        valid=valid,
+        source_name=f"cutoff/{feature}",
+        sla_version=get_cutoff_manifest_version(),
+        errors=errors,
+        warnings=warnings,
+        stats=stats,
+    )
+
+
+def _timedelta_hours(hours: float):
+    from datetime import timedelta
+    return timedelta(hours=hours)
+
+
+def validate_inference_freshness(
+    city_code: str,
+    market_date,
+    available_timestamps: Dict[str, Any],
+    require_features: Optional[List[str]] = None,
+) -> ValidationResult:
+    """Validate all inference features for a city-day against the cutoff manifest.
+
+    Aggregates :func:`validate_cutoff_freshness` over every registered cutoff
+    feature.  Criticality decides escalation:
+
+    * A **critical** feature that fails (absent, leaking, or stale) produces a
+      hard error -> the aggregate result is ``valid=False`` and
+      :func:`enforce_inference_freshness` will trip the kill switch.
+    * A **recommended** feature that fails produces a warning -> the run may
+      proceed in a degraded mode.
+
+    Parameters
+    ----------
+    city_code : str
+        City the inference is for (used only for messaging / stats).
+    market_date : date-like
+        The market day.
+    available_timestamps : dict
+        Mapping of cutoff-feature identifier -> freshest available record
+        timestamp (datetime-like or ``None``).  Features registered in the
+        manifest but absent from this mapping are treated as missing.
+    require_features : list of str, optional
+        Restrict validation to this subset of features (e.g. only those a
+        given model actually consumes).  Defaults to every registered feature.
+
+    Returns
+    -------
+    ValidationResult
+        ``valid`` is False iff at least one *critical* feature failed.
+        ``stats['feature_results']`` holds the per-feature stats and
+        ``stats['kill_switch']`` mirrors ``not valid``.
+    """
+    from src.data_sla import list_cutoff_features
+
+    features = require_features or list_cutoff_features()
+    critical = set(get_critical_cutoff_features())
+
+    errors: List[str] = []
+    warnings: List[str] = []
+    feature_results: Dict[str, Any] = {}
+
+    for feature in features:
+        result = validate_cutoff_freshness(
+            feature,
+            available_timestamps.get(feature),
+            market_date,
+            context=f"{city_code} {market_date}",
+        )
+        feature_results[feature] = result.stats
+        if not result.valid:
+            if feature in critical:
+                errors.extend(result.errors)
+            else:
+                warnings.extend(result.errors)
+
+    valid = len(errors) == 0
+    stats: Dict[str, Any] = {
+        "city_code": city_code,
+        "market_date": str(market_date),
+        "kill_switch": not valid,
+        "n_features_checked": len(features),
+        "feature_results": feature_results,
+    }
+
+    if valid and not warnings:
+        logger.info(
+            "Inference freshness PASSED for %s/%s (%d features)",
+            city_code, market_date, len(features),
+        )
+    elif valid:
+        logger.warning(
+            "Inference freshness DEGRADED for %s/%s: %d recommended-feature "
+            "warning(s); proceeding without kill switch",
+            city_code, market_date, len(warnings),
+        )
+    else:
+        logger.error(
+            "Inference freshness FAILED for %s/%s: %d critical violation(s) "
+            "— KILL SWITCH",
+            city_code, market_date, len(errors),
+        )
+
+    return ValidationResult(
+        valid=valid,
+        source_name=f"cutoff_freshness/{city_code}",
+        sla_version=get_cutoff_manifest_version(),
+        errors=errors,
+        warnings=warnings,
+        stats=stats,
+    )
+
+
+def enforce_inference_freshness(
+    city_code: str,
+    market_date,
+    available_timestamps: Dict[str, Any],
+    require_features: Optional[List[str]] = None,
+) -> ValidationResult:
+    """Validate cutoff freshness and trip the kill switch on critical failure.
+
+    Operational inference scripts should call this immediately before running
+    a model for a city-day.  Returns the (valid) :class:`ValidationResult` on
+    success so callers can inspect warnings / degraded features.
+
+    Raises
+    ------
+    KillSwitchError
+        If any critical inference feature is absent, leaking, or stale at the
+        7am ET cutoff.
+    """
+    result = validate_inference_freshness(
+        city_code, market_date, available_timestamps, require_features,
+    )
+    if not result.valid:
+        raise KillSwitchError(
+            city_code=city_code,
+            market_date=str(market_date),
+            violations=result.errors,
+        )
+    return result

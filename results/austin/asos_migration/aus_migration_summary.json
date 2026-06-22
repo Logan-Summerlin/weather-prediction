@@ -1,0 +1,16 @@
+{
+  "city_code": "aus",
+  "artifacts": {
+    "features_train": true,
+    "features_val": true,
+    "features_test": true,
+    "target_train": true,
+    "target_val": true,
+    "target_test": true,
+    "scaler": true,
+    "col_means": true,
+    "ghcn_crossval": true,
+    "parity_report": true
+  },
+  "all_present": true
+}

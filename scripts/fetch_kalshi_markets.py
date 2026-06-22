@@ -302,7 +302,7 @@ def main():
     os.makedirs(raw_dir, exist_ok=True)
 
     # Path to GHCN Central Park data
-    ghcn_path = os.path.join(data_dir, "real_central_park_tmax_2023_2025.csv")
+    ghcn_path = os.path.join(data_dir, "nyc", "real_central_park_tmax_2023_2025.csv")
 
     logger.info("=" * 60)
     logger.info("Fetching all settled KXHIGHNY markets from Kalshi API...")

@@ -35,7 +35,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, PROJECT_ROOT)
 
 MOS_PATH = os.path.join(PROJECT_ROOT, "data", "mos", "combined_mos_knyc.csv")
-ACTUALS_PATH = os.path.join(PROJECT_ROOT, "data", "central_park_tmax_full_history.csv")
+ACTUALS_PATH = os.path.join(PROJECT_ROOT, "data", "nyc", "central_park_tmax_full_history.csv")
 MODEL_IS_PATH = os.path.join(PROJECT_ROOT, "data", "max_train_nn_predictions_is.csv")
 MODEL_OOS_PATH = os.path.join(PROJECT_ROOT, "data", "max_train_nn_predictions_oos.csv")
 KALSHI_IS_PATH = os.path.join(PROJECT_ROOT, "data", "real_kalshi_2023_2024.csv")

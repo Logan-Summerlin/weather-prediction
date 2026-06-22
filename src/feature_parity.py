@@ -139,6 +139,24 @@ def compare_asos_vs_ghcn_features(
     )
 
 
+def _json_default(o):
+    """JSON serializer fallback for numpy scalar/array types.
+
+    ``compare_feature_distributions`` populates ParityResult fields with numpy
+    scalars (e.g. KS statistic/p-value as ``np.float64``, ``parity_pass`` as
+    ``np.bool_``); these are not natively JSON serializable.
+    """
+    if isinstance(o, np.bool_):
+        return bool(o)
+    if isinstance(o, np.integer):
+        return int(o)
+    if isinstance(o, np.floating):
+        return float(o)
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+
 def generate_parity_report(
     results: list[ParityResult],
     output_dir: str,
@@ -162,13 +180,13 @@ def generate_parity_report(
     json_payload = {
         "city_code": city_code,
         "total_features": len(results),
-        "passed": n_pass,
-        "failed": n_fail,
-        "all_pass": n_fail == 0,
+        "passed": int(n_pass),
+        "failed": int(n_fail),
+        "all_pass": bool(n_fail == 0),
         "features": [asdict(r) for r in results],
     }
     with open(json_path, "w") as fh:
-        json.dump(json_payload, fh, indent=2)
+        json.dump(json_payload, fh, indent=2, default=_json_default)
     logger.info("JSON parity report written to %s.", json_path)
 
     # --- Markdown report ---

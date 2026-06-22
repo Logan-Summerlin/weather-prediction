@@ -967,3 +967,99 @@ def merge_with_v2_features(
         combined.shape[1],
     )
     return combined
+
+
+# ============================================================================
+# 7am-ET cutoff freshness (operational inference guard)
+# ============================================================================
+
+# Maps each operational feature *group* (see get_feature_groups) to the
+# cutoff-manifest feature whose availability gates it.  Groups not listed here
+# are derived purely from prior-day station observations and are covered by the
+# ``asos_prior_day_daily`` backbone.
+FEATURE_GROUP_TO_CUTOFF_FEATURE = {
+    "wind_conditioned": "asos_prior_day_daily",
+    "asos_operational": "asos_prior_day_daily",
+    "station_temperature": "asos_prior_day_daily",
+    "autoregressive": "asos_prior_day_daily",
+    "sounding": "sounding_00z",
+    # MOS/NWP groups are introduced in Phase 2; pre-wire the mapping so the
+    # guard already covers them when those columns appear.
+    "mos": "mos_tmax_morning",
+    "nwp": "mos_tmax_morning",
+}
+
+
+def required_cutoff_features(feature_df: pd.DataFrame) -> list[str]:
+    """Return the cutoff-manifest features the columns in *feature_df* depend on.
+
+    Inspects the feature groups present in the matrix (via
+    :func:`get_feature_groups`) and resolves them to the upstream cutoff
+    features that must be fresh at 7am ET.  ``asos_prior_day_daily`` is always
+    included as the station backbone.
+
+    Parameters
+    ----------
+    feature_df : pd.DataFrame
+        The (operational) feature matrix about to be used for inference.
+
+    Returns
+    -------
+    list of str
+        Sorted, de-duplicated cutoff-feature identifiers.
+    """
+    groups = set(get_feature_groups(feature_df).values())
+    required = {"asos_prior_day_daily"}
+    for group in groups:
+        mapped = FEATURE_GROUP_TO_CUTOFF_FEATURE.get(group)
+        if mapped:
+            required.add(mapped)
+    return sorted(required)
+
+
+def assert_operational_features_cutoff_safe(
+    city_code: str,
+    market_date,
+    available_timestamps: dict,
+    feature_df: Optional[pd.DataFrame] = None,
+):
+    """Halt (kill switch) unless operational inputs are fresh at the 7am ET cutoff.
+
+    Thin operational-layer wrapper around
+    :func:`src.schema_validation.enforce_inference_freshness`.  Call this at
+    the top of the live inference path, *before* building or scoring features,
+    passing the freshest available record timestamp for each upstream source.
+
+    Parameters
+    ----------
+    city_code : str
+        City the inference is for.
+    market_date : date-like
+        The market day.
+    available_timestamps : dict
+        Mapping of cutoff-feature identifier -> freshest available record
+        timestamp (datetime-like or ``None``).
+    feature_df : pd.DataFrame, optional
+        If provided, only the cutoff features actually required by these
+        columns (see :func:`required_cutoff_features`) are enforced; otherwise
+        every registered cutoff feature is checked.
+
+    Returns
+    -------
+    ValidationResult
+        The passing freshness result (may carry degraded-feature warnings).
+
+    Raises
+    ------
+    KillSwitchError
+        If any critical input is absent, leaking, or stale at the cutoff.
+    """
+    from src.schema_validation import enforce_inference_freshness
+
+    require = required_cutoff_features(feature_df) if feature_df is not None else None
+    return enforce_inference_freshness(
+        city_code=city_code,
+        market_date=market_date,
+        available_timestamps=available_timestamps,
+        require_features=require,
+    )
