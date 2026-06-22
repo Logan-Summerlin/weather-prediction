@@ -10,7 +10,7 @@ The interface matches EnhancedMarketProxy for plug-in compatibility.
 
 Usage:
     >>> mos_df = pd.read_csv("data/mos/combined_mos_knyc.csv")
-    >>> actual_df = pd.read_csv("data/central_park_tmax_full_history.csv")
+    >>> actual_df = pd.read_csv("data/nyc/central_park_tmax_full_history.csv")
     >>> proxy = MOSMarketProxy(mos_df, actual_df)
     >>> proxy.fit(train_end_date="2022-12-31")
     >>> mu, sigma = proxy.predict_mu_sigma(date(2023, 7, 15))

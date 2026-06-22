@@ -12,8 +12,13 @@ import os
 # ==============================================================================
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
-PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed")
+# NYC reorganization (Phase 1 / Project_Plan Phase G): NYC's own raw and
+# processed data live under data/nyc/, matching the per-city layout used by
+# the expansion cities (data/<city>/{raw,processed}). Shared registries such
+# as stations.csv remain at the data/ root.
+NYC_DATA_DIR = os.path.join(DATA_DIR, "nyc")
+RAW_DATA_DIR = os.path.join(NYC_DATA_DIR, "raw")
+PROCESSED_DATA_DIR = os.path.join(NYC_DATA_DIR, "processed")
 STATIONS_FILE = os.path.join(DATA_DIR, "stations.csv")
 MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
 RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")

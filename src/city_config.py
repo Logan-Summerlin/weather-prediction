@@ -220,8 +220,10 @@ _NYC_CONFIG = CityConfig(
         11: 9.5,
         12: 10.5,
     },
-    # NYC keeps root-level directories for backward compatibility
-    data_dir=os.path.join(PROJECT_ROOT, "data"),
+    # NYC reorganization (Phase 1 / Phase G): NYC's raw and processed data now
+    # live under data/nyc/, matching the per-city layout. Models and results
+    # remain at the repo root where NYC's benchmark artifacts already live.
+    data_dir=os.path.join(PROJECT_ROOT, "data", "nyc"),
     models_dir=os.path.join(PROJECT_ROOT, "models"),
     results_dir=os.path.join(PROJECT_ROOT, "results"),
 )

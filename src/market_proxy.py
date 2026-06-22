@@ -16,7 +16,7 @@ Components:
     5. Bracket probability computation via normal CDF.
 
 Usage:
-    >>> proxy = MarketProxy(pd.read_csv("data/central_park_tmax_full_history.csv"))
+    >>> proxy = MarketProxy(pd.read_csv("data/nyc/central_park_tmax_full_history.csv"))
     >>> proxy.fit(train_end_date="2022-12-31")
     >>> mu, sigma = proxy.predict_mu_sigma(date(2023, 7, 15), yesterday_tmax=85.0)
     >>> prob = proxy.compute_bracket_prob(date(2023, 7, 15), 85.0, 80.0, 90.0, "between")

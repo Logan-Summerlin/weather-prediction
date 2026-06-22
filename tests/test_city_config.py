@@ -251,10 +251,17 @@ class TestEnsureCityDirs:
 class TestCityDataDirs:
     """Tests for city-specific directory paths."""
 
-    def test_nyc_uses_root_dirs(self):
-        """NYC uses root-level data/models/results for backward compat."""
+    def test_nyc_data_dir_reorganized_under_data_nyc(self):
+        """NYC reorg (Phase 1/G): NYC data lives under data/nyc/.
+
+        Models and results stay at the repo root where NYC's existing
+        benchmark artifacts live.
+        """
         cfg = get_city_config("nyc")
-        assert not cfg.data_dir.endswith("nyc")
+        assert cfg.data_dir.endswith(os.path.join("data", "nyc"))
+        # models/results remain root-level (not under a 'nyc' subdir).
+        assert not cfg.models_dir.rstrip("/").endswith("nyc")
+        assert not cfg.results_dir.rstrip("/").endswith("nyc")
 
     def test_phl_uses_city_subdirs(self):
         cfg = get_city_config("phl")
