@@ -251,15 +251,60 @@ def _filter_by_completeness(
     return merged, dropped_stations
 
 
+def load_ghcn_target_tmax(
+    target_station: str,
+    ghcn_raw_dir: str,
+    target_name: str,
+) -> Optional[pd.Series]:
+    """Load the GHCN-Daily TMAX series for the contract settlement station.
+
+    Kalshi daily-high-temperature contracts settle on the official GHCN-Daily
+    TMAX for the target station, so the *prediction target* (day t) must come
+    from GHCN even when every input feature is ASOS-derived. This loads
+    ``{ghcn_raw_dir}/{target_station}.csv`` (the same per-city GHCN raw file
+    used by the GHCN pipeline) and returns its TMAX column indexed by date.
+
+    Returns ``None`` (with a warning) if the GHCN raw file is unavailable, so
+    callers can fall back to the ASOS target rather than failing hard.
+    """
+    path = os.path.join(ghcn_raw_dir, f"{target_station}.csv")
+    if not os.path.exists(path):
+        logger.warning(
+            "GHCN target file not found at %s; cannot source GHCN label.", path,
+        )
+        return None
+    df = pd.read_csv(path, index_col="date", parse_dates=True)
+    if "TMAX" not in df.columns:
+        logger.warning("GHCN target file %s has no TMAX column.", path)
+        return None
+    series = df["TMAX"].copy()
+    series.name = target_name
+    series = series[~series.index.duplicated(keep="first")].sort_index()
+    logger.info(
+        "Loaded GHCN target TMAX for %s: %d non-missing days (%s to %s)",
+        target_station, int(series.notna().sum()),
+        series.index.min().strftime("%Y-%m-%d") if len(series) else "N/A",
+        series.index.max().strftime("%Y-%m-%d") if len(series) else "N/A",
+    )
+    return series
+
+
 def _create_target_and_features(
     merged: pd.DataFrame,
     target_station: str,
     city_code: str,
+    ghcn_target: Optional[pd.Series] = None,
 ) -> tuple[pd.DataFrame, pd.Series]:
-    """Create target variable and lagged surrounding-station features.
+    """Create the prediction target and lagged ASOS features.
 
-    Target: target_station TMAX on day t.
-    Features: surrounding station values from day t-1 (shift +1).
+    Target (day t): GHCN-Daily TMAX for ``target_station`` when *ghcn_target*
+    is supplied (the contract settlement source); otherwise the ASOS-derived
+    target-station TMAX as a fallback.
+
+    Features (day t-1): every station's ASOS values shifted +1 day, including
+    the target station's *own* prior-day (t-1) ASOS TMAX/TMIN. Same-day ASOS
+    target values never enter the feature set, so there is no leakage of the
+    GHCN label.
 
     Returns (features DataFrame, target Series).
     """
@@ -272,19 +317,21 @@ def _create_target_and_features(
             f"Available columns: {list(merged.columns)[:10]}..."
         )
 
-    # Separate target station columns from surrounding station columns
-    target_prefix = f"{target_station}_"
-    surrounding_cols = [
-        c for c in merged.columns if not c.startswith(target_prefix)
-    ]
-
-    # Target: TMAX on day t
-    target = merged[target_col].copy()
-    target.name = target_name
-
-    # Features: surrounding stations shifted by +1 day (lag = 1)
-    features = merged[surrounding_cols].shift(1).copy()
+    # Features: ALL stations (including the target station's own series)
+    # shifted by +1 day. The target station's t-1 ASOS TMAX/TMIN is a valid,
+    # leakage-free autoregressive feature.
+    features = merged.shift(1).copy()
     features.columns = [f"{c}_lag1" for c in features.columns]
+
+    # Target (day t): GHCN settlement source when available, else ASOS.
+    if ghcn_target is not None:
+        target = ghcn_target.reindex(merged.index).copy()
+        target.name = target_name
+        target_source = "GHCN"
+    else:
+        target = merged[target_col].copy()
+        target.name = target_name
+        target_source = "ASOS (GHCN unavailable)"
 
     # Drop first row (NaN from shift) and rows where target is missing
     valid_mask = target.notna() & features.notna().any(axis=1)
@@ -298,8 +345,8 @@ def _create_target_and_features(
         city_code.upper(), *features.shape,
     )
     logger.info(
-        "Target (%s): %d non-missing values",
-        target_name, target.notna().sum(),
+        "Target (%s) source=%s: %d non-missing values",
+        target_name, target_source, target.notna().sum(),
     )
     return features, target
 
@@ -366,6 +413,7 @@ def build_asos_features(
     asos_daily_dir: str,
     output_dir: str,
     variables: list[str] | None = None,
+    ghcn_raw_dir: Optional[str] = None,
 ) -> dict:
     """Full ASOS-based feature building pipeline for a city.
 
@@ -412,10 +460,27 @@ def build_asos_features(
         merged, cfg.target_station, cfg.min_completeness,
     )
 
-    # Step 4: Create target and lagged features
-    logger.info("Step 4: Creating target and lagged features")
+    # Step 4: Create target and lagged features.
+    # The prediction target (day t) is the GHCN-Daily TMAX for the settlement
+    # station (Kalshi's settlement source); features are ASOS t-1. Resolve the
+    # GHCN raw dir defensively so the mocked unit test (no real cfg.data_dir)
+    # falls back to the ASOS target.
+    logger.info("Step 4: Creating target (GHCN label) and lagged ASOS features")
+    target_name = _CITY_TARGET_NAMES.get(city_code, f"{city_code.upper()}_TMAX")
+    ghcn_target = None
+    try:
+        resolved_ghcn_dir = ghcn_raw_dir or os.path.join(cfg.data_dir, "raw")
+        ghcn_target = load_ghcn_target_tmax(
+            cfg.target_station, resolved_ghcn_dir, target_name,
+        )
+    except (TypeError, ValueError, OSError) as exc:
+        logger.warning(
+            "Could not resolve GHCN target for %s (%s); "
+            "falling back to ASOS target.", city_code.upper(), exc,
+        )
+
     features, target = _create_target_and_features(
-        merged_filtered, cfg.target_station, city_code,
+        merged_filtered, cfg.target_station, city_code, ghcn_target=ghcn_target,
     )
 
     # Step 5: Add cyclical date features
