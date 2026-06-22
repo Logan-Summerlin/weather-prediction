@@ -1,0 +1,17 @@
+{
+  "city_code": "chi",
+  "n_features": 93,
+  "n_test_days": 1479,
+  "test_date_min": "2020-12-13",
+  "test_date_max": "2024-12-30",
+  "mos_baseline": {
+    "crps": 2.082136838823976,
+    "contract_brier": 0.16250895481411803,
+    "rmse": 3.8326387706004073
+  },
+  "mos_residual_model": {
+    "crps": 1.805287199176005,
+    "contract_brier": 0.1578346474369037
+  },
+  "crps_improvement_vs_baseline": 0.2768496396479707
+}

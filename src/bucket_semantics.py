@@ -145,3 +145,82 @@ def bucket_outcome_from_edges(
     if hi >= _OPEN_EDGE:
         return (t >= lo).astype(int)
     return ((t >= lo) & (t < hi)).astype(int)
+
+
+# ---------------------------------------------------------------------------
+# Mixture distributions
+# ---------------------------------------------------------------------------
+# A K-component Gaussian mixture prices a contract by the weighted sum of its
+# component bucket probabilities: because the bucket probability is linear in
+# the component CDFs, P_mix(bucket) = sum_k w_k * P_k(bucket).  The
+# settlement-rounding shift is inherited from the single-Gaussian helpers, so
+# mixtures stay contract-faithful with no extra edge arithmetic.
+
+def _normalize_mixture(weights, mus, sigmas):
+    """Validate/broadcast mixture parameters to (n_days, K) arrays."""
+    mus = np.atleast_2d(np.asarray(mus, dtype=float))
+    sigmas = np.atleast_2d(np.asarray(sigmas, dtype=float))
+    if mus.shape != sigmas.shape:
+        raise ValueError(
+            f"mus shape {mus.shape} != sigmas shape {sigmas.shape}"
+        )
+    n_days, k = mus.shape
+    w = np.asarray(weights, dtype=float)
+    if w.ndim == 1:
+        if w.shape[0] != k:
+            raise ValueError(f"weights length {w.shape[0]} != n_components {k}")
+        w = np.broadcast_to(w, (n_days, k)).copy()
+    elif w.shape != (n_days, k):
+        raise ValueError(f"weights shape {w.shape} != {(n_days, k)}")
+    w_sum = w.sum(axis=1, keepdims=True)
+    w_sum = np.where(w_sum <= 0, 1.0, w_sum)
+    return w / w_sum, mus, np.maximum(sigmas, 1e-10)
+
+
+def mixture_bucket_prob_from_edges(
+    weights,
+    mus,
+    sigmas,
+    lo: float,
+    hi: float,
+) -> np.ndarray:
+    """Mixture bucket probability for a city_config (lo, hi) edge pair.
+
+    Parameters
+    ----------
+    weights : array
+        Component weights, shape ``(K,)`` (shared across days) or
+        ``(n_days, K)``.  Renormalized to sum to 1 per day.
+    mus, sigmas : array
+        Component parameters, shape ``(n_days, K)`` (a single day may be
+        passed as ``(K,)``).
+    """
+    w, mus, sigmas = _normalize_mixture(weights, mus, sigmas)
+    n_days, k = mus.shape
+    prob = np.zeros(n_days)
+    for j in range(k):
+        prob += w[:, j] * bucket_prob_from_edges(mus[:, j], sigmas[:, j], lo, hi)
+    return np.clip(prob, 0.0, 1.0)
+
+
+def mixture_bucket_prob_gaussian(
+    weights,
+    mus,
+    sigmas,
+    lo: ArrayLike,
+    hi: ArrayLike,
+    direction: ArrayLike,
+) -> np.ndarray:
+    """Mixture P(contract settles YES) with the settlement-rounding shift.
+
+    ``lo``, ``hi``, ``direction`` are per-day contract terms (shape
+    ``(n_days,)``); ``mus``/``sigmas`` are ``(n_days, K)``.
+    """
+    w, mus, sigmas = _normalize_mixture(weights, mus, sigmas)
+    n_days, k = mus.shape
+    prob = np.zeros(n_days)
+    for j in range(k):
+        prob += w[:, j] * bucket_prob_gaussian(
+            mus[:, j], sigmas[:, j], lo, hi, direction
+        )
+    return np.clip(prob, 0.0, 1.0)

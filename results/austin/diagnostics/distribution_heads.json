@@ -1,0 +1,22 @@
+{
+  "city_code": "aus",
+  "n_features": 68,
+  "n_test_days": 365,
+  "test_date_min": "2024-01-01",
+  "test_date_max": "2024-12-30",
+  "heads": {
+    "gaussian": {
+      "oos_crps": 2.954717140103104,
+      "contract_brier": 0.17121242862796537
+    },
+    "quantile": {
+      "oos_crps": 2.3977690564060397,
+      "contract_brier": 0.1694889879146426
+    },
+    "mixture": {
+      "oos_crps": 2.9503967276087866,
+      "contract_brier": 0.16933943721629924
+    }
+  },
+  "best_head_by_oos_crps": "quantile"
+}

@@ -1,0 +1,28 @@
+{
+  "n_contracts": 2171,
+  "n_days": 364,
+  "date_min": "2024-11-20",
+  "date_max": "2026-02-14",
+  "model_brier": 0.19638084344127238,
+  "market_brier": 0.1132028097650852,
+  "brier_edge": -0.08317803367618717,
+  "mean_abs_disagreement": 0.2169816267870451,
+  "by_strike_type": {
+    "between": {
+      "n": 1455,
+      "model_brier": 0.17895466520990605,
+      "market_brier": 0.1376096563573883
+    },
+    "greater": {
+      "n": 364,
+      "model_brier": 0.2853959185484076,
+      "market_brier": 0.08856366758241759
+    },
+    "less": {
+      "n": 352,
+      "model_brier": 0.17636266726979732,
+      "market_brier": 0.03779566761363636
+    }
+  },
+  "verdict": "NO_EDGE_MONITOR"
+}

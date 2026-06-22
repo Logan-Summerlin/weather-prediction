@@ -1023,3 +1023,57 @@ class TestEdgeCases:
         result = extract_sounding_features(df)
         # Should deduplicate
         assert not result.index.duplicated().any()
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: MOS/NWP feature group classification + operational MOS join
+# ---------------------------------------------------------------------------
+def test_mos_columns_classified_as_mos_group():
+    from src.operational_features import get_feature_groups, FEATURE_GROUP_TO_CUTOFF_FEATURE
+    df = pd.DataFrame(
+        {
+            "mos_ensemble_tmax": [80.0],
+            "mos_climo_anomaly": [2.0],
+            "gfs_nam_disagreement": [1.0],
+            "KPHL_TMAX_lag1": [78.0],
+        }
+    )
+    groups = get_feature_groups(df)
+    assert groups["mos_ensemble_tmax"] == "mos"
+    assert groups["mos_climo_anomaly"] == "mos"
+    assert groups["gfs_nam_disagreement"] == "mos"
+    # MOS group is gated on the morning MOS run for the 7am ET cutoff.
+    assert FEATURE_GROUP_TO_CUTOFF_FEATURE["mos"] == "mos_tmax_morning"
+
+
+def test_required_cutoff_features_includes_mos():
+    from src.operational_features import required_cutoff_features
+    df = pd.DataFrame({"mos_ensemble_tmax": [80.0], "KPHL_TMAX_lag1": [78.0]})
+    req = required_cutoff_features(df)
+    assert "mos_tmax_morning" in req
+    assert "asos_prior_day_daily" in req
+
+
+def test_add_operational_mos_features_parity():
+    import numpy as np
+    from src.operational_features import add_operational_mos_features
+    from src.mos_features import build_mos_features
+
+    dates = pd.date_range("2023-06-01", periods=4, freq="D")
+    feat = pd.DataFrame({"KPHL_TMAX_lag1": [70.0, 71, 72, 73]}, index=dates)
+    mos = pd.DataFrame(
+        {
+            "date": dates,
+            "gfs_mos_tmax_f": [80, 81, 79, 82],
+            "nam_mos_tmax_f": [78, 83, 81, 80],
+            "mos_ensemble_tmax_f": [79, 82, 80, 81],
+        }
+    )
+    climo = pd.Series(75.0, index=np.arange(1, 367))
+    joined = add_operational_mos_features(feat, mos, climo)
+    # Same MOS columns as the training-path builder, aligned by date.
+    ref = build_mos_features(mos, climo)
+    assert "mos_ensemble_tmax" in joined.columns
+    np.testing.assert_allclose(
+        joined["mos_ensemble_tmax"].to_numpy(), ref["mos_ensemble_tmax"].to_numpy()
+    )

@@ -1,8 +1,41 @@
 # Implementation Plan: Positive-EV Models, 10-City Portfolio, Real-Time EV Dashboard
 
-> Status: Phase 0 COMPLETE (2026-06-12). Phases 1-5 pending.
+> Status: Phase 0 COMPLETE (2026-06-12). Phase 1 COMPLETE. Phase 2 COMPLETE
+> (2026-06-22). Phases 3-5 pending.
 > Authoritative per-city metrics: `results/baseline_ledger.json`
 > (regenerate with `python scripts/build_baseline_ledger.py`).
+>
+> **Phase 1 (data parity) — DONE:** ASOS migration for CHI/ATL/PHL/AUS
+> (`results/<city>/asos_migration/`), 7am-ET cutoff manifest
+> (`results/cutoff_manifest.json` + `src/data_sla.py`) with a freshness
+> kill-switch wired into `src/schema_validation.py` and
+> `src/operational_features.py`, and the NYC reorg under `data/nyc/`.
+>
+> **Phase 2 (model optimization) — DONE:** all seven deliverables landed as
+> tested code + real artifacts under `results/<city>/diagnostics/`:
+> 1. Diagnostics — `src/model_diagnostics.py` + `scripts/run_model_diagnostics.py`
+>    (residual/sigma/PIT/model-vs-market). Austin's broken constant-54.6F sigma
+>    surfaced here.
+> 2. NWP/MOS lever — `src/mos_features.py` + `scripts/run_mos_residual_benchmark.py`
+>    (MOSCorrectionNet residual model; Chicago OOS CRPS 2.88 station-only ->
+>    1.81 with MOS). Operational parity via `add_operational_mos_features`;
+>    download CLI extended to KPHL/KATL/KAUS.
+> 3. Austin deep-dive — `results/austin/diagnostics/root_cause.md` (model
+>    quality, not station alignment; ASOS/GHCN offset at KAUS is -0.29F).
+> 4. Hparam search — `scripts/run_hparam_search.py` (rolling-origin 3-fold
+>    chronological CV, single OOS eval).
+> 5. Ensembling — `src/ensembling.py` + mixture bucket semantics
+>    (inverse-val-CRPS weighted Gaussian mixtures).
+> 6. Distribution heads — `src/distribution_heads.py` +
+>    `scripts/run_distribution_head_comparison.py` (Gaussian/quantile/mixture
+>    by OOS CRPS + contract Brier).
+> 7. Philadelphia SON — `src/frontal_features.py` + `RegimeConditionalCalibrator`
+>    + `scripts/run_son_calibration_diagnostic.py`.
+>
+> **Phase 2 gate status (unchanged conclusion):** no city yet beats its market
+> Brier on real OOS presettlement prices, so all remain **MONITOR**. The MOS
+> lever is the path forward (full multi-city MOS collection + retrain is Phase
+> 3 work); thresholds were not tuned to manufacture EV.
 
 ## Goals
 

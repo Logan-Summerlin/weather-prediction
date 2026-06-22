@@ -11,6 +11,7 @@ Usage:
     python scripts/download_iem_mos_data.py --station KNYC
 """
 
+import argparse
 import csv
 import logging
 import os
@@ -43,6 +44,16 @@ logger = logging.getLogger(__name__)
 IEM_MOS_URL = "https://mesonet.agron.iastate.edu/cgi-bin/request/mos.py"
 DEFAULT_STATION = "KNYC"
 MODELS = ["GFS", "NAM"]
+
+#: City -> target-station ICAO for the MOS archive (Phase 2: PHL/ATL/AUS added
+#: alongside the pre-existing NYC + Chicago KORD).
+CITY_MOS_STATION = {
+    "nyc": "KNYC",
+    "chi": "KORD",
+    "phl": "KPHL",
+    "atl": "KATL",
+    "aus": "KAUS",
+}
 START_YEAR = 2004  # Earliest available GFS MOS data for KNYC
 END_YEAR = 2026    # Up to current year
 MAX_RETRIES = 4
@@ -498,3 +509,30 @@ def run_for_station(station: str) -> None:
     print(f"  Both available: {both_count:,} days ({100*both_count/len(combined_df):.1f}%)")
     print(f"\nFiles saved to: {MOS_DATA_DIR}")
     print("=" * 60)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """CLI: download MOS for a station, a city, or all supported cities."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--station", help="4-char ICAO station (e.g. KPHL)")
+    group.add_argument("--city", choices=sorted(CITY_MOS_STATION),
+                       help="City code; resolves to its target-station ICAO")
+    group.add_argument("--all-cities", action="store_true",
+                       help="Download every supported city's MOS archive")
+    args = parser.parse_args(argv)
+
+    if args.station:
+        stations = [args.station.upper()]
+    elif args.city:
+        stations = [CITY_MOS_STATION[args.city]]
+    else:
+        stations = [CITY_MOS_STATION[c] for c in sorted(CITY_MOS_STATION)]
+
+    for station in stations:
+        run_for_station(station)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

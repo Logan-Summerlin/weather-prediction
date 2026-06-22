@@ -1,0 +1,47 @@
+{
+  "calibration": {
+    "model": "ridge_base",
+    "n_total": 364,
+    "n_test": 110,
+    "test_date_min": "2025-08-26",
+    "test_date_max": "2026-02-14",
+    "overall_ks": {
+      "raw": 0.14532993660032412,
+      "global_iso": 0.1741138606594077,
+      "seasonal_iso": 0.1599568785151802,
+      "frontal_regime": 0.17530769153792536
+    },
+    "fall_ks": {
+      "raw": {
+        "ks": 0.09840684775735953,
+        "is_uniform": true,
+        "n": 67
+      },
+      "seasonal_iso": {
+        "ks": 0.09622338985021149,
+        "is_uniform": true,
+        "n": 67
+      },
+      "frontal_regime": {
+        "ks": 0.0846976662607755,
+        "is_uniform": true,
+        "n": 67
+      }
+    },
+    "regime_fit": {
+      "regimes_fitted": [
+        "other"
+      ]
+    }
+  },
+  "son_error_by_regime": {
+    "post_frontal": {
+      "n": 4,
+      "mae": 1.998947715759277
+    },
+    "other": {
+      "n": 74,
+      "mae": 4.630624347300427
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "city_code": "chi",
+  "n_features": 90,
+  "n_test_days": 1479,
+  "test_date_min": "2020-12-13",
+  "test_date_max": "2024-12-30",
+  "heads": {
+    "gaussian": {
+      "oos_crps": 3.5564247385342713,
+      "contract_brier": 0.17490246503554652
+    },
+    "quantile": {
+      "oos_crps": 2.8978070132029776,
+      "contract_brier": 0.1744792162780922
+    },
+    "mixture": {
+      "oos_crps": 3.566128116062778,
+      "contract_brier": 0.1742852046768077
+    }
+  },
+  "best_head_by_oos_crps": "quantile"
+}

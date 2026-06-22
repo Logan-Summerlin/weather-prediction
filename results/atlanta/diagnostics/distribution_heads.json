@@ -1,0 +1,22 @@
+{
+  "city_code": "atl",
+  "n_features": 86,
+  "n_test_days": 1541,
+  "test_date_min": "2021-11-28",
+  "test_date_max": "2026-02-15",
+  "heads": {
+    "gaussian": {
+      "oos_crps": 2.7179283023614116,
+      "contract_brier": 0.1760214703736845
+    },
+    "quantile": {
+      "oos_crps": 2.2033269965130353,
+      "contract_brier": 0.1722800922449098
+    },
+    "mixture": {
+      "oos_crps": 2.7061306414121926,
+      "contract_brier": 0.17593092473932348
+    }
+  },
+  "best_head_by_oos_crps": "quantile"
+}

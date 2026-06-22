@@ -874,6 +874,101 @@ class IsotonicCalibrator:
         return calibrator
 
 
+class RegimeConditionalCalibrator:
+    """Calibrate separately within each weather *regime*, with a global fallback.
+
+    Generalizes :class:`IsotonicCalibrator(seasonal=True)` from the four
+    meteorological seasons to arbitrary discrete regime labels — e.g. a
+    fall frontal-passage indicator, a season x frontal cross, or a
+    volatility bin.  A regime with too few calibration samples falls back to
+    the pooled global calibrator, so fragmenting the data is safe.
+
+    Implemented by composition: one non-seasonal :class:`IsotonicCalibrator`
+    per regime plus one global calibrator, reusing the tested mu/sigma
+    inversion math rather than reimplementing it.
+
+    Parameters
+    ----------
+    min_samples : int
+        Minimum calibration samples for a regime to get its own calibrator
+        (default 30).  Below this, the regime uses the global fit.
+    """
+
+    def __init__(self, min_samples: int = 30):
+        self.min_samples = min_samples
+        self._regime_models: dict[object, IsotonicCalibrator] = {}
+        self._global: Optional[IsotonicCalibrator] = None
+        self._fitted = False
+
+    @property
+    def is_fitted(self) -> bool:
+        return self._fitted
+
+    @property
+    def regimes(self) -> list:
+        """Regime labels that received a dedicated calibrator."""
+        return list(self._regime_models.keys())
+
+    def fit(
+        self,
+        mu: Union[np.ndarray, pd.Series, list],
+        sigma: Union[np.ndarray, pd.Series, list],
+        observations: Union[np.ndarray, pd.Series, list],
+        regimes: Union[np.ndarray, pd.Series, list],
+    ) -> "RegimeConditionalCalibrator":
+        """Fit per-regime and global calibrators on a calibration set.
+
+        ``regimes`` is an array of hashable labels aligned with the
+        predictions.  PIT values are computed internally from (mu, sigma, obs).
+        """
+        mu_arr, sigma_arr = _to_numpy(mu), np.maximum(_to_numpy(sigma), 1e-10)
+        obs_arr = _to_numpy(observations)
+        regime_arr = np.asarray(regimes, dtype=object)
+        if not (len(mu_arr) == len(sigma_arr) == len(obs_arr) == len(regime_arr)):
+            raise ValueError("mu, sigma, observations, regimes must be equal length")
+        if len(mu_arr) == 0:
+            raise ValueError("Cannot fit on empty calibration set")
+
+        pit = compute_pit_values(mu_arr, sigma_arr, obs_arr)
+
+        self._global = IsotonicCalibrator(seasonal=False)
+        self._global.fit(pit)
+
+        self._regime_models = {}
+        for label in pd.unique(regime_arr):
+            mask = regime_arr == label
+            if mask.sum() >= self.min_samples:
+                cal = IsotonicCalibrator(seasonal=False)
+                cal.fit(pit[mask])
+                self._regime_models[label] = cal
+            else:
+                logger.info(
+                    "Regime %r has %d < %d samples; using global fallback",
+                    label, int(mask.sum()), self.min_samples,
+                )
+        self._fitted = True
+        return self
+
+    def calibrate(
+        self,
+        mu: Union[np.ndarray, pd.Series, list],
+        sigma: Union[np.ndarray, pd.Series, list],
+        regimes: Union[np.ndarray, pd.Series, list],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Apply the per-regime calibrator (global fallback) to new predictions."""
+        if not self._fitted:
+            raise RuntimeError("Calibrator has not been fitted. Call fit() first.")
+        mu_arr, sigma_arr = _to_numpy(mu), np.maximum(_to_numpy(sigma), 1e-10)
+        regime_arr = np.asarray(regimes, dtype=object)
+        cal_mu = np.empty_like(mu_arr, dtype=float)
+        cal_sigma = np.empty_like(sigma_arr, dtype=float)
+        for label in pd.unique(regime_arr):
+            mask = regime_arr == label
+            model = self._regime_models.get(label, self._global)
+            cal_mu[mask], cal_sigma[mask] = model.calibrate(mu_arr[mask], sigma_arr[mask])
+        return cal_mu, cal_sigma
+
+
 # ===========================================================================
 # 4. Interval Coverage Assessment
 # ===========================================================================
