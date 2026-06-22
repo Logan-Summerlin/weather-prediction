@@ -1,0 +1,22 @@
+{
+  "city_code": "phl",
+  "n_features": 92,
+  "n_test_days": 1479,
+  "test_date_min": "2020-12-13",
+  "test_date_max": "2024-12-30",
+  "heads": {
+    "gaussian": {
+      "oos_crps": 3.0574687811094763,
+      "contract_brier": 0.160870448224713
+    },
+    "quantile": {
+      "oos_crps": 2.4227111486779265,
+      "contract_brier": 0.16230463924576213
+    },
+    "mixture": {
+      "oos_crps": 2.9935304901895208,
+      "contract_brier": 0.16061382627992973
+    }
+  },
+  "best_head_by_oos_crps": "quantile"
+}
