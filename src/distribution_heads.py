@@ -163,6 +163,9 @@ def select_best_head(scores: list[HeadScore]) -> str:
 # ---------------------------------------------------------------------------
 # Torch heads (imported lazily so numpy scoring works without torch)
 # ---------------------------------------------------------------------------
+HEAD_FAMILIES = ("gaussian", "quantile", "mixture")
+
+
 def _require_torch():
     try:
         import torch  # noqa: F401
@@ -171,12 +174,22 @@ def _require_torch():
         raise ImportError("torch is required for the neural distribution heads") from exc
 
 
-def build_gaussian_net(n_features: int, hidden=64):
+def _mlp_body(n_features: int, hidden: int, depth: int):
+    """A ReLU MLP trunk with ``depth`` hidden layers."""
+    import torch.nn as nn
+    layers, in_dim = [], n_features
+    for _ in range(max(1, depth)):
+        layers += [nn.Linear(in_dim, hidden), nn.ReLU()]
+        in_dim = hidden
+    return nn.Sequential(*layers)
+
+
+def build_gaussian_net(n_features: int, hidden=64, depth=2):
     """An MLP emitting heteroscedastic Gaussian ``(mu, sigma)``.
 
-    The mu head carries a learnable bias initialized at zero (features are
-    z-scored, target centered separately by the caller) and log_sigma is
-    clamped to avoid the variance-collapse pathology seen in Phase 0.
+    log_sigma is clamped to avoid the variance-collapse pathology seen in
+    Phase 0 (Austin's blown-up constant sigma).  The caller centers the target,
+    so the mu head starts near the mean.
     """
     _require_torch()
     import torch
@@ -185,10 +198,7 @@ def build_gaussian_net(n_features: int, hidden=64):
     class GaussianNet(nn.Module):
         def __init__(self):
             super().__init__()
-            self.body = nn.Sequential(
-                nn.Linear(n_features, hidden), nn.ReLU(),
-                nn.Linear(hidden, hidden), nn.ReLU(),
-            )
+            self.body = _mlp_body(n_features, hidden, depth)
             self.mu = nn.Linear(hidden, 1)
             self.log_sigma = nn.Linear(hidden, 1)
 
@@ -212,7 +222,7 @@ def gaussian_nll_torch(mu, sigma, y):
     ).mean()
 
 
-def build_quantile_net(n_features: int, levels=DEFAULT_QUANTILE_LEVELS, hidden=64):
+def build_quantile_net(n_features: int, levels=DEFAULT_QUANTILE_LEVELS, hidden=64, depth=2):
     """An MLP emitting monotone quantiles via a cumulative-softplus head."""
     _require_torch()
     import torch
@@ -223,10 +233,7 @@ def build_quantile_net(n_features: int, levels=DEFAULT_QUANTILE_LEVELS, hidden=6
         def __init__(self):
             super().__init__()
             self.levels = tuple(levels)
-            self.body = nn.Sequential(
-                nn.Linear(n_features, hidden), nn.ReLU(),
-                nn.Linear(hidden, hidden), nn.ReLU(),
-            )
+            self.body = _mlp_body(n_features, hidden, depth)
             self.base = nn.Linear(hidden, 1)
             self.deltas = nn.Linear(hidden, len(levels) - 1)
 
@@ -239,8 +246,8 @@ def build_quantile_net(n_features: int, levels=DEFAULT_QUANTILE_LEVELS, hidden=6
     return QuantileNet()
 
 
-def build_mixture_net(n_features: int, n_components: int = 2, hidden=64):
-    """A 2-component Gaussian mixture density network (logits, mus, log-sigmas)."""
+def build_mixture_net(n_features: int, n_components: int = 2, hidden=64, depth=2):
+    """A K-component Gaussian mixture density network (weights, mus, sigmas)."""
     _require_torch()
     import torch
     import torch.nn as nn
@@ -249,10 +256,7 @@ def build_mixture_net(n_features: int, n_components: int = 2, hidden=64):
         def __init__(self):
             super().__init__()
             self.k = n_components
-            self.body = nn.Sequential(
-                nn.Linear(n_features, hidden), nn.ReLU(),
-                nn.Linear(hidden, hidden), nn.ReLU(),
-            )
+            self.body = _mlp_body(n_features, hidden, depth)
             self.logits = nn.Linear(hidden, n_components)
             self.mu = nn.Linear(hidden, n_components)
             self.log_sigma = nn.Linear(hidden, n_components)
@@ -288,3 +292,105 @@ def mixture_nll_torch(w, mu, sigma, y):
     )
     log_prob = torch.logsumexp(torch.log(w + 1e-12) + log_comp, dim=1)
     return -log_prob.mean()
+
+
+# ---------------------------------------------------------------------------
+# Unified head registry: build / loss / predict / score
+# ---------------------------------------------------------------------------
+def build_head(family: str, n_features: int, levels=DEFAULT_QUANTILE_LEVELS,
+               hidden=64, depth=2, n_components=2):
+    """Construct a head net for ``family`` in {gaussian, quantile, mixture}."""
+    if family == "gaussian":
+        return build_gaussian_net(n_features, hidden=hidden, depth=depth)
+    if family == "quantile":
+        return build_quantile_net(n_features, levels=levels, hidden=hidden, depth=depth)
+    if family == "mixture":
+        return build_mixture_net(n_features, n_components=n_components, hidden=hidden, depth=depth)
+    raise ValueError(f"Unknown head family {family!r}; expected one of {HEAD_FAMILIES}")
+
+
+def head_loss_fn(family: str, levels=DEFAULT_QUANTILE_LEVELS):
+    """Return ``loss(net_output, y_tensor)`` for the family."""
+    if family == "gaussian":
+        return lambda out, y: gaussian_nll_torch(out[0], out[1], y)
+    if family == "quantile":
+        return lambda out, y: pinball_loss_torch(levels, out, y)
+    if family == "mixture":
+        return lambda out, y: mixture_nll_torch(out[0], out[1], out[2], y)
+    raise ValueError(f"Unknown head family {family!r}")
+
+
+def train_head_net(net, loss_fn, X_tr, y_tr, X_va, y_va, epochs=150, lr=1e-2,
+                   weight_decay=0.0, batch_size=256, patience=40, seed=0):
+    """Mini-batch Adam with ReduceLROnPlateau and val-loss early stopping.
+
+    Tensors are expected as float32 torch tensors.  Returns the net with the
+    best-validation weights restored.
+    """
+    _require_torch()
+    import torch
+    torch.manual_seed(seed)
+    opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+    sched = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, factor=0.5, patience=10)
+    n = X_tr.shape[0]
+    best_val, best_state, bad = float("inf"), None, 0
+    for _ in range(epochs):
+        net.train()
+        perm = torch.randperm(n)
+        for s in range(0, n, batch_size):
+            idx = perm[s:s + batch_size]
+            opt.zero_grad()
+            loss = loss_fn(net(X_tr[idx]), y_tr[idx])
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 5.0)
+            opt.step()
+        net.eval()
+        with torch.no_grad():
+            val = loss_fn(net(X_va), y_va).item()
+        sched.step(val)
+        if val < best_val - 1e-5:
+            best_val = val
+            best_state = {k: v.clone() for k, v in net.state_dict().items()}
+            bad = 0
+        else:
+            bad += 1
+            if bad >= patience:
+                break
+    if best_state is not None:
+        net.load_state_dict(best_state)
+    return net, best_val
+
+
+def predict_head(family: str, net, X_tensor, y_mean: float,
+                 levels=DEFAULT_QUANTILE_LEVELS) -> dict:
+    """Run a trained head and return numpy forecast params (de-centered).
+
+    Keys by family: gaussian -> {mu, sigma}; quantile -> {levels, qvals};
+    mixture -> {weights, mus, sigmas}.
+    """
+    _require_torch()
+    import torch
+    net.eval()
+    with torch.no_grad():
+        out = net(X_tensor)
+    if family == "gaussian":
+        mu, sigma = out
+        return {"mu": mu.numpy() + y_mean, "sigma": np.maximum(sigma.numpy(), 1e-3)}
+    if family == "quantile":
+        return {"levels": np.array(levels), "qvals": out.numpy() + y_mean}
+    if family == "mixture":
+        w, mu, sigma = out
+        return {"weights": w.numpy(), "mus": mu.numpy() + y_mean,
+                "sigmas": np.maximum(sigma.numpy(), 1e-3)}
+    raise ValueError(f"Unknown head family {family!r}")
+
+
+def head_crps(family: str, pred: dict, y: np.ndarray) -> float:
+    """Mean OOS CRPS for a head's prediction dict (from :func:`predict_head`)."""
+    if family == "gaussian":
+        return float(np.mean(gaussian_crps(pred["mu"], pred["sigma"], y)))
+    if family == "quantile":
+        return float(np.mean(quantile_crps(pred["levels"], pred["qvals"], y)))
+    if family == "mixture":
+        return float(np.mean(gaussian_mixture_crps(pred["weights"], pred["mus"], pred["sigmas"], y)))
+    raise ValueError(f"Unknown head family {family!r}")

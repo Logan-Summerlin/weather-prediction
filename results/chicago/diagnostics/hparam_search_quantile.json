@@ -1,0 +1,120 @@
+{
+  "city_code": "chi",
+  "family": "quantile",
+  "budget": 10,
+  "n_folds": 3,
+  "n_dev_days": 8379,
+  "n_test_days": 1479,
+  "best_config": {
+    "hidden": 128,
+    "depth": 2,
+    "lr": 0.003,
+    "weight_decay": 0.0001,
+    "batch_size": 256
+  },
+  "best_cv_crps": 2.942170675260152,
+  "oos_crps": 3.0315510831265637,
+  "oos_contract_brier": 0.17392725585494942,
+  "trials": [
+    {
+      "config": {
+        "hidden": 128,
+        "depth": 2,
+        "lr": 0.003,
+        "weight_decay": 0.0001,
+        "batch_size": 256
+      },
+      "cv_crps": 2.942170675260152
+    },
+    {
+      "config": {
+        "hidden": 128,
+        "depth": 1,
+        "lr": 0.003,
+        "weight_decay": 0.0001,
+        "batch_size": 128
+      },
+      "cv_crps": 2.9581941936704053
+    },
+    {
+      "config": {
+        "hidden": 64,
+        "depth": 1,
+        "lr": 0.003,
+        "weight_decay": 0.0,
+        "batch_size": 128
+      },
+      "cv_crps": 2.9660068625679803
+    },
+    {
+      "config": {
+        "hidden": 64,
+        "depth": 1,
+        "lr": 0.003,
+        "weight_decay": 1e-05,
+        "batch_size": 128
+      },
+      "cv_crps": 2.967220010910269
+    },
+    {
+      "config": {
+        "hidden": 128,
+        "depth": 2,
+        "lr": 0.01,
+        "weight_decay": 0.0,
+        "batch_size": 256
+      },
+      "cv_crps": 2.9728743904175325
+    },
+    {
+      "config": {
+        "hidden": 128,
+        "depth": 2,
+        "lr": 0.01,
+        "weight_decay": 0.0,
+        "batch_size": 128
+      },
+      "cv_crps": 2.977802547017395
+    },
+    {
+      "config": {
+        "hidden": 64,
+        "depth": 3,
+        "lr": 0.01,
+        "weight_decay": 1e-05,
+        "batch_size": 256
+      },
+      "cv_crps": 2.9809902672258777
+    },
+    {
+      "config": {
+        "hidden": 128,
+        "depth": 2,
+        "lr": 0.01,
+        "weight_decay": 1e-05,
+        "batch_size": 256
+      },
+      "cv_crps": 2.9822905944848497
+    },
+    {
+      "config": {
+        "hidden": 32,
+        "depth": 3,
+        "lr": 0.03,
+        "weight_decay": 0.0,
+        "batch_size": 128
+      },
+      "cv_crps": 2.9957359956250786
+    },
+    {
+      "config": {
+        "hidden": 32,
+        "depth": 1,
+        "lr": 0.003,
+        "weight_decay": 0.0,
+        "batch_size": 256
+      },
+      "cv_crps": 3.024084356498523
+    }
+  ]
+}

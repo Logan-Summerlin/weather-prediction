@@ -6,16 +6,16 @@
   "test_date_max": "2024-12-30",
   "heads": {
     "gaussian": {
-      "oos_crps": 3.5865560189509402,
-      "contract_brier": 0.17545314708668794
+      "oos_crps": 3.5564247385342713,
+      "contract_brier": 0.17490246503554652
     },
     "quantile": {
-      "oos_crps": 2.877277242074114,
-      "contract_brier": 0.17326151051018332
+      "oos_crps": 2.8978070132029776,
+      "contract_brier": 0.1744792162780922
     },
     "mixture": {
-      "oos_crps": 3.6480625431527787,
-      "contract_brier": 0.1743124324170205
+      "oos_crps": 3.566128116062778,
+      "contract_brier": 0.1742852046768077
     }
   },
   "best_head_by_oos_crps": "quantile"
