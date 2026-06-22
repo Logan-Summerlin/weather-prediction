@@ -509,3 +509,382 @@ def is_critical(source_name: str) -> bool:
 
 # Backward-compatible alias for callers that used the old function name.
 list_slas = list_sla_sources
+
+
+# ===================================================================
+# 7am-ET inference cutoff manifest
+# ===================================================================
+# Phase 1 deliverable: a per-feature availability manifest documenting, for
+# every operational inference feature source, whether the data it depends on
+# is verifiably published by the hard 7:00 AM Eastern Time cutoff on the day
+# of the market.  This is the contract that ``schema_validation`` and
+# ``operational_features`` enforce at inference time; a feature that cannot be
+# proven fresh by 7am ET is a kill-switch event (no trading on stale inputs).
+#
+# Two timing facts drive every entry below:
+#   * 7am ET == 11:00 UTC during EDT (Mar-Nov) and 12:00 UTC during EST
+#     (Nov-Mar).  We use the *conservative* (earliest) wall-clock equivalent,
+#     11:00 UTC, when deciding whether a fixed-UTC product run is usable, so
+#     the manifest never claims a product is available that is not yet out in
+#     summer.
+#   * Anything observed/issued *after* the cutoff is unusable for that day and
+#     must fall back to the most recent pre-cutoff vintage.
+# ---------------------------------------------------------------------------
+
+#: Hard morning inference cutoff, expressed in US Eastern wall-clock time.
+CUTOFF_HOUR_ET = 7
+
+#: IANA timezone the cutoff is anchored to.  All cities, regardless of their
+#: local timezone, share this single Eastern-Time cutoff.
+CUTOFF_TIMEZONE = "America/New_York"
+
+#: Conservative UTC hour that 7am ET maps to.  During EDT 7am ET = 11:00 UTC;
+#: during EST 7am ET = 12:00 UTC.  We take the earlier (EDT) value so a
+#: fixed-UTC model run is only declared "usable" if it is out by 11:00 UTC,
+#: which holds year-round.
+CUTOFF_HOUR_UTC_CONSERVATIVE = 11
+
+#: Manifest version (bump when cutoff entries change materially).
+CUTOFF_MANIFEST_VERSION = "1.0.0"
+
+
+@dataclass(frozen=True)
+class CutoffFeatureSpec:
+    """7am-ET availability contract for a single inference feature source.
+
+    Each operational feature consumed at inference time is backed by exactly
+    one upstream product (ASOS hourly, a MOS run, a sounding cycle, the
+    prior-day settlement feed, ...).  This dataclass records, per the project
+    ground rules, the four things needed to decide whether that feature is
+    usable at the 7am ET cutoff and what to do when it is not.
+
+    Attributes:
+        feature: Stable identifier used by validators and feature builders
+                 (e.g. ``"asos_prior_day_daily"``, ``"mos_tmax_morning"``).
+        source: Human-readable upstream product / provider.
+        description: What the feature contributes to the model.
+        publication_schedule: When the upstream product is published, in
+                 prose (e.g. ``"hourly, ~5-20 min after the valid hour"``).
+        latency_hours: Typical worst-case lag between a record's nominal
+                 valid/issue time and its public availability.
+        latest_usable_lag_hours: How far *before* the 7am ET cutoff the most
+                 recent usable record's valid time sits, in hours.  ``0`` means
+                 a record valid right at the cutoff is usable; ``25`` means the
+                 freshest usable record is from the prior calendar day.  This
+                 is the number that turns the cutoff into a concrete
+                 ``latest_usable_timestamp`` (see
+                 :func:`latest_usable_timestamp`).
+        run_cycles_utc: For cycled NWP/MOS/sounding products, the fixed UTC
+                 issue hours that are provably published by the conservative
+                 cutoff (e.g. ``(0, 6)`` for the 00Z and 06Z MOS runs).  Empty
+                 for continuously-published products such as hourly ASOS.
+        fallback_behavior: What the operational path must do when the freshest
+                 vintage is missing or post-cutoff.
+        criticality: ``"critical"`` (stale -> kill switch / halt) or
+                 ``"recommended"`` (stale -> degrade + warn, do not halt).
+        max_staleness_hours: Maximum acceptable age, at the cutoff, of the
+                 freshest record before the source is considered stale.  This
+                 is what the freshness validator compares against.
+        sla_source: Optional cross-link to a :class:`DataSourceSLA` ``name``
+                 describing the same product's schema.
+    """
+
+    feature: str
+    source: str
+    description: str
+    publication_schedule: str
+    latency_hours: float
+    latest_usable_lag_hours: float
+    fallback_behavior: str
+    criticality: str  # "critical" or "recommended"
+    max_staleness_hours: float
+    run_cycles_utc: tuple = ()
+    sla_source: Optional[str] = None
+
+
+# -------------------------------------------------------------------
+# Cutoff manifest entries
+# -------------------------------------------------------------------
+
+_CUTOFF_ASOS_PRIOR_DAY = CutoffFeatureSpec(
+    feature="asos_prior_day_daily",
+    source="IEM ASOS (hourly METAR archive)",
+    description=(
+        "Daily ASOS aggregates (TMAX/TMIN/dewpoint/wind) for the prior "
+        "calendar day (D-1), the autoregressive and station-network backbone "
+        "of every city model."
+    ),
+    publication_schedule="hourly, ~5-20 min after each valid hour",
+    latency_hours=1.0,
+    # The full prior day (through 23:59 local) is complete and published well
+    # before the next morning's 7am ET cutoff.  ~31h back from the cutoff
+    # guarantees we never reach into the current day's incomplete record.
+    latest_usable_lag_hours=7.0,
+    run_cycles_utc=(),
+    fallback_behavior=(
+        "Use the most recent fully-observed prior day; if the freshest ASOS "
+        "observation is older than max_staleness_hours, halt (kill switch)."
+    ),
+    criticality="critical",
+    max_staleness_hours=12.0,
+    sla_source="asos_daily",
+)
+
+_CUTOFF_ASOS_OVERNIGHT = CutoffFeatureSpec(
+    feature="asos_overnight_obs",
+    source="IEM ASOS (hourly METAR archive)",
+    description=(
+        "Latest available morning ASOS observation (temperature, dewpoint, "
+        "wind, pressure tendency) up to the cutoff, used for same-day "
+        "persistence / morning-state features."
+    ),
+    publication_schedule="hourly, ~5-20 min after each valid hour",
+    latency_hours=1.0,
+    # A 06:00 ET observation publishes ~06:20 ET, comfortably before 7am ET;
+    # we require the freshest ob to be no more than 1h before the cutoff.
+    latest_usable_lag_hours=1.0,
+    run_cycles_utc=(),
+    fallback_behavior=(
+        "Step back one hour at a time to the last published observation; "
+        "halt if no observation within max_staleness_hours of the cutoff."
+    ),
+    criticality="critical",
+    max_staleness_hours=3.0,
+    sla_source="asos_hourly",
+)
+
+_CUTOFF_MOS_MORNING = CutoffFeatureSpec(
+    feature="mos_tmax_morning",
+    source="NWS MOS (GFS MAV / NAM MET) via IEM",
+    description=(
+        "Today's MOS maximum-temperature guidance and MOS-climatology "
+        "anomaly -- the primary NWP-informed signal.  Uses the freshest MOS "
+        "cycle provably published by 7am ET."
+    ),
+    publication_schedule=(
+        "00Z run issued ~02-03Z; 06Z run issued ~08-09Z.  06Z guidance "
+        "(~08-09Z = 03-04 ET) is out before the conservative 11:00 UTC "
+        "cutoff; the 12Z run (issued ~14-15Z) is NOT."
+    ),
+    latency_hours=3.0,
+    latest_usable_lag_hours=0.0,
+    run_cycles_utc=(0, 6),
+    fallback_behavior=(
+        "Prefer the 06Z run; fall back to the 00Z run if 06Z is missing.  "
+        "If neither cycle is available, drop MOS features and flag a "
+        "kill-switch event (model is NWP-blind for the day)."
+    ),
+    criticality="critical",
+    max_staleness_hours=12.0,
+    sla_source="nwp_data",
+)
+
+_CUTOFF_SOUNDING = CutoffFeatureSpec(
+    feature="sounding_00z",
+    source="IGRA / RAOB upper-air soundings",
+    description=(
+        "Upper-air stability and 850mb thermal/wind features.  CRITICAL "
+        "TIMING NOTE: the 12Z sounding (valid 12:00 UTC) is issued AFTER the "
+        "7am ET cutoff and must never feed live inference -- only the 00Z "
+        "sounding of the market day is cutoff-safe."
+    ),
+    publication_schedule=(
+        "00Z and 12Z launches; 00Z data available ~02-03Z.  12Z is "
+        "post-cutoff."
+    ),
+    latency_hours=3.0,
+    # 00Z of the market day is valid 7-8pm ET the prior evening: ~11h back.
+    latest_usable_lag_hours=11.0,
+    run_cycles_utc=(0,),
+    fallback_behavior=(
+        "Use the 00Z sounding of the market day; if absent, fall back to the "
+        "prior day's 12Z sounding.  Soundings are recommended, not blocking: "
+        "degrade gracefully and warn rather than halting."
+    ),
+    criticality="recommended",
+    max_staleness_hours=30.0,
+    sla_source="sounding_data",
+)
+
+_CUTOFF_PRIOR_SETTLEMENT = CutoffFeatureSpec(
+    feature="prior_day_settlement",
+    source="Kalshi settled-contract feed",
+    description=(
+        "Prior-day settled high-temperature outcome, used for realized-error "
+        "tracking, calibration-drift monitoring, and persistence baselines."
+    ),
+    publication_schedule="settles the morning after the contract day",
+    latency_hours=8.0,
+    # The D-1 settlement is published overnight, available by the D 7am cutoff.
+    latest_usable_lag_hours=7.0,
+    run_cycles_utc=(),
+    fallback_behavior=(
+        "Use the latest settled day; if the prior day has not settled by the "
+        "cutoff, skip settlement-dependent monitoring features and warn "
+        "(non-blocking) but flag for the calibration-drift kill switch."
+    ),
+    criticality="recommended",
+    max_staleness_hours=36.0,
+    sla_source=None,
+)
+
+
+# -------------------------------------------------------------------
+# Cutoff registry (keyed by CutoffFeatureSpec.feature)
+# -------------------------------------------------------------------
+
+_CUTOFF_REGISTRY: Dict[str, CutoffFeatureSpec] = {
+    spec.feature: spec
+    for spec in [
+        _CUTOFF_ASOS_PRIOR_DAY,
+        _CUTOFF_ASOS_OVERNIGHT,
+        _CUTOFF_MOS_MORNING,
+        _CUTOFF_SOUNDING,
+        _CUTOFF_PRIOR_SETTLEMENT,
+    ]
+}
+
+
+# ===================================================================
+# Cutoff manifest public API
+# ===================================================================
+
+def get_cutoff_spec(feature: str) -> CutoffFeatureSpec:
+    """Look up the 7am-ET cutoff spec for an inference feature.
+
+    Parameters
+    ----------
+    feature : str
+        Registered feature identifier (e.g. ``"mos_tmax_morning"``).
+
+    Returns
+    -------
+    CutoffFeatureSpec
+        The cutoff availability contract for the feature.
+
+    Raises
+    ------
+    KeyError
+        If *feature* is not registered in the cutoff manifest.
+    """
+    key = feature.strip().lower()
+    if key not in _CUTOFF_REGISTRY:
+        available = ", ".join(sorted(_CUTOFF_REGISTRY.keys()))
+        raise KeyError(
+            f"Unknown cutoff feature '{feature}'. "
+            f"Registered features: {available}"
+        )
+    return _CUTOFF_REGISTRY[key]
+
+
+def list_cutoff_features() -> List[str]:
+    """Return a sorted list of all registered cutoff feature identifiers."""
+    return sorted(_CUTOFF_REGISTRY.keys())
+
+
+def get_cutoff_manifest_version() -> str:
+    """Return the cutoff manifest version string (semver)."""
+    return CUTOFF_MANIFEST_VERSION
+
+
+def get_critical_cutoff_features() -> List[str]:
+    """Return the identifiers of cutoff features whose staleness halts trading."""
+    return sorted(
+        f for f, spec in _CUTOFF_REGISTRY.items()
+        if spec.criticality == "critical"
+    )
+
+
+def cutoff_instant_utc(market_date):
+    """Return the UTC :class:`datetime` of the 7am-ET cutoff for a market day.
+
+    The cutoff is resolved in the canonical Eastern timezone and converted to
+    UTC, so it correctly reflects EST (12:00 UTC) vs EDT (11:00 UTC).  When the
+    optional ``zoneinfo`` timezone database is unavailable, falls back to the
+    conservative fixed offset (:data:`CUTOFF_HOUR_UTC_CONSERVATIVE`).
+
+    Parameters
+    ----------
+    market_date : datetime.date or datetime.datetime or str
+        The market day (the day the contract settles on).  Strings are parsed
+        as ISO ``YYYY-MM-DD``.
+
+    Returns
+    -------
+    datetime.datetime
+        Timezone-aware UTC datetime of the 7am ET cutoff on *market_date*.
+    """
+    from datetime import datetime, date, timezone, timedelta
+
+    if isinstance(market_date, str):
+        market_date = date.fromisoformat(market_date[:10])
+    elif isinstance(market_date, datetime):
+        market_date = market_date.date()
+
+    naive_local = datetime(
+        market_date.year, market_date.month, market_date.day, CUTOFF_HOUR_ET
+    )
+    try:
+        from zoneinfo import ZoneInfo
+
+        local = naive_local.replace(tzinfo=ZoneInfo(CUTOFF_TIMEZONE))
+        return local.astimezone(timezone.utc)
+    except Exception:  # pragma: no cover - zoneinfo/tzdata missing
+        # Conservative fallback: treat the cutoff as the EDT-equivalent UTC
+        # hour (earliest), which never over-claims product availability.
+        return datetime(
+            market_date.year, market_date.month, market_date.day,
+            CUTOFF_HOUR_UTC_CONSERVATIVE, tzinfo=timezone.utc,
+        )
+
+
+def latest_usable_timestamp(feature: str, market_date):
+    """Compute the latest record timestamp usable for a feature at the cutoff.
+
+    A record whose valid/issue time is *after* this instant has not been
+    published by the 7am ET cutoff (or belongs to the current, incomplete
+    day) and must not be used for *market_date* inference.
+
+    Parameters
+    ----------
+    feature : str
+        Registered cutoff feature identifier.
+    market_date : datetime.date or datetime.datetime or str
+        The market day.
+
+    Returns
+    -------
+    datetime.datetime
+        Timezone-aware UTC datetime; the newest record valid time that is
+        cutoff-safe for *market_date*.
+    """
+    from datetime import timedelta
+
+    spec = get_cutoff_spec(feature)
+    cutoff = cutoff_instant_utc(market_date)
+    return cutoff - timedelta(hours=spec.latest_usable_lag_hours)
+
+
+def build_cutoff_manifest_table() -> List[Dict[str, object]]:
+    """Return the cutoff manifest as a list of plain dicts (for export/report).
+
+    Each row captures the documented availability contract for one inference
+    feature, suitable for serialising to JSON/CSV or rendering in a report.
+    """
+    rows: List[Dict[str, object]] = []
+    for feature in list_cutoff_features():
+        spec = _CUTOFF_REGISTRY[feature]
+        rows.append({
+            "feature": spec.feature,
+            "source": spec.source,
+            "description": spec.description,
+            "publication_schedule": spec.publication_schedule,
+            "latency_hours": spec.latency_hours,
+            "latest_usable_lag_hours": spec.latest_usable_lag_hours,
+            "run_cycles_utc": list(spec.run_cycles_utc),
+            "fallback_behavior": spec.fallback_behavior,
+            "criticality": spec.criticality,
+            "max_staleness_hours": spec.max_staleness_hours,
+            "sla_source": spec.sla_source,
+        })
+    return rows

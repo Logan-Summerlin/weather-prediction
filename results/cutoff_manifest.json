@@ -1,0 +1,84 @@
+{
+  "manifest_version": "1.0.0",
+  "cutoff_hour_et": 7,
+  "cutoff_timezone": "America/New_York",
+  "example_market_date": "2026-07-01",
+  "example_cutoff_utc": "2026-07-01T11:00:00+00:00",
+  "features": [
+    {
+      "feature": "asos_overnight_obs",
+      "source": "IEM ASOS (hourly METAR archive)",
+      "description": "Latest available morning ASOS observation (temperature, dewpoint, wind, pressure tendency) up to the cutoff, used for same-day persistence / morning-state features.",
+      "publication_schedule": "hourly, ~5-20 min after each valid hour",
+      "latency_hours": 1.0,
+      "latest_usable_lag_hours": 1.0,
+      "run_cycles_utc": [],
+      "fallback_behavior": "Step back one hour at a time to the last published observation; halt if no observation within max_staleness_hours of the cutoff.",
+      "criticality": "critical",
+      "max_staleness_hours": 3.0,
+      "sla_source": "asos_hourly",
+      "latest_usable_utc_example": "2026-07-01T10:00:00+00:00"
+    },
+    {
+      "feature": "asos_prior_day_daily",
+      "source": "IEM ASOS (hourly METAR archive)",
+      "description": "Daily ASOS aggregates (TMAX/TMIN/dewpoint/wind) for the prior calendar day (D-1), the autoregressive and station-network backbone of every city model.",
+      "publication_schedule": "hourly, ~5-20 min after each valid hour",
+      "latency_hours": 1.0,
+      "latest_usable_lag_hours": 7.0,
+      "run_cycles_utc": [],
+      "fallback_behavior": "Use the most recent fully-observed prior day; if the freshest ASOS observation is older than max_staleness_hours, halt (kill switch).",
+      "criticality": "critical",
+      "max_staleness_hours": 12.0,
+      "sla_source": "asos_daily",
+      "latest_usable_utc_example": "2026-07-01T04:00:00+00:00"
+    },
+    {
+      "feature": "mos_tmax_morning",
+      "source": "NWS MOS (GFS MAV / NAM MET) via IEM",
+      "description": "Today's MOS maximum-temperature guidance and MOS-climatology anomaly -- the primary NWP-informed signal.  Uses the freshest MOS cycle provably published by 7am ET.",
+      "publication_schedule": "00Z run issued ~02-03Z; 06Z run issued ~08-09Z.  06Z guidance (~08-09Z = 03-04 ET) is out before the conservative 11:00 UTC cutoff; the 12Z run (issued ~14-15Z) is NOT.",
+      "latency_hours": 3.0,
+      "latest_usable_lag_hours": 0.0,
+      "run_cycles_utc": [
+        0,
+        6
+      ],
+      "fallback_behavior": "Prefer the 06Z run; fall back to the 00Z run if 06Z is missing.  If neither cycle is available, drop MOS features and flag a kill-switch event (model is NWP-blind for the day).",
+      "criticality": "critical",
+      "max_staleness_hours": 12.0,
+      "sla_source": "nwp_data",
+      "latest_usable_utc_example": "2026-07-01T11:00:00+00:00"
+    },
+    {
+      "feature": "prior_day_settlement",
+      "source": "Kalshi settled-contract feed",
+      "description": "Prior-day settled high-temperature outcome, used for realized-error tracking, calibration-drift monitoring, and persistence baselines.",
+      "publication_schedule": "settles the morning after the contract day",
+      "latency_hours": 8.0,
+      "latest_usable_lag_hours": 7.0,
+      "run_cycles_utc": [],
+      "fallback_behavior": "Use the latest settled day; if the prior day has not settled by the cutoff, skip settlement-dependent monitoring features and warn (non-blocking) but flag for the calibration-drift kill switch.",
+      "criticality": "recommended",
+      "max_staleness_hours": 36.0,
+      "sla_source": null,
+      "latest_usable_utc_example": "2026-07-01T04:00:00+00:00"
+    },
+    {
+      "feature": "sounding_00z",
+      "source": "IGRA / RAOB upper-air soundings",
+      "description": "Upper-air stability and 850mb thermal/wind features.  CRITICAL TIMING NOTE: the 12Z sounding (valid 12:00 UTC) is issued AFTER the 7am ET cutoff and must never feed live inference -- only the 00Z sounding of the market day is cutoff-safe.",
+      "publication_schedule": "00Z and 12Z launches; 00Z data available ~02-03Z.  12Z is post-cutoff.",
+      "latency_hours": 3.0,
+      "latest_usable_lag_hours": 11.0,
+      "run_cycles_utc": [
+        0
+      ],
+      "fallback_behavior": "Use the 00Z sounding of the market day; if absent, fall back to the prior day's 12Z sounding.  Soundings are recommended, not blocking: degrade gracefully and warn rather than halting.",
+      "criticality": "recommended",
+      "max_staleness_hours": 30.0,
+      "sla_source": "sounding_data",
+      "latest_usable_utc_example": "2026-07-01T00:00:00+00:00"
+    }
+  ]
+}
