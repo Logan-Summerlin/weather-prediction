@@ -1,0 +1,12 @@
+{
+  "mean_sigma": 7.083233415799766,
+  "sigma_min": 3.6195098881277152,
+  "sigma_max": 11.352203402056706,
+  "sigma_unique": 355,
+  "realized_rmse": 8.413814921532591,
+  "calibration_ratio": 1.1878494506145805,
+  "mean_abs_error": 6.632091924410543,
+  "mean_expected_abs_error": 5.651602583029576,
+  "constant_sigma": false,
+  "sigma_pathology": false
+}
