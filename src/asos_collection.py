@@ -12,6 +12,8 @@ import csv
 import os
 import sys
 import logging
+import random
+import time
 from datetime import datetime, timedelta
 from typing import Iterable, Optional
 
@@ -38,6 +40,43 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# HTTP status codes worth retrying (IEM rate-limits aggressive scraping with
+# 429; transient server errors are also retryable).
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+# Module-level timestamp of the last network request, used to enforce a
+# minimum inter-request spacing (politeness throttle) across calls.
+_last_request_ts: float = 0.0
+
+
+def _throttle(min_interval: float) -> None:
+    """Sleep so consecutive network requests are at least *min_interval* apart."""
+    global _last_request_ts
+    if min_interval <= 0:
+        return
+    now = time.monotonic()
+    wait = min_interval - (now - _last_request_ts)
+    if wait > 0:
+        time.sleep(wait)
+    _last_request_ts = time.monotonic()
+
+
+def _retry_wait_seconds(exc: requests.RequestException, attempt: int,
+                        backoff_base: float, max_wait: float) -> float:
+    """Compute the backoff before the next retry, honoring ``Retry-After``."""
+    response = getattr(exc, "response", None)
+    if response is not None:
+        retry_after = response.headers.get("Retry-After") if response.headers else None
+        if retry_after:
+            try:
+                return min(float(retry_after), max_wait)
+            except (TypeError, ValueError):
+                pass
+    # Exponential backoff with jitter: base^attempt (+/- 25%).
+    base = backoff_base ** attempt
+    jitter = base * 0.25 * (2 * random.random() - 1)
+    return min(max(base + jitter, 0.0), max_wait)
 
 
 def load_asos_station_map(mapping_csv: str) -> dict[str, str]:
@@ -111,8 +150,19 @@ def download_asos_station(
     data_fields: Optional[Iterable[str]] = None,
     output_path: Optional[str] = None,
     timeout: int = 120,
+    max_retries: int = 4,
+    backoff_base: float = 3.0,
+    max_wait: float = 90.0,
+    min_interval: float = 0.0,
 ) -> str:
-    """Download hourly ASOS data for a single station."""
+    """Download hourly ASOS data for a single station.
+
+    Retries on rate-limit (HTTP 429) and transient server errors with
+    exponential backoff, honoring any ``Retry-After`` header.  ``min_interval``
+    enforces a minimum spacing between successive network requests so bulk
+    collection stays polite to the IEM service (defaults to 0 = no throttle,
+    preserving fast unit tests).  Non-retryable errors propagate immediately.
+    """
     os.makedirs(output_dir, exist_ok=True)
     if output_path is None:
         output_path = os.path.join(output_dir, f"{icao}.csv")
@@ -122,16 +172,34 @@ def download_asos_station(
         return output_path
 
     url = build_asos_request_url(icao, start_date, end_date, data_fields)
-    logger.info("Requesting ASOS data: %s", url)
-    response = requests.get(url, timeout=timeout)
-    response.raise_for_status()
 
-    with open(output_path, "wb") as handle:
-        handle.write(response.content)
+    for attempt in range(max_retries + 1):
+        _throttle(min_interval)
+        logger.info("Requesting ASOS data (attempt %d): %s", attempt + 1, url)
+        try:
+            response = requests.get(url, timeout=timeout)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status not in _RETRYABLE_STATUS or attempt >= max_retries:
+                raise
+            wait = _retry_wait_seconds(exc, attempt + 1, backoff_base, max_wait)
+            logger.warning(
+                "ASOS request for %s got HTTP %s; retrying in %.1fs (attempt %d/%d)",
+                icao, status, wait, attempt + 1, max_retries,
+            )
+            time.sleep(wait)
+            continue
 
-    logger.info("Saved ASOS data to %s (%.1f KB)",
-                output_path, os.path.getsize(output_path) / 1024)
-    return output_path
+        with open(output_path, "wb") as handle:
+            handle.write(response.content)
+
+        logger.info("Saved ASOS data to %s (%.1f KB)",
+                    output_path, os.path.getsize(output_path) / 1024)
+        return output_path
+
+    # Unreachable: the loop either returns or raises.
+    raise RuntimeError(f"Exhausted retries downloading ASOS for {icao}")
 
 
 def download_asos_station_range(
@@ -141,6 +209,8 @@ def download_asos_station_range(
     end_date: str,
     data_fields: Optional[Iterable[str]] = None,
     chunk_years: int = 1,
+    min_interval: float = 0.0,
+    max_retries: int = 4,
 ) -> list[str]:
     """Download ASOS data for a station in smaller date chunks."""
     paths: list[str] = []
@@ -159,6 +229,8 @@ def download_asos_station_range(
             end_date=chunk_end,
             data_fields=data_fields,
             output_path=output_path,
+            min_interval=min_interval,
+            max_retries=max_retries,
         )
         paths.append(path)
     return paths
@@ -171,8 +243,15 @@ def collect_asos_data(
     end_date: str = config.ASOS_END_DATE,
     data_fields: Optional[Iterable[str]] = None,
     chunk_years: int = 1,
+    min_interval: float = 0.0,
+    max_retries: int = 4,
 ) -> dict[str, str]:
-    """Collect ASOS data for all mapped stations."""
+    """Collect ASOS data for all mapped stations.
+
+    ``min_interval`` spaces out network requests (seconds) to stay within the
+    IEM service's rate limits during bulk collection; ``max_retries`` controls
+    backoff retries on HTTP 429 / transient errors.
+    """
     station_map = load_asos_station_map(mapping_csv)
     results: dict[str, str] = {}
 
@@ -186,6 +265,8 @@ def collect_asos_data(
                 end_date=end_date,
                 data_fields=data_fields,
                 chunk_years=chunk_years,
+                min_interval=min_interval,
+                max_retries=max_retries,
             )
             if paths:
                 results[station_id] = paths[-1]

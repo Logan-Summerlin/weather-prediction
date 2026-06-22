@@ -25,6 +25,9 @@ env/
 data/raw/*.dly
 data/raw/*.csv
 data/raw/kalshi_api/
+# Raw ASOS hourly archives per city (large, re-downloadable from IEM).
+# Processed ASOS daily aggregates and feature splits ARE tracked.
+data/*/raw/asos/
 data/processed/
 data/processed_v2/
 data/processed_expanded/
