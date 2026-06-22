@@ -918,11 +918,58 @@ def get_feature_groups(feature_df: pd.DataFrame) -> dict[str, str]:
             groups[col] = "diurnal_range"
         elif col.startswith("trend_"):
             groups[col] = "trend"
+        elif (
+            col.startswith("mos_")
+            or col.startswith("gfs_")
+            or col.startswith("nam_")
+            or "_mos_" in col
+        ):
+            # Phase 2 MOS/NWP features (mos_ensemble_tmax, mos_climo_anomaly,
+            # gfs_nam_disagreement) — gated on the 7am-ET mos_tmax_morning run.
+            groups[col] = "mos"
         elif "_TMAX_lag" in col or "_TMIN_lag" in col:
             groups[col] = "station_temperature"
         else:
             groups[col] = "other"
     return groups
+
+
+# ============================================================================
+# Operational MOS/NWP features (Phase 2 — mirrors src.mos_features for inference)
+# ============================================================================
+
+def add_operational_mos_features(
+    feature_df: pd.DataFrame,
+    mos: pd.DataFrame,
+    climo_by_doy,
+) -> pd.DataFrame:
+    """Join cutoff-safe MOS features onto an operational feature matrix.
+
+    Mirrors :func:`src.mos_features.build_mos_features` so the live inference
+    path constructs the exact same ``mos_ensemble_tmax``, ``mos_climo_anomaly``,
+    and ``gfs_nam_disagreement`` columns the training/benchmark path uses
+    (train/inference parity).  Dates without a MOS ensemble value get NaN MOS
+    columns; the 7am-ET freshness guard (group ``mos`` ->
+    ``mos_tmax_morning``) decides whether that halts inference.
+
+    Parameters
+    ----------
+    feature_df : pd.DataFrame
+        Date-indexed operational feature matrix.
+    mos : pd.DataFrame
+        Combined MOS archive (``date``, ``gfs_mos_tmax_f``, ``nam_mos_tmax_f``,
+        ``mos_ensemble_tmax_f``).
+    climo_by_doy : pd.Series
+        Day-of-year TMAX climatology (index 1..366) fit on training data only.
+    """
+    from src.mos_features import build_mos_features
+
+    mos_feats = build_mos_features(mos, climo_by_doy)
+    mos_feats = mos_feats[~mos_feats.index.duplicated(keep="last")]
+    idx = pd.DatetimeIndex(feature_df.index).normalize()
+    aligned = mos_feats.reindex(idx)
+    aligned.index = feature_df.index
+    return feature_df.join(aligned, how="left")
 
 
 # ============================================================================

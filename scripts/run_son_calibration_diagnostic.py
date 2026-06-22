@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
 """
-Philadelphia autumn (SON) calibration diagnostic (Phase 2 deliverable #7).
+Autumn (SON) calibration diagnostic — Philadelphia focus (Phase 2 #7).
 
-Two things:
+Defaults to Philadelphia (the plan's SON-failure city) but is city-agnostic
+via ``--city``.  Two things:
 
 1. **Seasonal / regime calibration** — fit calibrators on a chronological
-   in-sample slice of PHL's base forecasts and measure per-season PIT
+   in-sample slice of the city's base forecasts and measure per-season PIT
    uniformity on the held-out slice for: raw, global isotonic, seasonal
    isotonic, and frontal-regime-conditional. Shows whether conditioning the
    calibration on season (and on the frontal-passage regime) flattens the
    autumn PIT.
 
 2. **Fall frontal-passage features** — build the cutoff-safe frontal feature
-   frame from PHL's target-station ASOS daily aggregates and report how the
-   SON-day high-temperature error depends on the post-frontal regime, which is
-   the evidence for adding these features upstream.
+   frame from the city's target-station ASOS daily aggregates and report how
+   the SON-day high-temperature error depends on the post-frontal regime, which
+   is the evidence for adding these features upstream.
 
-Outputs:
-  - results/philadelphia/diagnostics/seasonal_calibration.json
-  - results/philadelphia/diagnostics/son_root_cause.md
+Outputs (under the city's results/<city>/diagnostics/):
+  - seasonal_calibration.json
+  - son_root_cause.md
 
 Usage:
-    python scripts/run_phl_son_diagnostic.py
+    python scripts/run_son_calibration_diagnostic.py            # phl (default)
+    python scripts/run_son_calibration_diagnostic.py --city atl
 """
 
 from __future__ import annotations
@@ -53,9 +55,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-PHL_TARGET_STATION = "USW00013739"  # Philadelphia International (KPHL)
-
-
 def _season_pit(pit: np.ndarray, dates: pd.DatetimeIndex) -> dict:
     out = {}
     seasons = np.array([SEASON_MAP_SHORT[m] for m in dates.month])
@@ -67,8 +66,14 @@ def _season_pit(pit: np.ndarray, dates: pd.DatetimeIndex) -> dict:
     return out
 
 
-def main() -> int:
-    cfg = get_city_config("phl")
+def main(argv=None) -> int:
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--city", default="phl",
+                        choices=["nyc", "chi", "phl", "atl", "aus"])
+    args = parser.parse_args(argv)
+
+    cfg = get_city_config(args.city)
     out_dir = Path(cfg.results_dir) / "diagnostics"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -78,8 +83,9 @@ def main() -> int:
     pred = pred.sort_values("date").reset_index(drop=True)
     dates = pd.DatetimeIndex(pred["date"])
 
-    # --- Frontal features from PHL target-station ASOS daily ---
-    asos_path = Path(cfg.data_dir) / "processed" / "asos_daily" / f"{PHL_TARGET_STATION}_asos_daily.csv"
+    # --- Frontal features from the city's target-station ASOS daily ---
+    # The target-station GHCN id names the ASOS-daily file (<id>_asos_daily.csv).
+    asos_path = Path(cfg.data_dir) / "processed" / "asos_daily" / f"{cfg.target_station}_asos_daily.csv"
     frontal = build_frontal_features(pd.read_csv(asos_path), lag=1)
     frontal.index = pd.DatetimeIndex(frontal.index).normalize()
     joined = pred.set_index("date").join(frontal, how="left")
