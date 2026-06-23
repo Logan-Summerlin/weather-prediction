@@ -56,11 +56,69 @@ KALSHI_TICKER_MAP = {
     "nyc": "KXHIGHNY",
     "chi": "KXHIGHCHI",
     "phl": "KXHIGHPHL",
+    "atl": "KXHIGHTATL",
+    "aus": "KXHIGHAUS",
 }
+
+
+def load_city_strategy(
+    city_code: str,
+    path: Optional[str] = None,
+) -> Optional[TradingStrategy]:
+    """Build a TradingStrategy from ``results/<city>/strategy.json`` if present.
+
+    This is the read-back of the Phase 3 real-price strategy refit
+    (:mod:`src.strategy_selection`).  Returns ``None`` when no strategy file
+    exists so callers can fall back to a default.
+
+    Parameters
+    ----------
+    city_code : str
+        City identifier.
+    path : str, optional
+        Override path to the strategy JSON.  Defaults to
+        ``<results_dir>/strategy.json``.
+
+    Returns
+    -------
+    TradingStrategy or None
+    """
+    code = city_code.strip().lower()
+    if path is None:
+        try:
+            cfg = get_city_config(code)
+        except ValueError:
+            return None
+        path = os.path.join(cfg.results_dir, "strategy.json")
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Could not read strategy file %s: %s", path, exc)
+        return None
+
+    cfg_block = data.get("strategy", {})
+    return TradingStrategy(
+        name=cfg_block.get("name", f"{code}_strategy"),
+        ev_threshold=cfg_block.get("ev_threshold", 0.03),
+        sizing_method=cfg_block.get("sizing_method", "fractional_kelly"),
+        kelly_fraction=cfg_block.get("kelly_fraction", 0.20),
+        max_position_frac=cfg_block.get("max_position_frac", 0.08),
+        fee_rate=cfg_block.get("fee_rate", 0.07),
+        min_ev=cfg_block.get("min_ev", 0.01),
+        max_contracts=cfg_block.get("max_contracts", 50),
+        bankroll=cfg_block.get("bankroll", 10000.0),
+        fixed_size=cfg_block.get("fixed_size", 5),
+    )
 
 
 def get_kalshi_ticker(city_code: str) -> str:
     """Return the Kalshi ticker prefix for a given city code.
+
+    Falls back to the registered ``CityConfig.kalshi_ticker`` for cities not in
+    the local map, so every supported city can trade through the harness.
 
     Parameters
     ----------
@@ -75,15 +133,18 @@ def get_kalshi_ticker(city_code: str) -> str:
     Raises
     ------
     ValueError
-        If city_code is not recognized.
+        If city_code is not recognized in the map or the city registry.
     """
     code = city_code.strip().lower()
-    if code not in KALSHI_TICKER_MAP:
+    if code in KALSHI_TICKER_MAP:
+        return KALSHI_TICKER_MAP[code]
+    try:
+        return get_city_config(code).kalshi_ticker
+    except ValueError as exc:
         raise ValueError(
             f"Unknown city code '{city_code}'. "
-            f"Available: {list(KALSHI_TICKER_MAP.keys())}"
-        )
-    return KALSHI_TICKER_MAP[code]
+            f"Available: {sorted(KALSHI_TICKER_MAP.keys())}"
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -383,6 +444,8 @@ class LiveTradingHarness:
             raise ValueError(f"mode must be 'paper' or 'live', got '{mode}'")
         self.mode = mode
 
+        if strategy is None:
+            strategy = load_city_strategy(self.city_code)
         self.strategy = strategy or TradingStrategy(
             name=f"{self.city_code}_default",
             ev_threshold=0.03,
