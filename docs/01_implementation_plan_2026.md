@@ -1,7 +1,7 @@
 # Implementation Plan: Positive-EV Models, 10-City Portfolio, Real-Time EV Dashboard
 
 > Status: Phase 0 COMPLETE (2026-06-12). Phase 1 COMPLETE. Phase 2 COMPLETE
-> (2026-06-22). Phases 3-5 pending.
+> (2026-06-22). Phase 3 COMPLETE (2026-06-23). Phases 4-5 pending.
 > Authoritative per-city metrics: `results/baseline_ledger.json`
 > (regenerate with `python scripts/build_baseline_ledger.py`).
 >
@@ -36,6 +36,38 @@
 > Brier on real OOS presettlement prices, so all remain **MONITOR**. The MOS
 > lever is the path forward (full multi-city MOS collection + retrain is Phase
 > 3 work); thresholds were not tuned to manufacture EV.
+>
+> **Phase 3 (trading/EV decision quality) — DONE:** three deliverables landed
+> as tested, importable `src/` cores behind thin CLIs (94 new tests; full suite
+> green):
+> 1. Real-price strategy refit — `scripts/run_real_strategy_sweep.py` +
+>    `src/strategy_selection.py`. Drives `trading.generate_strategy_grid` over
+>    real OOS presettlement rows, joined to real `bid_cents`/`ask_cents` for a
+>    per-row half-spread (not flat slippage); 7% fee;
+>    `trading.compute_conservative_ev` as the gate. Fits on an earlier
+>    chronological OOS slice, scores once on an untouched later holdout, and
+>    persists per-city params to `results/<city>/strategy.json` (read back by
+>    `LiveTradingHarness`, which now also covers ATL/AUS). NOTE: the plan's
+>    literal "fit 2023-24 / validate 2025" cannot be honoured where the OOS
+>    window is entirely 2025+ (e.g. CHI, whose 2022-24 rows are in-sample and
+>    trading them would be leakage), so the split is chronological within OOS.
+> 2. Promotion decisions — `strategy_selection.decide_promotion` enforces the
+>    Phase 3.2 bar on the real-price holdout (model Brier < market Brier; P&L >
+>    0; Sharpe >= 1.0; >= 50 trades; DD >= -30%).
+> 3. Daily inference + paper loop — `scripts/run_daily_inference.py` +
+>    `src/daily_inference.py` (enforces the 7am-ET cutoff manifest, kill-switch
+>    on stale/leaking critical inputs, writes `results/<city>/live/signals_<date>.json`)
+>    and `scripts/run_paper_trading.py` + `src/paper_trading.py` (prices the
+>    model against the day's *actual* re-struck Kalshi buckets via
+>    `bucket_semantics`, settles, audits; read-only paper mode only). Kill-switch
+>    scenario tests + a losing-week replay are in `tests/test_paper_trading.py`.
+>
+> **Phase 3 gate status (honest):** the refit holdouts confirm Phase 2's
+> conclusion — **CHI and PHL both remain MONITOR** (model Brier does not beat
+> market Brier on the untouched holdout; no positive verified edge). No
+> thresholds were tuned to manufacture EV. `strategy.json` records each city's
+> selected strategy and MONITOR decision; PROMOTED stays empty until a city's
+> model genuinely beats the market (the MOS-retrain lever from Phase 2/4).
 
 ## Goals
 

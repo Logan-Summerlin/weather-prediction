@@ -1,0 +1,54 @@
+{
+  "city_code": "phl",
+  "model_col": "u9_kitchen_prob",
+  "selected_strategy": "S0000_ev0.02_fractional_kelly_kf0.10_fee0.07_mp0.05_br1000",
+  "train_metrics": {
+    "total_pnl": 46.12999999999988,
+    "initial_bankroll": 1000.0,
+    "final_bankroll": 1046.1299999999999,
+    "return_pct": 4.612999999999988,
+    "n_trades": 151,
+    "win_rate": 0.46357615894039733,
+    "sharpe_ratio": 1.6623236808289554,
+    "max_drawdown": -28.2199999999998,
+    "max_drawdown_pct": -2.718611215475449,
+    "avg_ev_traded": 0.06417279884519728,
+    "busted": false,
+    "bust_date": null,
+    "model_brier": 0.10662829246800713,
+    "market_brier": 0.1098974409448819,
+    "brier_edge": 0.0032691484768747614
+  },
+  "holdout_metrics": {
+    "total_pnl": 18.220000000000027,
+    "initial_bankroll": 1000.0,
+    "final_bankroll": 1018.22,
+    "return_pct": 1.8220000000000027,
+    "n_trades": 123,
+    "win_rate": 0.4065040650406504,
+    "sharpe_ratio": 0.8964339188298006,
+    "max_drawdown": -30.23999999999978,
+    "max_drawdown_pct": -3.0206772550194567,
+    "avg_ev_traded": 0.08478177439959299,
+    "busted": false,
+    "bust_date": null,
+    "model_brier": 0.10560751988812547,
+    "market_brier": 0.10532690972222222,
+    "brier_edge": -0.00028061016590325005
+  },
+  "promotion": {
+    "status": "MONITOR",
+    "checks": {
+      "model_beats_market_brier": false,
+      "positive_pnl": true,
+      "sharpe_ok": false,
+      "min_trades": true,
+      "drawdown_ok": true,
+      "not_busted": true
+    },
+    "failed_checks": [
+      "model_beats_market_brier",
+      "sharpe_ok"
+    ]
+  }
+}

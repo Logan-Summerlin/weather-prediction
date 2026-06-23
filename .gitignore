@@ -56,3 +56,11 @@ Thumbs.db
 results/phase1_combined/*.pt
 results/phase1_combined/*.pkl
 
+# Phase 3 runtime outputs (per-day signals + paper-trade audit logs).
+# The promoted strategy (results/<city>/strategy.json) and the sweep audit
+# tables ARE durable and committed; per-day run artifacts are not.
+results/*/live/
+results/live/
+results/*/trading/trading_audit_*.json
+results/trading/trading_audit_*.json
+
