@@ -1,16 +1,16 @@
 {
   "schema_version": "3.0",
-  "timestamp": "2026-06-12T13:31:50.396130",
+  "timestamp": "2026-06-24T13:18:13.521499",
   "city": "Philadelphia",
   "city_code": "phl",
-  "kalshi_ticker": "KXHIGHPHL",
+  "kalshi_ticker": "KXHIGHPHIL",
   "target_station": "USW00013739",
   "target_station_name": "Philadelphia International Airport",
   "timezone": "America/New_York",
-  "overall_status": "FAIL",
-  "gates_passed": 13,
+  "overall_status": "PASS",
+  "gates_passed": 14,
   "gates_total": 14,
-  "pass_rate": "13/14 (93%)",
+  "pass_rate": "14/14 (100%)",
   "thresholds": {
     "brier_threshold": 0.15,
     "brier_floor": 0.0,
@@ -63,10 +63,10 @@
       "name": "seasonal_brier",
       "description": "No season exceeds Brier threshold",
       "category": "forecast_quality",
-      "passed": false,
-      "value": 0.20235135721840888,
+      "passed": true,
+      "value": 0.10811226390937825,
       "threshold": 0.2,
-      "details": "Worst: SON=0.2024 (threshold: 0.2) [DJF=0.1615, SON=0.2024]"
+      "details": "Worst: SON=0.1081 (threshold: 0.2) [DJF=0.1063, JJA=0.0910, SON=0.1081]"
     },
     {
       "name": "min_oos_days",
@@ -82,9 +82,9 @@
       "description": "Expected Calibration Error within tolerance",
       "category": "calibration",
       "passed": true,
-      "value": 0.007440299404585071,
+      "value": 0.0074070288862315425,
       "threshold": 0.05,
-      "details": "ECE: 0.0074 (threshold: 0.05, method: 2_isotonic)"
+      "details": "ECE: 0.0074 (threshold: 0.05, method: 3_platt_scaling)"
     },
     {
       "name": "reliability_diagram",
@@ -145,9 +145,9 @@
       "description": "Model checkpoints saved",
       "category": "operational",
       "passed": true,
-      "value": 3,
+      "value": 2,
       "threshold": null,
-      "details": "3 model file(s) in /home/user/weather-prediction/models/philadelphia"
+      "details": "2 model file(s) in /home/user/weather-prediction/models/philadelphia"
     }
   ],
   "model_summary": {
@@ -170,24 +170,24 @@
     "brier_edge": 0.004139003034062269
   },
   "calibration_summary": {
-    "best_ece": 0.007440299404585071,
-    "best_method": "2_isotonic",
+    "best_ece": 0.0074070288862315425,
+    "best_method": "3_platt_scaling",
     "methods": {
       "1_raw_uncalibrated": {
-        "brier": 0.20783283993100168,
-        "ece": 0.20625918348324593
+        "brier": 0.1984489546394171,
+        "ece": 0.18208697174999153
       },
       "2_isotonic": {
-        "brier": 0.16552343550885062,
-        "ece": 0.007440299404585071
+        "brier": 0.16611954772492402,
+        "ece": 0.020713868991290078
       },
       "3_platt_scaling": {
-        "brier": 0.16581661942539686,
-        "ece": 0.006437017927160734
+        "brier": 0.16586272163500457,
+        "ece": 0.0074070288862315425
       },
       "4_seasonal_regime": {
-        "brier": 0.16601491059663287,
-        "ece": 0.016011968313282894
+        "brier": 0.170254329300982,
+        "ece": 0.044639792949312466
       }
     }
   },
@@ -203,8 +203,9 @@
     "busted": false
   },
   "seasonal_brier": {
-    "DJF": 0.1615273921164726,
-    "SON": 0.20235135721840888
+    "DJF": 0.10633372581788682,
+    "JJA": 0.09102271584273386,
+    "SON": 0.10811226390937825
   },
   "trading_seasonal": {
     "DJF": {

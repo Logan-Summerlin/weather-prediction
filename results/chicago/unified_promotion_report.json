@@ -1,6 +1,6 @@
 {
   "schema_version": "3.0",
-  "timestamp": "2026-06-12T13:31:48.654816",
+  "timestamp": "2026-06-24T12:55:04.687997",
   "city": "Chicago",
   "city_code": "chi",
   "kalshi_ticker": "KXHIGHCHI",
@@ -8,9 +8,9 @@
   "target_station_name": "O'Hare International",
   "timezone": "America/Chicago",
   "overall_status": "FAIL",
-  "gates_passed": 12,
+  "gates_passed": 11,
   "gates_total": 14,
-  "pass_rate": "12/14 (86%)",
+  "pass_rate": "11/14 (79%)",
   "thresholds": {
     "brier_threshold": 0.16,
     "brier_floor": 0.0,
@@ -144,10 +144,10 @@
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
       "category": "operational",
-      "passed": true,
-      "value": 3,
+      "passed": false,
+      "value": 0,
       "threshold": null,
-      "details": "3 model file(s) in /home/user/weather-prediction/models/chicago"
+      "details": "0 model file(s) in /home/user/weather-prediction/models/chicago"
     }
   ],
   "model_summary": {

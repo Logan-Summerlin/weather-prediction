@@ -1,0 +1,15 @@
+{
+  "variant": "u9_kitchen_prob",
+  "overall_oos_contract_brier": 0.106215,
+  "n_oos_rows": 1067,
+  "all_variant_oos_brier": {
+    "u3_mlp_prob": 0.116276,
+    "u4_platt_prob": 0.117964,
+    "u5_regime_prob": 0.111938,
+    "u6_ensemble_prob": 0.118375,
+    "u7_extended_prob": 0.109169,
+    "u8_cv_prob": 0.108732,
+    "u9_kitchen_prob": 0.106215
+  },
+  "source": "unified_predictions.csv (promoted U-series, OOS contract rows)"
+}
