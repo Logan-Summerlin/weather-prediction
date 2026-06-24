@@ -1,0 +1,31 @@
+{
+  "city": "New York City",
+  "ticker": "KXHIGHNY",
+  "evaluation_unit": "listed_contract_rows",
+  "contract_granularity": "day-specific Kalshi pre-settlement rows (typically 2F increments)",
+  "n_total_rows": 11652,
+  "n_total_dates": 729,
+  "n_test_rows": 1760,
+  "n_test_dates": 110,
+  "n_buckets": 57,
+  "methods": {
+    "1_raw_uncalibrated": {
+      "brier": 0.20721393465009663,
+      "ece": 0.18117849269324351
+    },
+    "2_isotonic": {
+      "brier": 0.1768364600643406,
+      "ece": 0.023083251546425262
+    },
+    "3_platt_scaling": {
+      "brier": 0.1746315494451881,
+      "ece": 0.017684147492133793
+    },
+    "4_seasonal_regime": {
+      "brier": 0.1768639881356447,
+      "ece": 0.01785525776333448
+    }
+  },
+  "best_method": "3_platt_scaling",
+  "best_brier": 0.1746315494451881
+}

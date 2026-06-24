@@ -1374,8 +1374,8 @@ def main():
     torch.save(nn_res["model"].state_dict(), nn_model_path)
     logger.info("Saved NN checkpoint to %s", nn_model_path)
 
-    # --- Save base predictions for synthesis calibration (ATL/AUS) ---
-    if city_code in ("atl", "aus"):
+    # --- Save base predictions for synthesis calibration ---
+    if city_code in ("atl", "aus", "nyc"):
         model_preds = {
             "Persistence": persist,
             "Climatology": clim,

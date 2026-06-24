@@ -1,150 +1,76 @@
 {
-  "chi": {
+  "nyc": {
     "E0_persistence": {
-      "test_brier": 0.014957532831007777
+      "test_brier": 0.016163047687145923
     },
     "E1_climatology": {
-      "test_brier": 0.015199758885593896
+      "test_brier": 0.016267886954205987
     },
     "E2_ridge": {
-      "test_brier": 0.014534711696441752,
+      "test_brier": 0.01577316503471307,
       "alpha": 100.0
     },
     "E3_nn_128_64": {
-      "test_brier": 0.014663063730902362
+      "test_brier": 0.015929415629689282
     },
     "E4_deep_nn": {
-      "test_brier": 0.014661828708617701
+      "test_brier": 0.01603247788741298
     },
     "E5_ensemble": {
-      "test_brier": 0.014610607868229205
+      "test_brier": 0.01589850537029087
     },
     "U0_raw_gaussian": {
-      "contract_brier": 0.18851225934821525,
-      "is_brier": 0.17734230408115623,
-      "oos_brier": 0.20737451370640364
+      "contract_brier": 0.19052016439729041,
+      "is_brier": 0.18487425884635705,
+      "oos_brier": 0.20110558323838226
     },
     "U1_isotonic": {
-      "contract_brier": 0.14397894256518187,
-      "is_brier": 0.14556943740613526,
-      "oos_brier": 0.14129313787499462
+      "contract_brier": 0.14286826710672923,
+      "is_brier": 0.14539739497966545,
+      "oos_brier": 0.1381264453393983
     },
     "U2_contract_ridge": {
-      "contract_brier": 0.1181449687837333,
-      "is_brier": 0.1262267237230841,
-      "oos_brier": 0.10449763415419042
+      "contract_brier": 0.1205239388397572,
+      "is_brier": 0.12953292672314634,
+      "oos_brier": 0.10363313023169769
     },
     "U3_contract_mlp": {
-      "contract_brier": 0.11432519752624733,
-      "is_brier": 0.11900299090543157,
-      "oos_brier": 0.10642599592304755
+      "contract_brier": 0.11623702711636626,
+      "is_brier": 0.12142454347465799,
+      "oos_brier": 0.10651103490800284
     },
     "U4_platt_on_u3": {
-      "contract_brier": 0.11544898706443543,
-      "is_brier": 0.12040546523498565,
-      "oos_brier": 0.10707918165890835
+      "contract_brier": 0.11744226080969178,
+      "is_brier": 0.12284581305803206,
+      "oos_brier": 0.1073112263348147
     },
     "U5_regime_conditional": {
-      "contract_brier": 0.1146911788179348,
-      "is_brier": 0.11688908956398032,
-      "oos_brier": 0.11097965531069501
+      "contract_brier": 0.1155097831587207,
+      "is_brier": 0.11964864801480059,
+      "oos_brier": 0.10774989103281747
     },
     "U6_calibrated_ensemble": {
-      "contract_brier": 0.11713337452256525,
-      "is_brier": 0.12055157143377479,
-      "oos_brier": 0.11136120283126504
+      "contract_brier": 0.11892863650659245,
+      "is_brier": 0.12343329195182545,
+      "oos_brier": 0.11048292940213794
     },
     "U7_extended_mlp": {
-      "contract_brier": 0.10961924725839402,
-      "is_brier": 0.11246467994747952,
-      "oos_brier": 0.10481427948033005
+      "contract_brier": 0.11247375913038957,
+      "is_brier": 0.11560451011233139,
+      "oos_brier": 0.10660396373051165
     },
     "U8_cv_ensemble": {
-      "contract_brier": 0.10867714282994935,
-      "is_brier": 0.11160009773920514,
-      "oos_brier": 0.10374126639555661
+      "contract_brier": 0.10999555769742118,
+      "is_brier": 0.11295991347524909,
+      "oos_brier": 0.10443773402870397
     },
     "U9_kitchen_sink": {
-      "contract_brier": 0.10970706236722808,
-      "is_brier": 0.11272696324387342,
-      "oos_brier": 0.10460747717553211
+      "contract_brier": 0.11242128336187218,
+      "is_brier": 0.11614332894336031,
+      "oos_brier": 0.10544287908814604
     },
     "Kalshi_PreSettlement": {
-      "contract_brier": 0.12530385352760737
-    }
-  },
-  "phl": {
-    "E0_persistence": {
-      "test_brier": 0.016137593570896353
-    },
-    "E1_climatology": {
-      "test_brier": 0.016297849519442204
-    },
-    "E2_ridge": {
-      "test_brier": 0.015742000265420927,
-      "alpha": 100.0
-    },
-    "E3_nn_128_64": {
-      "test_brier": 0.015844028107346524
-    },
-    "E4_deep_nn": {
-      "test_brier": 0.016010504496270842
-    },
-    "E5_ensemble": {
-      "test_brier": 0.015941237103147352
-    },
-    "U0_raw_gaussian": {
-      "contract_brier": 0.19592283412249423,
-      "is_brier": 0.18736580025489474,
-      "oos_brier": 0.20875437506734826
-    },
-    "U1_isotonic": {
-      "contract_brier": 0.13404430442032345,
-      "is_brier": 0.13120372987324427,
-      "oos_brier": 0.13830383513759306
-    },
-    "U2_contract_ridge": {
-      "contract_brier": 0.10578164750961976,
-      "is_brier": 0.1012217760756889,
-      "oos_brier": 0.11261931788852264
-    },
-    "U3_contract_mlp": {
-      "contract_brier": 0.11431463817703119,
-      "is_brier": 0.11300643271830375,
-      "oos_brier": 0.11627633333538534
-    },
-    "U4_platt_on_u3": {
-      "contract_brier": 0.11546490619893783,
-      "is_brier": 0.11379827472533229,
-      "oos_brier": 0.1179640724199021
-    },
-    "U5_regime_conditional": {
-      "contract_brier": 0.11188134844294192,
-      "is_brier": 0.1118437616356665,
-      "oos_brier": 0.11193771104054327
-    },
-    "U6_calibrated_ensemble": {
-      "contract_brier": 0.11514623806806747,
-      "is_brier": 0.11299307398676918,
-      "oos_brier": 0.11837497520965813
-    },
-    "U7_extended_mlp": {
-      "contract_brier": 0.11075542449156542,
-      "is_brier": 0.11181331249904593,
-      "oos_brier": 0.1091690882104325
-    },
-    "U8_cv_ensemble": {
-      "contract_brier": 0.10910983060774655,
-      "is_brier": 0.10936201860959845,
-      "oos_brier": 0.10873166678116457
-    },
-    "U9_kitchen_sink": {
-      "contract_brier": 0.10596208206547042,
-      "is_brier": 0.10579341159984681,
-      "oos_brier": 0.10621500872432499
-    },
-    "Kalshi_PreSettlement": {
-      "contract_brier": 0.10992065054368202
+      "contract_brier": 0.12706111379754995
     }
   }
 }

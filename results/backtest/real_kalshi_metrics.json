@@ -1,0 +1,245 @@
+{
+  "market_brier": 0.09883887859128825,
+  "variants": {
+    "U3_mlp": {
+      "total_pnl": -372.3500000000015,
+      "initial_bankroll": 1000.0,
+      "final_bankroll": 627.6499999999985,
+      "return_pct": -37.23500000000015,
+      "n_trades": 600,
+      "win_rate": 0.455,
+      "n_trading_days": 364,
+      "avg_pnl_per_trade": -0.6205833333333335,
+      "median_pnl_per_trade": -0.40000000000000013,
+      "avg_ev_traded": 0.07114324823433997,
+      "max_drawdown": -392.2000000000015,
+      "max_drawdown_pct": -39.220000000000155,
+      "busted": false,
+      "bust_date": null,
+      "sharpe_ratio": -3.2822147849472043,
+      "daily_pnl_mean": -1.0229395604395606,
+      "daily_pnl_std": 4.9474708887151735,
+      "model_brier": 0.10651103490800286,
+      "market_brier": 0.09883887859128825,
+      "brier_edge": -0.007672156316714612,
+      "seasonal": {
+        "DJF": {
+          "n_trades": 168,
+          "pnl": -160.45000000000005,
+          "win_rate": 0.24404761904761904,
+          "avg_ev": 0.08653338683663142
+        },
+        "MAM": {
+          "n_trades": 115,
+          "pnl": -121.30000000000003,
+          "win_rate": 0.4,
+          "avg_ev": 0.06456927208631703
+        },
+        "JJA": {
+          "n_trades": 194,
+          "pnl": -74.5,
+          "win_rate": 0.6443298969072165,
+          "avg_ev": 0.0702263944027969
+        },
+        "SON": {
+          "n_trades": 123,
+          "pnl": -16.099999999999998,
+          "win_rate": 0.4959349593495935,
+          "avg_ev": 0.057715066243746664
+        }
+      }
+    },
+    "U5_regime": {
+      "total_pnl": -374.3000000000004,
+      "initial_bankroll": 1000.0,
+      "final_bankroll": 625.6999999999996,
+      "return_pct": -37.43000000000004,
+      "n_trades": 754,
+      "win_rate": 0.3793103448275862,
+      "n_trading_days": 364,
+      "avg_pnl_per_trade": -0.49641909814323615,
+      "median_pnl_per_trade": -0.45000000000000007,
+      "avg_ev_traded": 0.07702801942819329,
+      "max_drawdown": -396.2000000000004,
+      "max_drawdown_pct": -39.16567813364969,
+      "busted": false,
+      "bust_date": null,
+      "sharpe_ratio": -2.9211787391910384,
+      "daily_pnl_mean": -1.0282967032967034,
+      "daily_pnl_std": 5.588053851844896,
+      "model_brier": 0.10774989103281747,
+      "market_brier": 0.09883887859128825,
+      "brier_edge": -0.008911012441529226,
+      "seasonal": {
+        "DJF": {
+          "n_trades": 174,
+          "pnl": -162.10000000000002,
+          "win_rate": 0.27011494252873564,
+          "avg_ev": 0.0866283501792831
+        },
+        "MAM": {
+          "n_trades": 191,
+          "pnl": -123.35000000000002,
+          "win_rate": 0.3507853403141361,
+          "avg_ev": 0.06709354224430533
+        },
+        "JJA": {
+          "n_trades": 174,
+          "pnl": -22.799999999999997,
+          "win_rate": 0.5632183908045977,
+          "avg_ev": 0.08228143131409699
+        },
+        "SON": {
+          "n_trades": 215,
+          "pnl": -66.05000000000003,
+          "win_rate": 0.34418604651162793,
+          "avg_ev": 0.07383236325742924
+        }
+      }
+    },
+    "U7_extended": {
+      "total_pnl": -413.8000000000013,
+      "initial_bankroll": 1000.0,
+      "final_bankroll": 586.1999999999987,
+      "return_pct": -41.38000000000013,
+      "n_trades": 550,
+      "win_rate": 0.5054545454545455,
+      "n_trading_days": 364,
+      "avg_pnl_per_trade": -0.7523636363636365,
+      "median_pnl_per_trade": 0.25,
+      "avg_ev_traded": 0.07624013951833637,
+      "max_drawdown": -424.65000000000134,
+      "max_drawdown_pct": -42.46500000000014,
+      "busted": false,
+      "bust_date": null,
+      "sharpe_ratio": -3.32387959058042,
+      "daily_pnl_mean": -1.136813186813187,
+      "daily_pnl_std": 5.429303133549358,
+      "model_brier": 0.10660396373051165,
+      "market_brier": 0.09883887859128825,
+      "brier_edge": -0.007765085139223402,
+      "seasonal": {
+        "DJF": {
+          "n_trades": 136,
+          "pnl": -184.7,
+          "win_rate": 0.35294117647058826,
+          "avg_ev": 0.11121768103156197
+        },
+        "MAM": {
+          "n_trades": 141,
+          "pnl": -65.60000000000002,
+          "win_rate": 0.5106382978723404,
+          "avg_ev": 0.06881601994895083
+        },
+        "JJA": {
+          "n_trades": 167,
+          "pnl": -119.3,
+          "win_rate": 0.5808383233532934,
+          "avg_ev": 0.06585068486240936
+        },
+        "SON": {
+          "n_trades": 106,
+          "pnl": -44.20000000000001,
+          "win_rate": 0.5754716981132075,
+          "avg_ev": 0.05760706537705803
+        }
+      }
+    },
+    "U8_cv": {
+      "total_pnl": -318.2000000000021,
+      "initial_bankroll": 1000.0,
+      "final_bankroll": 681.7999999999979,
+      "return_pct": -31.82000000000021,
+      "n_trades": 450,
+      "win_rate": 0.4711111111111111,
+      "n_trading_days": 364,
+      "avg_pnl_per_trade": -0.7071111111111112,
+      "median_pnl_per_trade": -0.5,
+      "avg_ev_traded": 0.06451875193777483,
+      "max_drawdown": -322.1000000000022,
+      "max_drawdown_pct": -32.08486901085787,
+      "busted": false,
+      "bust_date": null,
+      "sharpe_ratio": -2.8563593380146366,
+      "daily_pnl_mean": -0.8741758241758245,
+      "daily_pnl_std": 4.858321154764257,
+      "model_brier": 0.10443773402870397,
+      "market_brier": 0.09883887859128825,
+      "brier_edge": -0.0055988554374157284,
+      "seasonal": {
+        "DJF": {
+          "n_trades": 120,
+          "pnl": -163.15000000000003,
+          "win_rate": 0.2916666666666667,
+          "avg_ev": 0.0953264632905185
+        },
+        "MAM": {
+          "n_trades": 119,
+          "pnl": -77.45,
+          "win_rate": 0.453781512605042,
+          "avg_ev": 0.05444321197734276
+        },
+        "JJA": {
+          "n_trades": 134,
+          "pnl": -75.60000000000002,
+          "win_rate": 0.582089552238806,
+          "avg_ev": 0.05318272183902143
+        },
+        "SON": {
+          "n_trades": 77,
+          "pnl": -2.0,
+          "win_rate": 0.5844155844155844,
+          "avg_ev": 0.05180566007017919
+        }
+      }
+    },
+    "U9_kitchen": {
+      "total_pnl": -307.30000000000143,
+      "initial_bankroll": 1000.0,
+      "final_bankroll": 692.6999999999986,
+      "return_pct": -30.73000000000014,
+      "n_trades": 514,
+      "win_rate": 0.5525291828793775,
+      "n_trading_days": 364,
+      "avg_pnl_per_trade": -0.5978599221789884,
+      "median_pnl_per_trade": 0.8499999999999996,
+      "avg_ev_traded": 0.07024911755370973,
+      "max_drawdown": -329.65000000000146,
+      "max_drawdown_pct": -32.965000000000146,
+      "busted": false,
+      "bust_date": null,
+      "sharpe_ratio": -2.34447613043075,
+      "daily_pnl_mean": -0.8442307692307695,
+      "daily_pnl_std": 5.716308139481017,
+      "model_brier": 0.10544287908814604,
+      "market_brier": 0.09883887859128825,
+      "brier_edge": -0.00660400049685779,
+      "seasonal": {
+        "DJF": {
+          "n_trades": 120,
+          "pnl": -173.85000000000002,
+          "win_rate": 0.35,
+          "avg_ev": 0.10626057840330067
+        },
+        "MAM": {
+          "n_trades": 118,
+          "pnl": -42.45000000000003,
+          "win_rate": 0.5508474576271186,
+          "avg_ev": 0.05141393202288263
+        },
+        "JJA": {
+          "n_trades": 158,
+          "pnl": -76.10000000000002,
+          "win_rate": 0.6455696202531646,
+          "avg_ev": 0.06226144531820355
+        },
+        "SON": {
+          "n_trades": 118,
+          "pnl": -14.900000000000011,
+          "win_rate": 0.635593220338983,
+          "avg_ev": 0.06315783623080017
+        }
+      }
+    }
+  }
+}

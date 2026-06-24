@@ -1,0 +1,15 @@
+{
+  "city": "New York City",
+  "kalshi_ticker": "KXHIGHNY",
+  "scoring": "contract_brier",
+  "target_station": "USW00094728",
+  "n_surrounding_stations": 52,
+  "date_range": "1985-01-01 to 2024-12-31",
+  "n_features": 122,
+  "n_train": 10226,
+  "n_val": 2191,
+  "n_test": 2192,
+  "n_buckets": 57,
+  "best_model": "Ridge (a=100.0)",
+  "best_contract_brier": 0.01578706979367881
+}

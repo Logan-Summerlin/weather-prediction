@@ -50,7 +50,8 @@ import matplotlib.pyplot as plt  # noqa: E402
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# scripts/experiments/benchmarking/<this file> -> repo root is parents[3]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.city_config import get_city_config, ensure_city_dirs
@@ -116,16 +117,24 @@ def load_kalshi_data(city_code: str) -> pd.DataFrame:
     Settlement data provides ground truth (actual_outcome, actual_tmax)
     and verified bucket definitions.
     """
-    if city_code == "chi":
-        settlement_path = PROJECT_ROOT / "data" / "real_kalshi_chi_all.csv"
+    if city_code == "nyc":
+        # NYC settlement history is split across two files; the pre-settlement
+        # archive has no city suffix.
+        settlement_paths = [
+            PROJECT_ROOT / "data" / "real_kalshi_2023_2024.csv",
+            PROJECT_ROOT / "data" / "real_kalshi_2025.csv",
+        ]
+        presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement.csv"
+    elif city_code == "chi":
+        settlement_paths = [PROJECT_ROOT / "data" / "real_kalshi_chi_all.csv"]
         presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_chi.csv"
     elif city_code == "phl":
-        settlement_path = PROJECT_ROOT / "data" / "real_kalshi_phl_all.csv"
+        settlement_paths = [PROJECT_ROOT / "data" / "real_kalshi_phl_all.csv"]
         presettlement_path = PROJECT_ROOT / "data" / "kalshi_presettlement_phl.csv"
     else:
         raise ValueError(f"Unknown city: {city_code}")
 
-    settled = pd.read_csv(settlement_path)
+    settled = pd.concat([pd.read_csv(p) for p in settlement_paths], ignore_index=True)
     settled["date"] = pd.to_datetime(settled["date"]).dt.strftime("%Y-%m-%d")
 
     if presettlement_path.exists():
@@ -1235,7 +1244,7 @@ def run_city_benchmark(city_code: str):
     n_contract = len(cdf)
     cal_n = int(n_contract * 0.6)
 
-    if city_code == "chi":
+    if city_code in ("chi", "nyc"):
         oos_mask = (cdf_dates.dt.year >= 2025).values
     else:
         oos_mask = np.zeros(n_contract, dtype=bool)
@@ -1350,13 +1359,22 @@ def run_city_benchmark(city_code: str):
 # ============================================================================
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="Unified U-series benchmark with real Kalshi pre-settlement data."
+    )
+    ap.add_argument("--city", default="chi,phl",
+                    help="Comma-separated city codes (e.g. nyc or chi,phl).")
+    args = ap.parse_args()
+    cities = [c.strip() for c in args.city.split(",") if c.strip()]
+
     print("\n" + "#" * 70)
-    print("#  CHI + PHL Unified Model Benchmark with Real Kalshi Data")
+    print(f"#  Unified Model Benchmark with Real Kalshi Data — {', '.join(cities)}")
     print("#" * 70)
 
     all_results = {}
 
-    for city_code in ["chi", "phl"]:
+    for city_code in cities:
         try:
             results = run_city_benchmark(city_code)
             all_results[city_code] = results

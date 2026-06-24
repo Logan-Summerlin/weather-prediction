@@ -140,8 +140,7 @@ def load_unified_predictions(city_code: str) -> pd.DataFrame:
     FileNotFoundError
         If the unified predictions file does not exist.
     """
-    city_dir = CITY_RESULTS_MAP[city_code]
-    path = PROJECT_ROOT / "results" / city_dir / "unified_predictions.csv"
+    path = Path(get_city_config(city_code).results_dir) / "unified_predictions.csv"
     if not path.is_file():
         raise FileNotFoundError(
             f"Unified predictions not found at {path}. "
@@ -705,9 +704,8 @@ def run_city_backtest(city_code: str) -> Optional[Dict[str, Dict[str, Any]]]:
     """
     cfg = get_city_config(city_code)
     ensure_city_dirs(cfg)
-    city_dir = CITY_RESULTS_MAP[city_code]
 
-    backtest_dir = str(PROJECT_ROOT / "results" / city_dir / "backtest")
+    backtest_dir = str(Path(cfg.results_dir) / "backtest")
     os.makedirs(backtest_dir, exist_ok=True)
 
     logger.info("=" * 70)
@@ -889,15 +887,24 @@ def run_city_backtest(city_code: str) -> Optional[Dict[str, Dict[str, Any]]]:
 # ===========================================================================
 
 def main() -> None:
-    """Run the real Kalshi pre-settlement backtest for all cities."""
+    """Run the real Kalshi pre-settlement backtest for the requested cities."""
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="EV-gated backtest on real Kalshi pre-settlement prices."
+    )
+    ap.add_argument("--city", default=",".join(CITY_CODES),
+                    help="Comma-separated city codes (e.g. nyc or chi,phl).")
+    args = ap.parse_args()
+    cities = [c.strip() for c in args.city.split(",") if c.strip()]
+
     logger.info("=" * 70)
     logger.info("Real Kalshi Pre-Settlement Backtest — Multi-City")
-    logger.info("  Cities: %s", ", ".join(CITY_CODES))
+    logger.info("  Cities: %s", ", ".join(cities))
     logger.info("  Model variants: %s", ", ".join(MODEL_VARIANTS.values()))
     logger.info("=" * 70)
 
     results: Dict[str, Optional[Dict]] = {}
-    for city_code in CITY_CODES:
+    for city_code in cities:
         results[city_code] = run_city_backtest(city_code)
 
     # ---- Grand summary ----
@@ -912,9 +919,8 @@ def main() -> None:
     )
     print("-" * 100)
 
-    for city_code in CITY_CODES:
-        city_dir = CITY_RESULTS_MAP[city_code]
-        city_label = city_dir.capitalize()
+    for city_code in cities:
+        city_label = get_city_config(city_code).city_name
         city_metrics = results.get(city_code)
         if city_metrics is None:
             print(f"{city_label:<15} {'--- NO DATA ---'}")
