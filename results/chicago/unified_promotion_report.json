@@ -1,6 +1,6 @@
 {
   "schema_version": "3.0",
-  "timestamp": "2026-06-24T12:55:04.687997",
+  "timestamp": "2026-06-24T13:18:51.397464",
   "city": "Chicago",
   "city_code": "chi",
   "kalshi_ticker": "KXHIGHCHI",
@@ -8,9 +8,9 @@
   "target_station_name": "O'Hare International",
   "timezone": "America/Chicago",
   "overall_status": "FAIL",
-  "gates_passed": 11,
+  "gates_passed": 12,
   "gates_total": 14,
-  "pass_rate": "11/14 (79%)",
+  "pass_rate": "12/14 (86%)",
   "thresholds": {
     "brier_threshold": 0.16,
     "brier_floor": 0.0,
@@ -64,9 +64,9 @@
       "description": "No season exceeds Brier threshold",
       "category": "forecast_quality",
       "passed": true,
-      "value": 0.18922475522233362,
+      "value": 0.10675435180780994,
       "threshold": 0.22,
-      "details": "Worst: SON=0.1892 (threshold: 0.22) [DJF=0.1738, JJA=0.1758, MAM=0.1744, SON=0.1892]"
+      "details": "Worst: MAM=0.1068 (threshold: 0.22) [DJF=0.1051, JJA=0.1022, MAM=0.1068, SON=0.1003]"
     },
     {
       "name": "min_oos_days",
@@ -82,9 +82,9 @@
       "description": "Expected Calibration Error within tolerance",
       "category": "calibration",
       "passed": true,
-      "value": 0.039039697574118425,
+      "value": 0.03485149887940045,
       "threshold": 0.05,
-      "details": "ECE: 0.0390 (threshold: 0.05, method: 3_platt_scaling)"
+      "details": "ECE: 0.0349 (threshold: 0.05, method: 3_platt_scaling)"
     },
     {
       "name": "reliability_diagram",
@@ -144,10 +144,10 @@
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
       "category": "operational",
-      "passed": false,
-      "value": 0,
+      "passed": true,
+      "value": 2,
       "threshold": null,
-      "details": "0 model file(s) in /home/user/weather-prediction/models/chicago"
+      "details": "2 model file(s) in /home/user/weather-prediction/models/chicago"
     }
   ],
   "model_summary": {
@@ -170,24 +170,24 @@
     "brier_edge": 0.016626710697658018
   },
   "calibration_summary": {
-    "best_ece": 0.039039697574118425,
+    "best_ece": 0.03485149887940045,
     "best_method": "3_platt_scaling",
     "methods": {
       "1_raw_uncalibrated": {
-        "brier": 0.20870333289669116,
-        "ece": 0.1742791797330363
+        "brier": 0.21601145857219609,
+        "ece": 0.19598954655918047
       },
       "2_isotonic": {
-        "brier": 0.18011845649870023,
-        "ece": 0.04761826215295306
+        "brier": 0.17907647195343707,
+        "ece": 0.03917820268226227
       },
       "3_platt_scaling": {
-        "brier": 0.17833344798762946,
-        "ece": 0.039039697574118425
+        "brier": 0.1780745987140253,
+        "ece": 0.03485149887940045
       },
       "4_seasonal_regime": {
-        "brier": 0.18282079212905142,
-        "ece": 0.0465395031269612
+        "brier": 0.17921385584693716,
+        "ece": 0.02919564539387413
       }
     }
   },
@@ -203,10 +203,10 @@
     "busted": false
   },
   "seasonal_brier": {
-    "DJF": 0.17375448373038732,
-    "MAM": 0.17437549985458348,
-    "JJA": 0.17575789955815982,
-    "SON": 0.18922475522233362
+    "DJF": 0.10510757186926857,
+    "MAM": 0.10675435180780994,
+    "JJA": 0.10218973099102324,
+    "SON": 0.1002803037299736
   },
   "trading_seasonal": {
     "DJF": {
