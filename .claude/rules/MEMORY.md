@@ -40,7 +40,7 @@
 - **Critical data gap:** expansion cities (CHI, PHL, ATL, AUS) train on GHCN data but infer with ASOS-derived features. ASOS migration is the top data quality priority.
 
 ## Known Strategic Status by City
-- **NYC:** mature benchmark stack (E/WGA/U families), strongest reference implementation. Pipeline now runs end-to-end via `--city nyc`; promoted as a calibrated *forecaster* (11/14) — market too efficient to trade (see status above). WGA V2 trainer is broken (missing `scripts/test_model_vs_benchmarks.py`); the WGA component falls back to the flat model.
+- **NYC:** mature benchmark stack (E/WGA/U families), strongest reference implementation. Pipeline now runs end-to-end via `--city nyc`; promoted as a calibrated *forecaster* (11/14) — market too efficient to trade (see status above). WGA V2: the `wga_v2_benchmark` import bug is fixed (it pulled SEASON_MAP from a deleted script; now imports from `src.seasons`), but the V2 *training* step that produced `results/wga_v2_model/.../predictions_{val,test}.csv` is gone. `scripts/train_wga_predictions.py` reconstructs it via `src.wga_data_pipeline.train_wga_city`, but `WGADataBuilder` only extracts 2 station features from the current processed layout and the model trains to garbage (NYC test MAE ~60 F). WGA needs a `WGADataBuilder` feature-extraction fix before it's usable; until then the unified stack falls back to the flat model. Even a working WGA would be bounded by the same efficient-market ceiling.
 - **Chicago:** READY — all 14 gates pass; genuine directionally-correct OOS edge, real-Kalshi backtest positive under accurate fees.
 - **Philadelphia:** weaker edge; calibration and simulated-market robustness remain key concerns.
 - **Atlanta:** pipeline complete and promotion gates passed.
