@@ -1901,6 +1901,19 @@ def main():
         stress_df.to_csv(OUT_ROOT / "seasonal_stress_slices.csv", index=False)
         print(f"  Saved seasonal_stress_slices.csv ({len(stress_df)} rows)")
 
+    # Per-row predictions export (all variant probabilities + market + outcome),
+    # so downstream trading analyses can re-score under accurate cost models.
+    export_cols = (
+        ["date", "ticker", "period", "season", "direction",
+         "threshold_low", "threshold_high", "actual_outcome", "actual_tmax",
+         "presettlement_prob", "bid_cents", "ask_cents"]
+        + sorted(set(variant_prob_cols.values()))
+    )
+    export_cols = [c for c in export_cols if c in df.columns]
+    df[export_cols].to_csv(OUT_ROOT / "per_row_predictions.csv", index=False)
+    print(f"  Saved per_row_predictions.csv ({len(df)} rows, "
+          f"{len(export_cols)} cols)")
+
     # Full benchmark report
     report = generate_report(
         df, all_metrics, trading_df, ev_results_all,
