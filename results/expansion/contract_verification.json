@@ -1,0 +1,203 @@
+{
+  "candidates": [
+    "den",
+    "dc",
+    "mia",
+    "lax",
+    "hou",
+    "phx"
+  ],
+  "top_n_discretionary": 3,
+  "results": [
+    {
+      "code": "den",
+      "label": "Denver",
+      "mandated": true,
+      "verified": true,
+      "tradeable": true,
+      "status": "VERIFIED",
+      "notes": [],
+      "series_ticker": "KXHIGHDEN",
+      "series_title": "Highest temperature in Denver",
+      "settlement_station": "Denver, CO",
+      "bucket_structure": {
+        "n_buckets": 6,
+        "bucket_labels": [
+          "91\u00b0 or above",
+          "82\u00b0 or below",
+          "89\u00b0 to 90\u00b0",
+          "87\u00b0 to 88\u00b0",
+          "85\u00b0 to 86\u00b0",
+          "83\u00b0 to 84\u00b0"
+        ],
+        "modal_width_f": 2.0,
+        "n_events_sampled": 1
+      },
+      "liquidity": {
+        "total_volume": 346026.63000000006,
+        "total_open_interest": 236315.9,
+        "mean_spread_cents": 1.0,
+        "n_quoted_markets": 5,
+        "n_markets_sampled": 48
+      },
+      "spread_adjusted_liquidity": 291171.265
+    },
+    {
+      "code": "dc",
+      "label": "Washington DC",
+      "mandated": true,
+      "verified": true,
+      "tradeable": true,
+      "status": "VERIFIED",
+      "notes": [],
+      "series_ticker": "KXHIGHTDC",
+      "series_title": "Washington DC Daily Max Temp",
+      "settlement_station": "Washington DC",
+      "bucket_structure": {
+        "n_buckets": 6,
+        "bucket_labels": [
+          "87\u00b0 or above",
+          "78\u00b0 or below",
+          "85\u00b0 to 86\u00b0",
+          "83\u00b0 to 84\u00b0",
+          "81\u00b0 to 82\u00b0",
+          "79\u00b0 to 80\u00b0"
+        ],
+        "modal_width_f": 2.0,
+        "n_events_sampled": 1
+      },
+      "liquidity": {
+        "total_volume": 267079.62,
+        "total_open_interest": 186339.28999999998,
+        "mean_spread_cents": 1.6666666666666667,
+        "n_quoted_markets": 3,
+        "n_markets_sampled": 48
+      },
+      "spread_adjusted_liquidity": 170032.09124999997
+    },
+    {
+      "code": "mia",
+      "label": "Miami",
+      "mandated": false,
+      "verified": true,
+      "tradeable": true,
+      "status": "VERIFIED",
+      "notes": [],
+      "series_ticker": "KXHIGHMIA",
+      "series_title": "Highest temperature in Miami",
+      "settlement_station": "Miami International Airport",
+      "bucket_structure": {
+        "n_buckets": 6,
+        "bucket_labels": [
+          "96\u00b0 or above",
+          "87\u00b0 or below",
+          "94\u00b0 to 95\u00b0",
+          "92\u00b0 to 93\u00b0",
+          "90\u00b0 to 91\u00b0",
+          "88\u00b0 to 89\u00b0"
+        ],
+        "modal_width_f": 2.0,
+        "n_events_sampled": 1
+      },
+      "liquidity": {
+        "total_volume": 1495436.9599999997,
+        "total_open_interest": 1010636.8300000001,
+        "mean_spread_cents": 2.0,
+        "n_quoted_markets": 3,
+        "n_markets_sampled": 48
+      },
+      "spread_adjusted_liquidity": 835357.93
+    },
+    {
+      "code": "lax",
+      "label": "Los Angeles",
+      "mandated": false,
+      "verified": true,
+      "tradeable": true,
+      "status": "VERIFIED",
+      "notes": [],
+      "series_ticker": "KXHIGHLAX",
+      "series_title": "Highest temperature in Los Angeles",
+      "settlement_station": "Los Angeles Airport, CA",
+      "bucket_structure": {
+        "n_buckets": 6,
+        "bucket_labels": [
+          "78\u00b0 or above",
+          "69\u00b0 or below",
+          "76\u00b0 to 77\u00b0",
+          "74\u00b0 to 75\u00b0",
+          "72\u00b0 to 73\u00b0",
+          "70\u00b0 to 71\u00b0"
+        ],
+        "modal_width_f": 2.0,
+        "n_events_sampled": 1
+      },
+      "liquidity": {
+        "total_volume": 2348290.920000001,
+        "total_open_interest": 1505351.4900000005,
+        "mean_spread_cents": 1.500000000000001,
+        "n_quoted_markets": 4,
+        "n_markets_sampled": 48
+      },
+      "spread_adjusted_liquidity": 1541456.964
+    },
+    {
+      "code": "hou",
+      "label": "Houston",
+      "mandated": false,
+      "verified": true,
+      "tradeable": false,
+      "status": "BLOCKED",
+      "notes": [
+        "series exists but exposes no markets"
+      ],
+      "series_ticker": "KXHIGHHOU",
+      "series_title": "Highest temperature in Houston"
+    },
+    {
+      "code": "phx",
+      "label": "Phoenix",
+      "mandated": false,
+      "verified": true,
+      "tradeable": true,
+      "status": "VERIFIED",
+      "notes": [],
+      "series_ticker": "KXHIGHTPHX",
+      "series_title": "Phoenix High Temperature Daily",
+      "settlement_station": "Phoenix",
+      "bucket_structure": {
+        "n_buckets": 6,
+        "bucket_labels": [
+          "117\u00b0 or above",
+          "108\u00b0 or below",
+          "115\u00b0 to 116\u00b0",
+          "113\u00b0 to 114\u00b0",
+          "111\u00b0 to 112\u00b0",
+          "109\u00b0 to 110\u00b0"
+        ],
+        "modal_width_f": 2.0,
+        "n_events_sampled": 1
+      },
+      "liquidity": {
+        "total_volume": 514447.41000000003,
+        "total_open_interest": 365206.44,
+        "mean_spread_cents": 1.333333333333334,
+        "n_quoted_markets": 3,
+        "n_markets_sampled": 48
+      },
+      "spread_adjusted_liquidity": 376994.50714285707
+    }
+  ],
+  "recommended": [
+    "den",
+    "dc",
+    "lax",
+    "mia",
+    "phx"
+  ],
+  "blocked": [
+    "hou"
+  ],
+  "generated_at": "2026-06-24T12:20:10.861494+00:00",
+  "source": "kalshi_public_api"
+}

@@ -6,7 +6,15 @@
 - Repository focus: multi-city probabilistic weather forecasting for Kalshi daily max-temperature contracts.
 - Primary objective: calibrated predictive distributions converted into contract bucket probabilities, then EV-filtered trading decisions with risk controls.
 - Core city support: NYC, Chicago, Philadelphia, Atlanta, Austin.
-- Denver and Washington DC expansions are tracked as **hypothetical** — not on the active roadmap until the current portfolio is fully production-ready.
+- **Phase 4 expansion registered (2026-06-24):** Denver (`KXHIGHDEN`), Washington
+  DC (`KXHIGHTDC`), Los Angeles (`KXHIGHLAX`), Miami (`KXHIGHMIA`), Phoenix
+  (`KXHIGHTPHX`) are now registered cities, chosen by live-API contract
+  verification (`results/expansion/contract_verification.json`). Houston is
+  BLOCKED (series exists but no markets). All five expansion cities are
+  **MONITOR** until they have >= 1 full year of real-price backtest; their
+  rollout data collection + pipeline run is the remaining operational step.
+- **Ticker correction:** Philadelphia's real Kalshi series is `KXHIGHPHIL`
+  (not `KXHIGHPHL`); fixed across config/live-trading/benchmark/tests.
 - Architecture is modularized across ingestion, feature engineering, modeling, calibration/bucketization, and trading simulation.
 - Multi-city script flow has been unified (city passed via `--city`) with thin compatibility wrappers for legacy per-city commands.
 - Promotion evaluations are implemented; city readiness differs by market edge and calibration robustness.

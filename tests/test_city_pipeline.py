@@ -63,7 +63,7 @@ CITY_TEST_DATA = {
     },
     "phl": {
         "city_name": "Philadelphia",
-        "kalshi_ticker": "KXHIGHPHL",
+        "kalshi_ticker": "KXHIGHPHIL",
         "target_station": "USW00013739",
         "target_station_name_contains": "Philadelphia",
         "timezone": "America/New_York",

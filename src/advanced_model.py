@@ -4,7 +4,7 @@ Advanced Neural Network Models for Multi-City Temperature Prediction.
 Implements model families inspired by NYC's top-performing architectures
 (U7_regime_conditional, E17_contract_brier, E40_lag2_contract_brier,
 WindGatedAttention V2). Designed for city-agnostic deployment across
-Chicago (KXHIGHCHI) and Philadelphia (KXHIGHPHL).
+Chicago (KXHIGHCHI) and Philadelphia (KXHIGHPHIL).
 
 Model Families
 --------------

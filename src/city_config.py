@@ -169,6 +169,15 @@ _NYC_PHL_BUCKET_EDGES, _NYC_PHL_BUCKET_LABELS = _make_2f_bucket_grid(0, 110)
 # Chicago: -10°F floor, 110°F ceiling → 62 buckets (colder winters)
 _CHI_BUCKET_EDGES, _CHI_BUCKET_LABELS = _make_2f_bucket_grid(-10, 110)
 
+# Expansion cities (Phase 4). Floors/ceilings reflect each climate's realized
+# extremes so the open tails stay rare; the 2°F interior matches the verified
+# Kalshi contract ladder (see results/expansion/contract_verification.json).
+_DEN_BUCKET_EDGES, _DEN_BUCKET_LABELS = _make_2f_bucket_grid(-10, 110)
+_DC_BUCKET_EDGES, _DC_BUCKET_LABELS = _make_2f_bucket_grid(0, 110)
+_LAX_BUCKET_EDGES, _LAX_BUCKET_LABELS = _make_2f_bucket_grid(30, 110)
+_MIA_BUCKET_EDGES, _MIA_BUCKET_LABELS = _make_2f_bucket_grid(30, 110)
+_PHX_BUCKET_EDGES, _PHX_BUCKET_LABELS = _make_2f_bucket_grid(20, 120)
+
 
 def _runtime(city_code: str, field_name: str, default):
     return CITY_RUNTIME_DATA.get(city_code, {}).get(field_name, default)
@@ -231,7 +240,7 @@ _NYC_CONFIG = CityConfig(
 _PHL_CONFIG = CityConfig(
     city_name="Philadelphia",
     city_code="phl",
-    kalshi_ticker="KXHIGHPHL",
+    kalshi_ticker="KXHIGHPHIL",
     target_station="USW00013739",
     target_station_name="Philadelphia International Airport",
     target_lat=39.8733,
@@ -424,6 +433,155 @@ _AUS_CONFIG = CityConfig(
 )
 
 # ---------------------------------------------------------------------------
+# Expansion cities (Phase 4) — registered only after live-API contract
+# verification (results/expansion/contract_verification.json). Each settles on
+# the NWS Daily Climatological Report for the listed airport; tickers were
+# discovered from the public API (naming is irregular: DC/PHX carry a "T"
+# prefix). These ship ASOS-first and start in MONITOR — no city is PROMOTED
+# until it has >= 1 full year of real-price backtest passing every gate.
+# ---------------------------------------------------------------------------
+_DEN_CONFIG = CityConfig(
+    city_name="Denver",
+    city_code="den",
+    kalshi_ticker="KXHIGHDEN",
+    target_station="USW00003017",
+    target_station_name="Denver International Airport",
+    target_lat=39.8466,
+    target_lon=-104.6562,
+    timezone="America/Denver",
+    igra_station_id="USM00072469",
+    igra_station_name="Denver",
+    nwp_lat=39.8466,
+    nwp_lon=-104.6562,
+    bucket_edges=_DEN_BUCKET_EDGES.copy(),
+    bucket_labels=_DEN_BUCKET_LABELS.copy(),
+    monthly_tmax_mean={
+        1: 45.0, 2: 47.0, 3: 54.0, 4: 61.0, 5: 71.0, 6: 82.0,
+        7: 90.0, 8: 88.0, 9: 80.0, 10: 67.0, 11: 53.0, 12: 44.0,
+    },
+    monthly_tmax_std={
+        1: 11.0, 2: 11.0, 3: 11.0, 4: 11.0, 5: 9.5, 6: 8.0,
+        7: 6.5, 8: 6.5, 9: 9.0, 10: 10.0, 11: 10.5, 12: 11.0,
+    },
+    data_dir=os.path.join(PROJECT_ROOT, "data", "denver"),
+    models_dir=os.path.join(PROJECT_ROOT, "models", "denver"),
+    results_dir=os.path.join(PROJECT_ROOT, "results", "denver"),
+)
+
+_DC_CONFIG = CityConfig(
+    city_name="Washington DC",
+    city_code="dc",
+    kalshi_ticker="KXHIGHTDC",
+    target_station="USW00013743",
+    target_station_name="Reagan National Airport (Washington DC)",
+    target_lat=38.8472,
+    target_lon=-77.0344,
+    timezone="America/New_York",
+    igra_station_id="USM00072403",
+    igra_station_name="Sterling VA / IAD",
+    nwp_lat=38.8472,
+    nwp_lon=-77.0344,
+    bucket_edges=_DC_BUCKET_EDGES.copy(),
+    bucket_labels=_DC_BUCKET_LABELS.copy(),
+    monthly_tmax_mean={
+        1: 44.0, 2: 47.0, 3: 56.0, 4: 67.0, 5: 76.0, 6: 85.0,
+        7: 89.0, 8: 87.0, 9: 80.0, 10: 68.0, 11: 57.0, 12: 47.0,
+    },
+    monthly_tmax_std={
+        1: 10.0, 2: 10.0, 3: 10.0, 4: 9.5, 5: 8.0, 6: 6.5,
+        7: 5.5, 8: 5.5, 9: 7.0, 10: 8.5, 11: 9.0, 12: 10.0,
+    },
+    data_dir=os.path.join(PROJECT_ROOT, "data", "washington_dc"),
+    models_dir=os.path.join(PROJECT_ROOT, "models", "washington_dc"),
+    results_dir=os.path.join(PROJECT_ROOT, "results", "washington_dc"),
+)
+
+_LAX_CONFIG = CityConfig(
+    city_name="Los Angeles",
+    city_code="lax",
+    kalshi_ticker="KXHIGHLAX",
+    target_station="USW00023174",
+    target_station_name="Los Angeles International Airport",
+    target_lat=33.9381,
+    target_lon=-118.3889,
+    timezone="America/Los_Angeles",
+    igra_station_id="USM00072293",
+    igra_station_name="San Diego NKX",
+    nwp_lat=33.9381,
+    nwp_lon=-118.3889,
+    bucket_edges=_LAX_BUCKET_EDGES.copy(),
+    bucket_labels=_LAX_BUCKET_LABELS.copy(),
+    monthly_tmax_mean={
+        1: 66.0, 2: 66.0, 3: 67.0, 4: 68.0, 5: 70.0, 6: 72.0,
+        7: 75.0, 8: 77.0, 9: 77.0, 10: 74.0, 11: 71.0, 12: 66.0,
+    },
+    monthly_tmax_std={
+        1: 6.5, 2: 6.5, 3: 6.0, 4: 6.5, 5: 6.0, 6: 5.5,
+        7: 5.0, 8: 5.0, 9: 6.0, 10: 7.0, 11: 7.0, 12: 6.5,
+    },
+    data_dir=os.path.join(PROJECT_ROOT, "data", "los_angeles"),
+    models_dir=os.path.join(PROJECT_ROOT, "models", "los_angeles"),
+    results_dir=os.path.join(PROJECT_ROOT, "results", "los_angeles"),
+)
+
+_MIA_CONFIG = CityConfig(
+    city_name="Miami",
+    city_code="mia",
+    kalshi_ticker="KXHIGHMIA",
+    target_station="USW00012839",
+    target_station_name="Miami International Airport",
+    target_lat=25.7906,
+    target_lon=-80.3164,
+    timezone="America/New_York",
+    igra_station_id="USM00072202",
+    igra_station_name="Miami FL",
+    nwp_lat=25.7906,
+    nwp_lon=-80.3164,
+    bucket_edges=_MIA_BUCKET_EDGES.copy(),
+    bucket_labels=_MIA_BUCKET_LABELS.copy(),
+    monthly_tmax_mean={
+        1: 76.0, 2: 78.0, 3: 80.0, 4: 83.0, 5: 87.0, 6: 89.0,
+        7: 91.0, 8: 91.0, 9: 89.0, 10: 86.0, 11: 82.0, 12: 78.0,
+    },
+    monthly_tmax_std={
+        1: 5.5, 2: 5.5, 3: 5.0, 4: 4.5, 5: 4.0, 6: 3.5,
+        7: 3.0, 8: 3.0, 9: 3.5, 10: 4.5, 11: 5.0, 12: 5.5,
+    },
+    data_dir=os.path.join(PROJECT_ROOT, "data", "miami"),
+    models_dir=os.path.join(PROJECT_ROOT, "models", "miami"),
+    results_dir=os.path.join(PROJECT_ROOT, "results", "miami"),
+)
+
+_PHX_CONFIG = CityConfig(
+    city_name="Phoenix",
+    city_code="phx",
+    kalshi_ticker="KXHIGHTPHX",
+    target_station="USW00023183",
+    target_station_name="Phoenix Sky Harbor International Airport",
+    target_lat=33.4278,
+    target_lon=-112.0037,
+    timezone="America/Phoenix",
+    igra_station_id="USM00072274",
+    igra_station_name="Tucson AZ",
+    nwp_lat=33.4278,
+    nwp_lon=-112.0037,
+    bucket_edges=_PHX_BUCKET_EDGES.copy(),
+    bucket_labels=_PHX_BUCKET_LABELS.copy(),
+    monthly_tmax_mean={
+        1: 67.0, 2: 71.0, 3: 77.0, 4: 85.0, 5: 95.0, 6: 104.0,
+        7: 106.0, 8: 104.0, 9: 100.0, 10: 89.0, 11: 76.0, 12: 66.0,
+    },
+    monthly_tmax_std={
+        1: 7.0, 2: 7.5, 3: 8.0, 4: 8.5, 5: 7.5, 6: 6.5,
+        7: 5.5, 8: 5.5, 9: 7.0, 10: 8.0, 11: 7.5, 12: 7.0,
+    },
+    data_dir=os.path.join(PROJECT_ROOT, "data", "phoenix"),
+    models_dir=os.path.join(PROJECT_ROOT, "models", "phoenix"),
+    results_dir=os.path.join(PROJECT_ROOT, "results", "phoenix"),
+)
+
+
+# ---------------------------------------------------------------------------
 # City registry
 # ---------------------------------------------------------------------------
 _CITY_REGISTRY: Dict[str, CityConfig] = {
@@ -432,6 +590,12 @@ _CITY_REGISTRY: Dict[str, CityConfig] = {
     "chi": _CHI_CONFIG,
     "atl": _ATL_CONFIG,
     "aus": _AUS_CONFIG,
+    # Phase 4 expansion (MONITOR until >= 1yr real-price backtest)
+    "den": _DEN_CONFIG,
+    "dc": _DC_CONFIG,
+    "lax": _LAX_CONFIG,
+    "mia": _MIA_CONFIG,
+    "phx": _PHX_CONFIG,
 }
 
 

@@ -4,7 +4,7 @@ Fetch real Kalshi settled market data for Chicago, Philadelphia, and Austin.
 
 Uses the Kalshi public API to download all settled contracts for:
   - KXHIGHCHI (Chicago high temperature)
-  - KXHIGHPHL (Philadelphia high temperature)
+  - KXHIGHPHIL (Philadelphia high temperature)
 
 Market structure (per day):
   - "less" bucket: "Will high temp be < X?"  (1 per day)
@@ -77,6 +77,48 @@ CITY_CONFIG = {
         "data_subdir": "atlanta",
         "ghcn_col": "TMAX",
         "label": "Atlanta",
+    },
+    # Phase 4 expansion (series tickers verified against the live Kalshi API;
+    # see results/expansion/contract_verification.json).
+    "den": {
+        "series_ticker": "KXHIGHDEN",
+        "ticker_patterns": ["HIGHDEN", "KXHIGHDEN"],
+        "target_station": "USW00003017",
+        "data_subdir": "denver",
+        "ghcn_col": "TMAX",
+        "label": "Denver",
+    },
+    "dc": {
+        "series_ticker": "KXHIGHTDC",
+        "ticker_patterns": ["HIGHTDC", "KXHIGHTDC"],
+        "target_station": "USW00013743",
+        "data_subdir": "washington_dc",
+        "ghcn_col": "TMAX",
+        "label": "Washington DC",
+    },
+    "lax": {
+        "series_ticker": "KXHIGHLAX",
+        "ticker_patterns": ["HIGHLAX", "KXHIGHLAX"],
+        "target_station": "USW00023174",
+        "data_subdir": "los_angeles",
+        "ghcn_col": "TMAX",
+        "label": "Los Angeles",
+    },
+    "mia": {
+        "series_ticker": "KXHIGHMIA",
+        "ticker_patterns": ["HIGHMIA", "KXHIGHMIA"],
+        "target_station": "USW00012839",
+        "data_subdir": "miami",
+        "ghcn_col": "TMAX",
+        "label": "Miami",
+    },
+    "phx": {
+        "series_ticker": "KXHIGHTPHX",
+        "ticker_patterns": ["HIGHTPHX", "KXHIGHTPHX"],
+        "target_station": "USW00023183",
+        "data_subdir": "phoenix",
+        "ghcn_col": "TMAX",
+        "label": "Phoenix",
     },
 }
 

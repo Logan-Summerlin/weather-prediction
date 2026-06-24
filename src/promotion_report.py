@@ -60,6 +60,43 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 #     forecast to claim any edge.
 #   - max_drawdown_threshold is a FRACTION (-0.30 = -30% of peak bankroll).
 # ---------------------------------------------------------------------------
+def climatology_ladder_brier(
+    monthly_tmax_std: dict[int, float],
+    bucket_width: float = 2.0,
+    n_interior: int = 4,
+) -> float:
+    """Entropy-derived contract Brier of a calibrated climatology forecast.
+
+    Replicates the verified daily Kalshi ladder — ``n_interior`` 2°F buckets
+    struck around the forecast (the distribution mean, for a climatology
+    baseline) bracketed by a low and a high open tail — and returns the mean
+    per-contract binary Brier ``q*(1-q)`` of the climatological bucket
+    probabilities, averaged across months. This is exactly "the Brier a
+    well-calibrated climatology forecast achieves" referenced in the
+    threshold-derivation notes; a skillful model must come in below it.
+
+    Cities with lower day-to-day TMAX variance concentrate probability in the
+    central buckets, raising per-contract Brier, while high-variance cities
+    spread mass thinner. Used to set expansion-city ``brier_threshold`` values
+    without hand-tuning (see tests/test_expansion_cities.py).
+    """
+    import math
+
+    half = (n_interior / 2.0) * bucket_width
+
+    def _norm_cdf(x: float, sd: float) -> float:
+        return 0.5 * (1.0 + math.erf(x / (sd * math.sqrt(2.0))))
+
+    monthly_brier: list[float] = []
+    for sd in monthly_tmax_std.values():
+        sd = max(float(sd), 1e-6)
+        edges = [-1e9] + [(-half + i * bucket_width) for i in range(n_interior + 1)] + [1e9]
+        cdf = [_norm_cdf(e, sd) for e in edges]
+        probs = [cdf[i + 1] - cdf[i] for i in range(len(cdf) - 1)]
+        monthly_brier.append(sum(q * (1.0 - q) for q in probs) / len(probs))
+    return sum(monthly_brier) / len(monthly_brier) if monthly_brier else 0.0
+
+
 CITY_THRESHOLDS: dict[str, dict[str, Any]] = {
     "nyc": {
         "brier_threshold": 0.14,
@@ -114,6 +151,67 @@ CITY_THRESHOLDS: dict[str, dict[str, Any]] = {
         "max_drawdown_threshold": -0.30,
         "min_oos_days": 200,
         "seasonal_brier_threshold": 0.22,
+        "min_predictions_rows": 100,
+    },
+    # ---- Phase 4 expansion cities -------------------------------------------
+    # brier_threshold == round(climatology_ladder_brier(cfg.monthly_tmax_std), 2)
+    # (entropy-derived; see tests/test_expansion_cities.py). nws_brier_baseline
+    # is provisional (~0.86x the climatology ceiling) until a real NWS forecast
+    # benchmark is collected during rollout; these cities stay MONITOR and
+    # cannot be PROMOTED on provisional baselines.
+    "den": {
+        "brier_threshold": 0.12,
+        "brier_floor": 0.0,
+        "nws_brier_baseline": 0.11,
+        "ece_threshold": 0.05,
+        "min_positive_pnl": 0.0,
+        "max_drawdown_threshold": -0.30,
+        "min_oos_days": 200,
+        "seasonal_brier_threshold": 0.18,
+        "min_predictions_rows": 100,
+    },
+    "dc": {
+        "brier_threshold": 0.13,
+        "brier_floor": 0.0,
+        "nws_brier_baseline": 0.11,
+        "ece_threshold": 0.05,
+        "min_positive_pnl": 0.0,
+        "max_drawdown_threshold": -0.30,
+        "min_oos_days": 200,
+        "seasonal_brier_threshold": 0.19,
+        "min_predictions_rows": 100,
+    },
+    "lax": {
+        "brier_threshold": 0.13,
+        "brier_floor": 0.0,
+        "nws_brier_baseline": 0.12,
+        "ece_threshold": 0.05,
+        "min_positive_pnl": 0.0,
+        "max_drawdown_threshold": -0.30,
+        "min_oos_days": 200,
+        "seasonal_brier_threshold": 0.19,
+        "min_predictions_rows": 100,
+    },
+    "mia": {
+        "brier_threshold": 0.14,
+        "brier_floor": 0.0,
+        "nws_brier_baseline": 0.12,
+        "ece_threshold": 0.05,
+        "min_positive_pnl": 0.0,
+        "max_drawdown_threshold": -0.30,
+        "min_oos_days": 200,
+        "seasonal_brier_threshold": 0.20,
+        "min_predictions_rows": 100,
+    },
+    "phx": {
+        "brier_threshold": 0.13,
+        "brier_floor": 0.0,
+        "nws_brier_baseline": 0.11,
+        "ece_threshold": 0.05,
+        "min_positive_pnl": 0.0,
+        "max_drawdown_threshold": -0.30,
+        "min_oos_days": 200,
+        "seasonal_brier_threshold": 0.19,
         "min_predictions_rows": 100,
     },
 }

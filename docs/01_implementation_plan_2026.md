@@ -1,9 +1,39 @@
 # Implementation Plan: Positive-EV Models, 10-City Portfolio, Real-Time EV Dashboard
 
 > Status: Phase 0 COMPLETE (2026-06-12). Phase 1 COMPLETE. Phase 2 COMPLETE
-> (2026-06-22). Phase 3 COMPLETE (2026-06-23). Phases 4-5 pending.
+> (2026-06-22). Phase 3 COMPLETE (2026-06-23). Phase 4 COMPLETE (2026-06-24):
+> contracts verified + 5 expansion cities registered (all MONITOR pending
+> rollout data collection). Phase 5 pending.
 > Authoritative per-city metrics: `results/baseline_ledger.json`
 > (regenerate with `python scripts/build_baseline_ledger.py`).
+>
+> **Phase 4 (expansion) — DONE (code/registration); rollout data collection is
+> the remaining operational step):**
+> 1. Contract verification — `src/expansion_verification.py` +
+>    `scripts/verify_kalshi_contracts.py` probe the live Kalshi public API for
+>    {DEN, DC, MIA, LAX, HOU, PHX}, resolving each irregular series ticker
+>    (DC=`KXHIGHTDC`, PHX=`KXHIGHTPHX` carry a "T" prefix like ATL), settlement
+>    station (from `rules_primary`), 2°F bucket ladder, and a 7-day liquidity
+>    sample, then rank by spread-adjusted liquidity. Real artifact:
+>    `results/expansion/contract_verification.json`. **Recommended set: DEN, DC
+>    (mandated) + LAX, MIA, PHX (top-3 by liquidity).** HOU is **BLOCKED** (live
+>    series exists but exposes zero markets/volume). The PHL ticker discrepancy
+>    is resolved: the real series is `KXHIGHPHIL` (not `KXHIGHPHL`) — fixed in
+>    `src/city_config.py`, `src/live_trading.py`,
+>    `scripts/run_city_nws_kalshi_template_benchmark.py`, and tests.
+> 2. City registration — DEN, DC, LAX, MIA, PHX registered ASOS-first across
+>    `src/city_config.py`, `src/city_config_runtime_data.py`,
+>    `SUPPORTED_CITIES` (`scripts/run_city_pipeline.py`), entropy-derived
+>    `CITY_THRESHOLDS` (`src/promotion_report.py::climatology_ladder_brier`),
+>    and `scripts/fetch_kalshi_multi_city.py`. No config was hard-coded before
+>    the verification artifact existed.
+>
+> **Phase 4 gate status (honest):** all five expansion cities are **MONITOR**.
+> Per the Phase 4.2 rule, a new city cannot be PROMOTED until it has >= 1 full
+> year of real-price backtest passing every gate. The remaining operational
+> work is data collection + the full pipeline run (`run_city_pipeline.py
+> --city <c>`), which downloads multi-year ASOS/MOS/Kalshi history and trains
+> per city; no model results were fabricated to short-circuit that gate.
 >
 > **Phase 1 (data parity) — DONE:** ASOS migration for CHI/ATL/PHL/AUS
 > (`results/<city>/asos_migration/`), 7am-ET cutoff manifest
