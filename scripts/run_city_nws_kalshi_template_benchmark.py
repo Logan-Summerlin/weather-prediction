@@ -39,7 +39,7 @@ CITY_TO_MOS = {
     "aus": Path("data/austin/mos/combined_mos_kaus.csv"),
 }
 CITY_TICKER_PATTERNS = {
-    "phl": ("HIGHPHL", "KXHIGHPHL"),
+    "phl": ("HIGHPHIL", "KXHIGHPHIL"),
     "chi": ("HIGHCHI", "KXHIGHCHI"),
     "aus": ("HIGHAUS", "KXHIGHAUS"),
 }

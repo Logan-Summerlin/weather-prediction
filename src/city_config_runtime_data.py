@@ -4090,3 +4090,80 @@ CITY_RUNTIME_DATA = {'atl': {'ALL_STATIONS': {'USW00003810': 'GREENVILLE-SPARTAN
          'TEST_RATIO': 0.15,
          'TRAIN_RATIO': 0.7,
          'VAL_RATIO': 0.15}}
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 expansion runtime blocks (ASOS-first, minimal seed).
+#
+# The full surrounding-station network for each city is discovered during data
+# collection (`scripts/run_asos_migration.py` / data-collection stage). These
+# blocks seed the settlement (target) station and its ASOS call sign so the
+# city resolves through `get_city_runtime_config` and the pipeline can
+# bootstrap. Tickers/stations were confirmed against the live Kalshi API; see
+# `results/expansion/contract_verification.json`. All start in MONITOR.
+# ---------------------------------------------------------------------------
+_EXPANSION_RUNTIME = {
+    "den": {
+        "TARGET_STATION": "USW00003017",
+        "TARGET_LAT": 39.8466, "TARGET_LON": -104.6562, "TARGET_VARIABLE": "TMAX",
+        "ALL_STATIONS": {"USW00003017": "DENVER INTL AP, CO (Target)"},
+        "ASOS_STATION_MAP": {"USW00003017": "KDEN"},
+        "SURROUNDING_STATIONS": {}, "STATION_METADATA": {},
+        "STATION_RINGS": {}, "STATION_SECTORS": {}, "METEOROLOGICAL_SECTORS": {},
+        "START_DATE": "2015-01-01", "END_DATE": "2025-12-31",
+        "ASOS_START_DATE": "2015-01-01", "ASOS_END_DATE": "2025-12-31",
+        "MIN_COMPLETENESS": 0.8, "TRAIN_RATIO": 0.7, "VAL_RATIO": 0.15, "TEST_RATIO": 0.15,
+        "INPUT_VARIABLES": ["TMAX", "TMIN"], "MAX_FORWARD_FILL_DAYS": 7, "BATCH_SIZE": 32,
+    },
+    "dc": {
+        "TARGET_STATION": "USW00013743",
+        "TARGET_LAT": 38.8472, "TARGET_LON": -77.0344, "TARGET_VARIABLE": "TMAX",
+        "ALL_STATIONS": {"USW00013743": "REAGAN NATIONAL AP, DC (Target)"},
+        "ASOS_STATION_MAP": {"USW00013743": "KDCA"},
+        "SURROUNDING_STATIONS": {}, "STATION_METADATA": {},
+        "STATION_RINGS": {}, "STATION_SECTORS": {}, "METEOROLOGICAL_SECTORS": {},
+        "START_DATE": "2015-01-01", "END_DATE": "2025-12-31",
+        "ASOS_START_DATE": "2015-01-01", "ASOS_END_DATE": "2025-12-31",
+        "MIN_COMPLETENESS": 0.8, "TRAIN_RATIO": 0.7, "VAL_RATIO": 0.15, "TEST_RATIO": 0.15,
+        "INPUT_VARIABLES": ["TMAX", "TMIN"], "MAX_FORWARD_FILL_DAYS": 7, "BATCH_SIZE": 32,
+    },
+    "lax": {
+        "TARGET_STATION": "USW00023174",
+        "TARGET_LAT": 33.9381, "TARGET_LON": -118.3889, "TARGET_VARIABLE": "TMAX",
+        "ALL_STATIONS": {"USW00023174": "LOS ANGELES INTL AP, CA (Target)"},
+        "ASOS_STATION_MAP": {"USW00023174": "KLAX"},
+        "SURROUNDING_STATIONS": {}, "STATION_METADATA": {},
+        "STATION_RINGS": {}, "STATION_SECTORS": {}, "METEOROLOGICAL_SECTORS": {},
+        "START_DATE": "2015-01-01", "END_DATE": "2025-12-31",
+        "ASOS_START_DATE": "2015-01-01", "ASOS_END_DATE": "2025-12-31",
+        "MIN_COMPLETENESS": 0.8, "TRAIN_RATIO": 0.7, "VAL_RATIO": 0.15, "TEST_RATIO": 0.15,
+        "INPUT_VARIABLES": ["TMAX", "TMIN"], "MAX_FORWARD_FILL_DAYS": 7, "BATCH_SIZE": 32,
+    },
+    "mia": {
+        "TARGET_STATION": "USW00012839",
+        "TARGET_LAT": 25.7906, "TARGET_LON": -80.3164, "TARGET_VARIABLE": "TMAX",
+        "ALL_STATIONS": {"USW00012839": "MIAMI INTL AP, FL (Target)"},
+        "ASOS_STATION_MAP": {"USW00012839": "KMIA"},
+        "SURROUNDING_STATIONS": {}, "STATION_METADATA": {},
+        "STATION_RINGS": {}, "STATION_SECTORS": {}, "METEOROLOGICAL_SECTORS": {},
+        "START_DATE": "2015-01-01", "END_DATE": "2025-12-31",
+        "ASOS_START_DATE": "2015-01-01", "ASOS_END_DATE": "2025-12-31",
+        "MIN_COMPLETENESS": 0.8, "TRAIN_RATIO": 0.7, "VAL_RATIO": 0.15, "TEST_RATIO": 0.15,
+        "INPUT_VARIABLES": ["TMAX", "TMIN"], "MAX_FORWARD_FILL_DAYS": 7, "BATCH_SIZE": 32,
+    },
+    "phx": {
+        "TARGET_STATION": "USW00023183",
+        "TARGET_LAT": 33.4278, "TARGET_LON": -112.0037, "TARGET_VARIABLE": "TMAX",
+        "ALL_STATIONS": {"USW00023183": "PHOENIX SKY HARBOR INTL AP, AZ (Target)"},
+        "ASOS_STATION_MAP": {"USW00023183": "KPHX"},
+        "SURROUNDING_STATIONS": {}, "STATION_METADATA": {},
+        "STATION_RINGS": {}, "STATION_SECTORS": {}, "METEOROLOGICAL_SECTORS": {},
+        "START_DATE": "2015-01-01", "END_DATE": "2025-12-31",
+        "ASOS_START_DATE": "2015-01-01", "ASOS_END_DATE": "2025-12-31",
+        "MIN_COMPLETENESS": 0.8, "TRAIN_RATIO": 0.7, "VAL_RATIO": 0.15, "TEST_RATIO": 0.15,
+        "INPUT_VARIABLES": ["TMAX", "TMIN"], "MAX_FORWARD_FILL_DAYS": 7, "BATCH_SIZE": 32,
+    },
+}
+
+for _code, _block in _EXPANSION_RUNTIME.items():
+    CITY_RUNTIME_DATA.setdefault(_code, {}).update(_block)

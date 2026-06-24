@@ -2,7 +2,7 @@
 Multi-City Live Trading Harness for Kalshi Temperature Markets.
 
 Extends the NYC trading infrastructure to support CHI (KXHIGHCHI) and
-PHL (KXHIGHPHL) with:
+PHL (KXHIGHPHIL) with:
   - City-aware Kalshi ticker routing
   - Per-city kill switches (independent of NYC)
   - Daily inference pipeline: data → features → predict → calibrate → bucketize → EV gate → trade
@@ -55,7 +55,7 @@ PROB_CLIP_MAX = 0.999
 KALSHI_TICKER_MAP = {
     "nyc": "KXHIGHNY",
     "chi": "KXHIGHCHI",
-    "phl": "KXHIGHPHL",
+    "phl": "KXHIGHPHIL",
     "atl": "KXHIGHTATL",
     "aus": "KXHIGHAUS",
 }

@@ -178,7 +178,7 @@ class TestLiveTradingHarness:
 
         assert get_kalshi_ticker("nyc") == "KXHIGHNY"
         assert get_kalshi_ticker("chi") == "KXHIGHCHI"
-        assert get_kalshi_ticker("phl") == "KXHIGHPHL"
+        assert get_kalshi_ticker("phl") == "KXHIGHPHIL"
 
         with pytest.raises(ValueError):
             get_kalshi_ticker("unknown")
@@ -270,7 +270,7 @@ class TestLiveTradingHarness:
 
         harness_phl = LiveTradingHarness("phl", mode="paper")
         assert harness_phl.city_code == "phl"
-        assert harness_phl.kalshi_ticker == "KXHIGHPHL"
+        assert harness_phl.kalshi_ticker == "KXHIGHPHIL"
 
     def test_live_trading_invalid_mode(self):
         """Test that invalid mode raises ValueError."""

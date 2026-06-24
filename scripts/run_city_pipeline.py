@@ -84,7 +84,11 @@ STAGE_REGISTRY: dict[str, StageSpec] = {
     ),
 }
 
-SUPPORTED_CITIES: tuple[str, ...] = ("nyc", "chi", "phl", "atl", "aus")
+SUPPORTED_CITIES: tuple[str, ...] = (
+    "nyc", "chi", "phl", "atl", "aus",
+    # Phase 4 expansion (verified contracts; MONITOR until >=1yr backtest)
+    "den", "dc", "lax", "mia", "phx",
+)
 
 logging.basicConfig(
     level=logging.INFO,

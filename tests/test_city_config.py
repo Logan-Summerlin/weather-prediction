@@ -54,7 +54,7 @@ class TestGetCityConfig:
     def test_phl_config(self):
         cfg = get_city_config("phl")
         assert cfg.city_code == "phl"
-        assert cfg.kalshi_ticker == "KXHIGHPHL"
+        assert cfg.kalshi_ticker == "KXHIGHPHIL"
         assert cfg.target_station == "USW00013739"
         assert abs(cfg.target_lat - 39.8733) < 0.001
 
