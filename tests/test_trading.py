@@ -30,6 +30,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.trading import (
+    kalshi_fee_per_contract,
     compute_ev_yes,
     compute_ev_no,
     compute_ev_best,
@@ -49,6 +50,39 @@ from src.trading import (
     compute_drawdown_metrics,
     VALID_SIZING_METHODS,
 )
+
+
+# ===========================================================================
+# Kalshi fee model
+# ===========================================================================
+
+class TestKalshiFeePerContract:
+    """Kalshi's curved per-contract trading fee: ceil(0.07*P*(1-P)) per cent."""
+
+    def test_peak_at_half(self):
+        # 0.07 * 0.5 * 0.5 = 0.0175 -> rounds up to 0.02
+        assert kalshi_fee_per_contract(0.50) == pytest.approx(0.02)
+
+    def test_far_below_flat_seven_cents(self):
+        # At a typical 0.75 price the fee is ~1.3c, not the old flat 7c.
+        fee = kalshi_fee_per_contract(0.75)
+        assert fee < 0.07
+        assert fee == pytest.approx(math.ceil(0.07 * 0.75 * 0.25 * 100) / 100)
+
+    def test_zero_at_extremes(self):
+        assert kalshi_fee_per_contract(0.0) == 0.0
+        assert kalshi_fee_per_contract(1.0) == 0.0
+
+    def test_non_negative_and_symmetric(self):
+        for p in [0.01, 0.2, 0.5, 0.8, 0.99]:
+            assert kalshi_fee_per_contract(p) >= 0.0
+            assert kalshi_fee_per_contract(p) == pytest.approx(
+                kalshi_fee_per_contract(1.0 - p)
+            )
+
+    def test_clips_out_of_range(self):
+        assert kalshi_fee_per_contract(-0.5) == 0.0
+        assert kalshi_fee_per_contract(1.5) == 0.0
 
 
 # ===========================================================================

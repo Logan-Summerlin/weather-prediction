@@ -80,6 +80,50 @@ CONSERVATIVE_FEE_TOTAL = CONSERVATIVE_FEE_RATE + SLIPPAGE_BPS  # 9% total cost
 CONSERVATIVE_EV_THRESHOLD = 0.03  # Minimum EV after conservative costs
 CONSERVATIVE_MIN_EV = 0.015  # Absolute minimum EV
 
+# ---------------------------------------------------------------------------
+# Kalshi trading fee model
+#
+# Kalshi's published general trading fee is a *curved* per-contract fee:
+#
+#     fee_per_trade = ceil( 0.07 * C * P * (1 - P) )   (rounded up to the cent)
+#
+# i.e. ~$0.0175/contract at P=0.50, falling toward zero at the price
+# extremes. The fee is charged on the *traded* contracts at execution time
+# (on entry, regardless of how the contract later settles).
+#
+# Earlier cost code in this repo approximated fees as a flat 7% of the $1
+# payout (``payout = C * (1 - 0.07)``), i.e. ~$0.07/contract — 4-5x Kalshi's
+# real fee at typical prices. That over-charge is large relative to the thin
+# edge available against a sharp pre-settlement market and made genuinely
+# +EV trades look unprofitable. ``kalshi_fee_per_contract`` is the accurate
+# model; use it (with on-entry accounting) for realistic backtests.
+# ---------------------------------------------------------------------------
+KALSHI_FEE_COEFF = 0.07
+
+
+def kalshi_fee_per_contract(price: float, coeff: float = KALSHI_FEE_COEFF) -> float:
+    """Kalshi per-contract trading fee at a given execution price.
+
+    Returns ``ceil(coeff * price * (1 - price) * 100) / 100`` — the documented
+    Kalshi general-markets fee, rounded up to the next cent, per contract.
+
+    Parameters
+    ----------
+    price : float
+        Execution price of the contract being bought (0..1).
+    coeff : float
+        Fee coefficient (0.07 for Kalshi general markets).
+
+    Returns
+    -------
+    float
+        Per-contract fee in dollars (>= 0).
+    """
+    import math
+
+    p = float(np.clip(price, 0.0, 1.0))
+    return math.ceil(coeff * p * (1.0 - p) * 100.0) / 100.0
+
 
 # ===========================================================================
 # Helpers

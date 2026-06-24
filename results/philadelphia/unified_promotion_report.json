@@ -1,6 +1,6 @@
 {
   "schema_version": "3.0",
-  "timestamp": "2026-06-24T13:18:13.521499",
+  "timestamp": "2026-06-24T13:28:33.398742",
   "city": "Philadelphia",
   "city_code": "phl",
   "kalshi_ticker": "KXHIGHPHIL",
@@ -100,27 +100,27 @@
       "description": "Trading shows positive P&L",
       "category": "trading",
       "passed": true,
-      "value": 8.750000000000796,
+      "value": 145.85000000000036,
       "threshold": 0.0,
-      "details": "U9_kitchen P&L: $8.75 (source: real_kalshi)"
+      "details": "U9_kitchen P&L: $145.85 (source: real_kalshi)"
     },
     {
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
       "category": "trading",
       "passed": true,
-      "value": -0.04777300583892291,
+      "value": -0.04100187182458347,
       "threshold": -0.3,
-      "details": "Max drawdown: -4.8% (limit: -30%)"
+      "details": "Max drawdown: -4.1% (limit: -30%)"
     },
     {
       "name": "real_kalshi_pnl",
       "description": "Real Kalshi backtest shows positive P&L",
       "category": "trading",
       "passed": true,
-      "value": 8.750000000000796,
+      "value": 145.85000000000036,
       "threshold": 0.0,
-      "details": "Real Kalshi P&L: $8.75, Sharpe: 0.18"
+      "details": "Real Kalshi P&L: $145.85, Sharpe: 2.33"
     },
     {
       "name": "trading_source_real",
@@ -194,12 +194,12 @@
   "trading_summary": {
     "source": "real_kalshi",
     "best_variant": "U9_kitchen",
-    "total_pnl": 8.750000000000796,
-    "return_pct": 0.8750000000000795,
-    "sharpe_ratio": 0.18420049457376822,
-    "n_trades": 244,
-    "win_rate": 0.4344262295081967,
-    "max_drawdown_frac": -0.04777300583892291,
+    "total_pnl": 145.85000000000036,
+    "return_pct": 14.585000000000036,
+    "sharpe_ratio": 2.3310532471016505,
+    "n_trades": 422,
+    "win_rate": 0.6398104265402843,
+    "max_drawdown_frac": -0.04100187182458347,
     "busted": false
   },
   "seasonal_brier": {
@@ -209,10 +209,10 @@
   },
   "trading_seasonal": {
     "DJF": {
-      "n_trades": 114,
-      "pnl": -19.050000000000054,
-      "win_rate": 0.38596491228070173,
-      "avg_ev": 0.08203963455040232
+      "n_trades": 198,
+      "pnl": 34.64999999999999,
+      "win_rate": 0.6111111111111112,
+      "avg_ev": 0.07639057383545908
     },
     "MAM": {
       "n_trades": 0,
@@ -221,16 +221,16 @@
       "avg_ev": 0.0
     },
     "JJA": {
-      "n_trades": 17,
-      "pnl": -9.400000000000015,
-      "win_rate": 0.6470588235294118,
-      "avg_ev": 0.05694108919441636
+      "n_trades": 29,
+      "pnl": 6.05,
+      "win_rate": 0.7586206896551724,
+      "avg_ev": 0.07333385937358076
     },
     "SON": {
-      "n_trades": 113,
-      "pnl": 37.19999999999993,
-      "win_rate": 0.45132743362831856,
-      "avg_ev": 0.058971381877282174
+      "n_trades": 195,
+      "pnl": 105.14999999999999,
+      "win_rate": 0.6512820512820513,
+      "avg_ev": 0.0623566908768732
     }
   }
 }
