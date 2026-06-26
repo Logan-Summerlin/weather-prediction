@@ -43,18 +43,13 @@ OUT_ROOT = ROOT / "results" / "prediction_market_benchmark" / "wga_v2_model"
 OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
-# Import existing benchmark machinery
+# Shared benchmark machinery
+#
+# Historically this module exec-loaded scripts/test_model_vs_benchmarks.py only
+# to borrow its SEASON_MAP; that script has since been removed. SEASON_MAP is
+# the single canonical month->season mapping, so import it directly.
 # ---------------------------------------------------------------------------
-
-def _load_module(name: str, relpath: str):
-    spec = importlib.util.spec_from_file_location(name, ROOT / relpath)
-    mod = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    spec.loader.exec_module(mod)
-    return mod
-
-
-bench = _load_module("benchmod", "scripts/test_model_vs_benchmarks.py")
+from src.seasons import SEASON_MAP as _CANONICAL_SEASON_MAP
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -69,7 +64,7 @@ N_CAL_BINS = 10
 N_BOOTSTRAP = 1000
 EV_QUALITY_CUTS = [0.02, 0.03, 0.04, 0.05, 0.06]
 
-SEASON_MAP = bench.SEASON_MAP
+SEASON_MAP = _CANONICAL_SEASON_MAP
 
 # Architecture configs for WGA V2
 WGA_V2_CONFIGS = ["wga_v2_full", "wga_v2_multihead_only",

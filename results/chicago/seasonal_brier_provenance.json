@@ -1,0 +1,15 @@
+{
+  "variant": "u8_cv_prob",
+  "overall_oos_contract_brier": 0.103741,
+  "n_oos_rows": 2425,
+  "all_variant_oos_brier": {
+    "u3_mlp_prob": 0.106426,
+    "u4_platt_prob": 0.107079,
+    "u5_regime_prob": 0.11098,
+    "u6_ensemble_prob": 0.111361,
+    "u7_extended_prob": 0.104814,
+    "u8_cv_prob": 0.103741,
+    "u9_kitchen_prob": 0.104607
+  },
+  "source": "unified_predictions.csv (promoted U-series, OOS contract rows)"
+}

@@ -1,6 +1,6 @@
 {
   "schema_version": "3.0",
-  "timestamp": "2026-06-22T10:20:55.735274",
+  "timestamp": "2026-06-24T14:14:46.061899",
   "city": "New York City",
   "city_code": "nyc",
   "kalshi_ticker": "KXHIGHNY",
@@ -8,9 +8,9 @@
   "target_station_name": "Central Park",
   "timezone": "America/New_York",
   "overall_status": "FAIL",
-  "gates_passed": 2,
+  "gates_passed": 11,
   "gates_total": 14,
-  "pass_rate": "2/14 (14%)",
+  "pass_rate": "11/14 (79%)",
   "thresholds": {
     "brier_threshold": 0.14,
     "brier_floor": 0.0,
@@ -27,100 +27,100 @@
       "name": "overall_brier",
       "description": "OOS Brier score below threshold",
       "category": "forecast_quality",
-      "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Benchmark results not found (no_results_found)"
+      "passed": true,
+      "value": 0.10999555769742118,
+      "threshold": 0.14,
+      "details": "Best model Brier: 0.1100 (threshold: 0.14, source: unified/U8_cv_ensemble)"
     },
     {
       "name": "brier_sanity_floor",
       "description": "OOS Brier above minimum sanity floor",
       "category": "forecast_quality",
-      "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Benchmark results not found"
+      "passed": true,
+      "value": 0.10999555769742118,
+      "threshold": 0.0,
+      "details": "Best model Brier: 0.1100 (floor: 0.0000)"
     },
     {
       "name": "beats_nws",
       "description": "Model Brier beats NWS baseline",
       "category": "forecast_quality",
-      "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Benchmark results not found"
+      "passed": true,
+      "value": 0.10999555769742118,
+      "threshold": 0.12,
+      "details": "Model: 0.1100 vs NWS: 0.1200 (source: unified/U8_cv_ensemble)"
     },
     {
       "name": "beats_kalshi_market",
       "description": "Model Brier beats Kalshi market",
       "category": "forecast_quality",
       "passed": true,
-      "value": null,
-      "threshold": null,
-      "details": "Kalshi market Brier not available (non-blocking)"
+      "value": 0.017065556100128762,
+      "threshold": 0.0,
+      "details": "Model: 0.1100 vs Market: 0.1271 (edge: +0.0171)"
     },
     {
       "name": "seasonal_brier",
       "description": "No season exceeds Brier threshold",
       "category": "forecast_quality",
-      "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Seasonal results not found"
+      "passed": true,
+      "value": 0.1105441806501903,
+      "threshold": 0.2,
+      "details": "Worst: JJA=0.1105 (threshold: 0.2) [DJF=0.1057, JJA=0.1105, MAM=0.1087, SON=0.0926]"
     },
     {
       "name": "min_oos_days",
       "description": "Sufficient OOS evaluation days",
       "category": "forecast_quality",
-      "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "OOS day count not found"
+      "passed": true,
+      "value": 2192,
+      "threshold": 200,
+      "details": "OOS days: 2192 (minimum: 200)"
     },
     {
       "name": "calibration_ece",
       "description": "Expected Calibration Error within tolerance",
       "category": "calibration",
-      "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Calibration ECE not found"
+      "passed": true,
+      "value": 0.017684147492133793,
+      "threshold": 0.05,
+      "details": "ECE: 0.0177 (threshold: 0.05, method: 3_platt_scaling)"
     },
     {
       "name": "reliability_diagram",
       "description": "Reliability diagram artifact exists",
       "category": "calibration",
-      "passed": false,
+      "passed": true,
       "value": null,
       "threshold": null,
-      "details": "Not found at /home/user/weather-prediction/results/synthesis/reliability_diagram.png"
+      "details": "Found at /home/user/weather-prediction/results/synthesis/reliability_diagram.png"
     },
     {
       "name": "positive_pnl",
       "description": "Trading shows positive P&L",
       "category": "trading",
       "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Backtest results not found"
+      "value": -307.30000000000143,
+      "threshold": 0.0,
+      "details": "U9_kitchen P&L: $-307.30 (source: real_kalshi)"
     },
     {
       "name": "max_drawdown",
       "description": "Max drawdown within acceptable limits",
       "category": "trading",
       "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Drawdown data not found"
+      "value": -0.32965000000000144,
+      "threshold": -0.3,
+      "details": "Max drawdown: -33.0% (limit: -30%)"
     },
     {
       "name": "real_kalshi_pnl",
       "description": "Real Kalshi backtest shows positive P&L",
       "category": "trading",
       "passed": false,
-      "value": null,
-      "threshold": null,
-      "details": "Real Kalshi backtest metrics not found"
+      "value": -307.30000000000143,
+      "threshold": 0.0,
+      "details": "Real Kalshi P&L: $-307.30, Sharpe: -2.34"
     },
     {
       "name": "trading_source_real",
@@ -129,62 +129,109 @@
       "passed": true,
       "value": null,
       "threshold": null,
-      "details": "No presettlement data on disk for 'nyc' \u2014 gate not applicable (collect real market data before promotion)"
+      "details": "Trading summary derived from real Kalshi presettlement prices"
     },
     {
       "name": "data_pipeline",
       "description": "Processed data files exist",
       "category": "operational",
-      "passed": false,
-      "value": 0,
+      "passed": true,
+      "value": 7,
       "threshold": 7,
-      "details": "0/7 required files in /home/user/weather-prediction/data/nyc/processed"
+      "details": "7/7 required files in /home/user/weather-prediction/data/nyc/processed"
     },
     {
       "name": "model_checkpoints",
       "description": "Model checkpoints saved",
       "category": "operational",
-      "passed": false,
-      "value": 0,
+      "passed": true,
+      "value": 3,
       "threshold": null,
-      "details": "0 model file(s) in /home/user/weather-prediction/models"
+      "details": "3 model file(s) in /home/user/weather-prediction/models"
     }
   ],
   "model_summary": {
-    "best_model": null,
-    "best_brier": null,
-    "brier_source": "no_results_found",
-    "edge_vs_market": null
+    "best_model": "U8_cv_ensemble",
+    "best_brier": 0.10999555769742118,
+    "brier_source": "unified/U8_cv_ensemble",
+    "edge_vs_market": 0.017065556100128762
   },
   "baseline_comparisons": {
-    "persistence_brier": null,
-    "climatology_brier": null,
-    "ridge_brier": null,
-    "model_beats_persistence": null,
-    "model_beats_climatology": null,
-    "model_beats_ridge": null
+    "persistence_brier": 0.016163047687145923,
+    "climatology_brier": 0.016267886954205987,
+    "ridge_brier": 0.1205239388397572,
+    "model_beats_persistence": false,
+    "model_beats_climatology": false,
+    "model_beats_ridge": true
   },
   "market_benchmark": {
-    "kalshi_presettlement_brier": null,
-    "model_beats_market": null,
-    "brier_edge": null
+    "kalshi_presettlement_brier": 0.12706111379754995,
+    "model_beats_market": true,
+    "brier_edge": 0.017065556100128762
   },
   "calibration_summary": {
-    "best_ece": null,
-    "best_method": null,
-    "methods": {}
+    "best_ece": 0.017684147492133793,
+    "best_method": "3_platt_scaling",
+    "methods": {
+      "1_raw_uncalibrated": {
+        "brier": 0.20721393465009663,
+        "ece": 0.18117849269324351
+      },
+      "2_isotonic": {
+        "brier": 0.1768364600643406,
+        "ece": 0.023083251546425262
+      },
+      "3_platt_scaling": {
+        "brier": 0.1746315494451881,
+        "ece": 0.017684147492133793
+      },
+      "4_seasonal_regime": {
+        "brier": 0.1768639881356447,
+        "ece": 0.01785525776333448
+      }
+    }
   },
   "trading_summary": {
-    "source": null,
-    "best_variant": null,
-    "total_pnl": null,
-    "return_pct": null,
-    "sharpe_ratio": null,
-    "n_trades": null,
-    "win_rate": null,
-    "max_drawdown_frac": null,
-    "busted": null
+    "source": "real_kalshi",
+    "best_variant": "U9_kitchen",
+    "total_pnl": -307.30000000000143,
+    "return_pct": -30.73000000000014,
+    "sharpe_ratio": -2.34447613043075,
+    "n_trades": 514,
+    "win_rate": 0.5525291828793775,
+    "max_drawdown_frac": -0.32965000000000144,
+    "busted": false
   },
-  "seasonal_brier": {},
-  "trading_seasonal": {}
+  "seasonal_brier": {
+    "DJF": 0.10569888800183884,
+    "MAM": 0.10874943730339934,
+    "JJA": 0.1105441806501903,
+    "SON": 0.09259328711095943
+  },
+  "trading_seasonal": {
+    "DJF": {
+      "n_trades": 120,
+      "pnl": -173.85000000000002,
+      "win_rate": 0.35,
+      "avg_ev": 0.10626057840330067
+    },
+    "MAM": {
+      "n_trades": 118,
+      "pnl": -42.45000000000003,
+      "win_rate": 0.5508474576271186,
+      "avg_ev": 0.05141393202288263
+    },
+    "JJA": {
+      "n_trades": 158,
+      "pnl": -76.10000000000002,
+      "win_rate": 0.6455696202531646,
+      "avg_ev": 0.06226144531820355
+    },
+    "SON": {
+      "n_trades": 118,
+      "pnl": -14.900000000000011,
+      "win_rate": 0.635593220338983,
+      "avg_ev": 0.06315783623080017
+    }
+  }
 }

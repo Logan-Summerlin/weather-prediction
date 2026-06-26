@@ -61,7 +61,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.city_config import get_city_config, ensure_city_dirs  # noqa: E402
-from src.trading import compute_drawdown_metrics  # noqa: E402
+from src.trading import compute_drawdown_metrics, kalshi_fee_per_contract  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -140,8 +140,7 @@ def load_unified_predictions(city_code: str) -> pd.DataFrame:
     FileNotFoundError
         If the unified predictions file does not exist.
     """
-    city_dir = CITY_RESULTS_MAP[city_code]
-    path = PROJECT_ROOT / "results" / city_dir / "unified_predictions.csv"
+    path = Path(get_city_config(city_code).results_dir) / "unified_predictions.csv"
     if not path.is_file():
         raise FileNotFoundError(
             f"Unified predictions not found at {path}. "
@@ -266,11 +265,13 @@ def run_variant_backtest(
             bid = max(0.01, market_mid - HALF_SPREAD)
             ask = min(0.99, market_mid + HALF_SPREAD)
 
-            # Compute EV for both sides
-            # YES side: buy at ask, win (1 - fee) if outcome=1
-            ev_yes = model_prob * (1.0 - fee_rate) - ask
-            # NO side: buy NO at (1 - bid), win (1 - fee) if outcome=0
-            ev_no = (1.0 - model_prob) * (1.0 - fee_rate) - (1.0 - bid)
+            # Compute EV for both sides using Kalshi's real curved fee, charged
+            # per contract on entry. A YES contract bought at `ask` costs
+            # ask + fee(ask) and pays $1 if outcome=1; symmetric for NO.
+            yes_price = ask
+            no_price = 1.0 - bid
+            ev_yes = model_prob * 1.0 - yes_price - kalshi_fee_per_contract(yes_price)
+            ev_no = (1.0 - model_prob) * 1.0 - no_price - kalshi_fee_per_contract(no_price)
 
             # Determine best direction
             if ev_yes > ev_no:
@@ -295,7 +296,9 @@ def run_variant_backtest(
                 price = 1.0 - bid
 
             price = float(np.clip(price, 0.01, 0.99))
-            net_payout = (1.0 - fee_rate) - price
+            fee = kalshi_fee_per_contract(price)
+            # Net winnings per contract = $1 payout - entry price - entry fee.
+            net_payout = 1.0 - price - fee
             if net_payout <= 0:
                 continue
 
@@ -311,8 +314,9 @@ def run_variant_backtest(
             frac_kelly = full_kelly * kelly_fraction
 
             # Size in contracts (1 contract = $1 face value).
-            # Stake can never exceed the current bankroll.
-            affordable = int(max(0.0, bankroll) / price)
+            # Stake (price + fee per contract) can never exceed the bankroll.
+            unit_cost = price + fee
+            affordable = int(max(0.0, bankroll) / unit_cost)
             n_contracts = min(
                 max_contracts,
                 max(1, int(frac_kelly * bankroll / price)),
@@ -321,16 +325,16 @@ def run_variant_backtest(
             if n_contracts < 1:
                 continue
 
-            # Compute trade P&L
-            cost = n_contracts * price
+            # Compute trade P&L. The fee is paid on entry on every contract,
+            # win or lose; a winning contract returns its $1 face value.
+            cost = n_contracts * price + n_contracts * fee
             if direction == "YES":
                 won = int(outcome == 1)
             else:
                 won = int(outcome == 0)
 
             if won:
-                payout = n_contracts * (1.0 - fee_rate)
-                pnl = payout - cost
+                pnl = n_contracts * 1.0 - cost
             else:
                 pnl = -cost
 
@@ -700,9 +704,8 @@ def run_city_backtest(city_code: str) -> Optional[Dict[str, Dict[str, Any]]]:
     """
     cfg = get_city_config(city_code)
     ensure_city_dirs(cfg)
-    city_dir = CITY_RESULTS_MAP[city_code]
 
-    backtest_dir = str(PROJECT_ROOT / "results" / city_dir / "backtest")
+    backtest_dir = str(Path(cfg.results_dir) / "backtest")
     os.makedirs(backtest_dir, exist_ok=True)
 
     logger.info("=" * 70)
@@ -884,15 +887,24 @@ def run_city_backtest(city_code: str) -> Optional[Dict[str, Dict[str, Any]]]:
 # ===========================================================================
 
 def main() -> None:
-    """Run the real Kalshi pre-settlement backtest for all cities."""
+    """Run the real Kalshi pre-settlement backtest for the requested cities."""
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="EV-gated backtest on real Kalshi pre-settlement prices."
+    )
+    ap.add_argument("--city", default=",".join(CITY_CODES),
+                    help="Comma-separated city codes (e.g. nyc or chi,phl).")
+    args = ap.parse_args()
+    cities = [c.strip() for c in args.city.split(",") if c.strip()]
+
     logger.info("=" * 70)
     logger.info("Real Kalshi Pre-Settlement Backtest — Multi-City")
-    logger.info("  Cities: %s", ", ".join(CITY_CODES))
+    logger.info("  Cities: %s", ", ".join(cities))
     logger.info("  Model variants: %s", ", ".join(MODEL_VARIANTS.values()))
     logger.info("=" * 70)
 
     results: Dict[str, Optional[Dict]] = {}
-    for city_code in CITY_CODES:
+    for city_code in cities:
         results[city_code] = run_city_backtest(city_code)
 
     # ---- Grand summary ----
@@ -907,9 +919,8 @@ def main() -> None:
     )
     print("-" * 100)
 
-    for city_code in CITY_CODES:
-        city_dir = CITY_RESULTS_MAP[city_code]
-        city_label = city_dir.capitalize()
+    for city_code in cities:
+        city_label = get_city_config(city_code).city_name
         city_metrics = results.get(city_code)
         if city_metrics is None:
             print(f"{city_label:<15} {'--- NO DATA ---'}")

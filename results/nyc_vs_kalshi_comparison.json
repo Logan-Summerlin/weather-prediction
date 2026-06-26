@@ -1,0 +1,12 @@
+{
+  "best_model": "Ridge (a=100.0)",
+  "best_model_contract_brier": 0.01578706979367881,
+  "all_model_briers": {
+    "Ridge (a=100.0)": 0.01578706979367881,
+    "HeteroscedasticNN": 0.015843043542416342,
+    "Persistence": 0.016174504083274546,
+    "Climatology": 0.016309142333417168
+  },
+  "kalshi_market_brier": null,
+  "model_edge": null
+}
