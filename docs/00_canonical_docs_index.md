@@ -12,7 +12,9 @@ This index defines the **only active documentation set** for repository operatio
 3. `docs/01_implementation_plan_2026.md` — phased implementation plan
    (model optimization, 10-city expansion, EV dashboard) with Phase 0
    findings and the honest-baseline policy.
-4. `results/baseline_ledger.json` — machine-generated honest per-city
+4. `docs/02_realtime_ev_dashboard_plan.md` — locally run real-time positive-EV
+   dashboard plan for NYC/CHI/PHL Kalshi markets.
+5. `results/baseline_ledger.json` — machine-generated honest per-city
    baseline metrics (never hand-edit; regenerate via
    `python scripts/build_baseline_ledger.py`).
 
