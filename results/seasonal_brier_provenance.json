@@ -1,6 +1,6 @@
 {
-  "variant": "u8_cv_prob",
-  "overall_oos_contract_brier": 0.104438,
+  "variant": "u10_debias_prob",
+  "overall_oos_contract_brier": 0.099017,
   "n_oos_rows": 2158,
   "all_variant_oos_brier": {
     "u3_mlp_prob": 0.106511,
@@ -9,7 +9,8 @@
     "u6_ensemble_prob": 0.110483,
     "u7_extended_prob": 0.106604,
     "u8_cv_prob": 0.104438,
-    "u9_kitchen_prob": 0.105443
+    "u9_kitchen_prob": 0.105443,
+    "u10_debias_prob": 0.099017
   },
   "source": "unified_predictions.csv (promoted U-series, OOS contract rows)"
 }

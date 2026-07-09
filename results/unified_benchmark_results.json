@@ -70,5 +70,11 @@
   },
   "Kalshi_PreSettlement": {
     "contract_brier": 0.12706111379754995
+  },
+  "U10_market_debias": {
+    "contract_brier": 0.12665952306229697,
+    "is_brier": 0.14140314396776837,
+    "oos_brier": 0.0990169418836421,
+    "note": "Walk-forward market-debias (longshot discount + book coherence); every probability strictly out-of-sample (2023 rows = raw market mid, later years use curves fit on prior years only), unlike the U2-U9 calibrations whose IS rows are in-sample."
   }
 }
