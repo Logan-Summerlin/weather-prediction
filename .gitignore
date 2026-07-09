@@ -64,3 +64,6 @@ results/live/
 results/*/trading/trading_audit_*.json
 results/trading/trading_audit_*.json
 
+
+# Real-time EV dashboard runtime artifacts
+results/dashboard/

@@ -441,6 +441,59 @@ class DashboardData:
         }
 
     # -----------------------------------------------------------------------
+    # Opportunity snapshots (real-time EV dashboard)
+    # -----------------------------------------------------------------------
+
+    def load_latest_opportunities(
+        self, export_dir: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Load ``results/dashboard/latest_opportunities.json`` if present.
+
+        Written by :class:`src.dashboard.opportunity_service.OpportunityService`
+        on each refresh. Returns None when no snapshot has been generated yet.
+        """
+        export_dir = export_dir or os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__)))), "results", "dashboard",
+        )
+        path = os.path.join(export_dir, "latest_opportunities.json")
+        if not os.path.isfile(path):
+            return None
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("Unreadable opportunity snapshot %s: %s", path, e)
+            return None
+
+    def get_opportunity_counts(
+        self, export_dir: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Latest opportunity counts by city from the persisted snapshot."""
+        snapshot = self.load_latest_opportunities(export_dir)
+        if not snapshot:
+            return {"available": False, "by_city": {}, "generated_at": None}
+        by_city: Dict[str, Dict[str, int]] = {}
+        for row in snapshot.get("opportunities", []):
+            city = row.get("city_code", "unknown")
+            c = by_city.setdefault(
+                city, {"n_contracts": 0, "n_positive_ev": 0, "n_tradeable": 0}
+            )
+            c["n_contracts"] += 1
+            ev = row.get("ev_best")
+            if isinstance(ev, (int, float)) and ev > 0:
+                c["n_positive_ev"] += 1
+            if row.get("eligibility") == "TRADEABLE-PAPER":
+                c["n_tradeable"] += 1
+        return {
+            "available": True,
+            "generated_at": snapshot.get("generated_at"),
+            "mode": snapshot.get("mode"),
+            "summary": snapshot.get("summary", {}),
+            "by_city": by_city,
+        }
+
+    # -----------------------------------------------------------------------
     # Export
     # -----------------------------------------------------------------------
 

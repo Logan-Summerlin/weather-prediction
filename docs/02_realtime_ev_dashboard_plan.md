@@ -1,6 +1,6 @@
 # Locally Run Real-Time Positive-EV Dashboard Plan: NYC / CHI / PHL
 
-> Status: Proposed implementation plan  
+> Status: Implemented (see `src/dashboard/opportunity_service.py`, `src/dashboard/app.py`, `scripts/run_ev_dashboard.py`, `config/dashboard.yaml`, `docs/03_ev_dashboard_runbook.md`)  
 > Scope: local-only dashboard for read-only Kalshi market monitoring and paper-trading opportunity review across NYC, Chicago, and Philadelphia daily-high-temperature markets.  
 > Primary goal: surface *honest* positive expected value (EV) opportunities after fees, spread/slippage, data freshness, calibration, and promotion/monitor gates.  
 > Non-goal for this phase: authenticated live order placement.

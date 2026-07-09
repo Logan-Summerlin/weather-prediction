@@ -13,8 +13,12 @@ This index defines the **only active documentation set** for repository operatio
    (model optimization, 10-city expansion, EV dashboard) with Phase 0
    findings and the honest-baseline policy.
 4. `docs/02_realtime_ev_dashboard_plan.md` — locally run real-time positive-EV
-   dashboard plan for NYC/CHI/PHL Kalshi markets.
-5. `results/baseline_ledger.json` — machine-generated honest per-city
+   dashboard plan for NYC/CHI/PHL Kalshi markets (implemented:
+   `src/dashboard/opportunity_service.py`, `src/dashboard/app.py`,
+   `scripts/run_ev_dashboard.py`, `config/dashboard.yaml`).
+5. `docs/03_ev_dashboard_runbook.md` — daily operation, troubleshooting, and
+   incident response for the EV dashboard.
+6. `results/baseline_ledger.json` — machine-generated honest per-city
    baseline metrics (never hand-edit; regenerate via
    `python scripts/build_baseline_ledger.py`).
 

@@ -1,0 +1,20 @@
+{
+  "city_code": "phl",
+  "date": "2026-07-09",
+  "status": "OK",
+  "mu": 90.2,
+  "sigma": 2.9,
+  "model_name": "synthesis",
+  "bucket_labels": [],
+  "bucket_probs": [],
+  "bucket_edges": [],
+  "freshness": {
+    "valid": true,
+    "kill_switch": false,
+    "warnings": [],
+    "degraded": false
+  },
+  "kill_switch_reasons": [],
+  "promotion_status": "MONITOR",
+  "generated_at": "2026-07-09T10:45:00+00:00"
+}
