@@ -1,0 +1,89 @@
+{
+  "markets": [
+    {
+      "ticker": "KXHIGHPHIL-26JUL09-B86",
+      "event_ticker": "KXHIGHPHIL-26JUL09",
+      "title": "Below 86",
+      "yes_sub_title": "Below 86",
+      "status": "open",
+      "yes_bid": 4,
+      "yes_ask": 6,
+      "no_bid": 94,
+      "no_ask": 96,
+      "last_price": 5,
+      "volume": 1200,
+      "open_interest": 800
+    },
+    {
+      "ticker": "KXHIGHPHIL-26JUL09-B86.88",
+      "event_ticker": "KXHIGHPHIL-26JUL09",
+      "title": "86 to 88",
+      "yes_sub_title": "86 to 88",
+      "status": "open",
+      "yes_bid": 4,
+      "yes_ask": 6,
+      "no_bid": 94,
+      "no_ask": 96,
+      "last_price": 12,
+      "volume": 1200,
+      "open_interest": 800
+    },
+    {
+      "ticker": "KXHIGHPHIL-26JUL09-B88.90",
+      "event_ticker": "KXHIGHPHIL-26JUL09",
+      "title": "88 to 90",
+      "yes_sub_title": "88 to 90",
+      "status": "open",
+      "yes_bid": 22,
+      "yes_ask": 24,
+      "no_bid": 76,
+      "no_ask": 78,
+      "last_price": 23,
+      "volume": 1200,
+      "open_interest": 800
+    },
+    {
+      "ticker": "KXHIGHPHIL-26JUL09-B90.92",
+      "event_ticker": "KXHIGHPHIL-26JUL09",
+      "title": "90 to 92",
+      "yes_sub_title": "90 to 92",
+      "status": "open",
+      "yes_bid": 26,
+      "yes_ask": 28,
+      "no_bid": 72,
+      "no_ask": 74,
+      "last_price": 27,
+      "volume": 1200,
+      "open_interest": 800
+    },
+    {
+      "ticker": "KXHIGHPHIL-26JUL09-B92.94",
+      "event_ticker": "KXHIGHPHIL-26JUL09",
+      "title": "92 to 94",
+      "yes_sub_title": "92 to 94",
+      "status": "open",
+      "yes_bid": 19,
+      "yes_ask": 21,
+      "no_bid": 79,
+      "no_ask": 81,
+      "last_price": 20,
+      "volume": 1200,
+      "open_interest": 800
+    },
+    {
+      "ticker": "KXHIGHPHIL-26JUL09-T94",
+      "event_ticker": "KXHIGHPHIL-26JUL09",
+      "title": "Above 94",
+      "yes_sub_title": "Above 94",
+      "status": "open",
+      "yes_bid": 6,
+      "yes_ask": 8,
+      "no_bid": 92,
+      "no_ask": 94,
+      "last_price": 7,
+      "volume": 1200,
+      "open_interest": 800
+    }
+  ],
+  "note": "synthetic offline fixture"
+}

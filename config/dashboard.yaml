@@ -1,0 +1,36 @@
+# Local real-time EV dashboard settings (docs/02_realtime_ev_dashboard_plan.md)
+#
+# Modes: offline (fixtures only, no network), monitor (public Kalshi polling,
+# no trades), paper (public polling + paper-trade audit logs).
+# "live" is rejected by design — no authenticated order placement.
+
+cities:
+  - nyc
+  - chi
+  - phl
+
+mode: monitor
+
+# Refresh / freshness
+refresh_interval_seconds: 60
+max_market_age_seconds: 300
+
+# Conservative cost + edge model (executable ask prices only; curved Kalshi
+# fee ceil(0.07*P*(1-P)) charged on entry; slippage buffer in cents).
+min_ev: 0.01
+slippage_cents: 1.0
+max_spread_cents: 10.0
+
+# Order books are only fetched on demand (0 = never automatically).
+orderbook_top_n: 0
+
+# Artifacts
+export_dir: results/dashboard
+fixture_dir: data/fixtures/dashboard
+snapshot_retention: 200
+raw_cache_retention: 100
+
+# Guardrails — do not flip these casually.
+allow_stale_signals: false   # forced true in offline mode
+show_monitor_sizing: false   # MONITOR cities always size 0 unless dev flag
+bankroll: 1000.0

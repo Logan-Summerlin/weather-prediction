@@ -25,6 +25,25 @@ Supported stages:
 - `promotion_evaluation`
 - `all` (ordered full pipeline)
 
+## Real-Time EV Dashboard
+
+`run_ev_dashboard.py` launches the local read-only positive-EV dashboard
+(NYC/CHI/PHL) from `docs/02_realtime_ev_dashboard_plan.md`:
+
+```bash
+python scripts/run_ev_dashboard.py --mode offline          # bundled fixtures, no network
+python scripts/run_ev_dashboard.py --mode monitor          # public Kalshi polling, no trades
+python scripts/run_ev_dashboard.py --mode paper            # + paper-trade audit logging
+python scripts/run_ev_dashboard.py --mode offline --once   # headless snapshot, no Streamlit
+```
+
+Modes: `offline` | `monitor` | `paper` — `live` is rejected by design (no
+authenticated order placement). Settings live in `config/dashboard.yaml`;
+snapshots are written to `results/dashboard/opportunities_<ts>.json` with a
+`latest_opportunities.json` copy. Daily signals come from
+`run_daily_inference.py --city <city>`. Operating runbook:
+`docs/03_ev_dashboard_runbook.md`.
+
 ## Stage Entrypoints (Unified)
 
 Each stage still has a direct script for ad hoc runs:
