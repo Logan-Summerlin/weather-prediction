@@ -240,6 +240,70 @@
           "avg_ev": 0.06315783623080017
         }
       }
+    },
+    "U10_market_debias": {
+      "total_pnl": 28.100000000000136,
+      "initial_bankroll": 1000.0,
+      "final_bankroll": 1028.1000000000001,
+      "return_pct": 2.8100000000000134,
+      "n_trades": 249,
+      "win_rate": 0.9236947791164659,
+      "n_trading_days": 430,
+      "avg_pnl_per_trade": 0.11285140562248987,
+      "median_pnl_per_trade": 0.7999999999999989,
+      "avg_ev_traded": 0.0343888765527758,
+      "max_drawdown": -33.50000000000034,
+      "max_drawdown_pct": -3.1777651299563963,
+      "busted": false,
+      "bust_date": null,
+      "sharpe_ratio": 0.5146906542276634,
+      "daily_pnl_mean": 0.06534883720930228,
+      "daily_pnl_std": 2.015541999485156,
+      "model_brier": 0.09825902338049498,
+      "market_brier": 0.09799788566953797,
+      "brier_edge": -0.0002611377109570101,
+      "seasonal": {
+        "DJF": {
+          "n_trades": 48,
+          "pnl": -19.1,
+          "win_rate": 0.875,
+          "avg_ev": 0.03436674223822433
+        },
+        "MAM": {
+          "n_trades": 76,
+          "pnl": 39.79999999999998,
+          "win_rate": 0.9605263157894737,
+          "avg_ev": 0.034900893552367786
+        },
+        "JJA": {
+          "n_trades": 72,
+          "pnl": -19.50000000000001,
+          "win_rate": 0.8888888888888888,
+          "avg_ev": 0.033018300077854286
+        },
+        "SON": {
+          "n_trades": 53,
+          "pnl": 26.89999999999999,
+          "win_rate": 0.9622641509433962,
+          "avg_ev": 0.03553662487964051
+        }
+      },
+      "pnl_by_year": {
+        "2025": 42.29999999999997,
+        "2026": -14.199999999999998
+      },
+      "strategy": {
+        "name": "longshot_short",
+        "description": "NO-side only on buckets with pre-settlement mid in (0.05, 0.25]; walk-forward longshot-discount + coherence pricing; executed at real bids with curved Kalshi fees",
+        "ev_threshold": 0.02,
+        "kelly_fraction": 0.25,
+        "max_contracts": 10,
+        "execution": "real_bid_ask",
+        "eval_window": [
+          "2025-01-01",
+          "2026-07-07"
+        ]
+      }
     }
   }
 }

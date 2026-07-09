@@ -68,6 +68,7 @@ UNIFIED_VARIANT_COLS = [
     "u7_extended_prob",
     "u8_cv_prob",
     "u9_kitchen_prob",
+    "u10_debias_prob",
 ]
 
 PROB_CLIP = (1e-4, 1.0 - 1e-4)

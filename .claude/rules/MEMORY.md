@@ -18,16 +18,27 @@
 - Architecture is modularized across ingestion, feature engineering, modeling, calibration/bucketization, and trading simulation.
 - Multi-city script flow has been unified (city passed via `--city`) with thin compatibility wrappers for legacy per-city commands.
 - Promotion evaluations are implemented; city readiness differs by market edge and calibration robustness.
-- **Promotion status (2026-06-24):** PHL and CHI **PASS all 14 gates (READY)**; NYC
-  passes 11/14 (the 3 trading gates fail). NYC's model is well-calibrated and
-  competitive (contract Brier 0.110, beats benchmark market 0.127, ECE 0.018,
-  all seasons < 0.11) but its real OOS pre-settlement market (Brier **0.0988**)
-  is too efficient to beat: the generic unified model, MOS-anchoring, AND the
-  full NYC WGA/NWS/market-state stack (best OOS Brier 0.1018) all trade negative
-  even under accurate fees. Optimal model+market blend weight is ~0 — the market
-  already prices all available forecast signal. This is a legitimate "no genuine
-  edge -> do not trade" outcome (Central Park is the most-traded, best-forecast
-  station), not a pipeline defect.
+- **Promotion status (2026-07-09):** PHL, CHI and now **NYC PASS all 14 gates**.
+  NYC's path was NOT meteorological: the pre-settlement market (2025 OOS Brier
+  0.0988) beats every weather variant in every slice (optimal blend weight
+  0.00 everywhere — 2026-06-24 conclusion confirmed and final). The trading
+  gates are cleared by **U10_market_debias** (`src/market_debias.py`): a
+  walk-forward longshot-discount + book-coherence repricing of the market
+  itself (favorite-longshot bias: ≤10c buckets realized at ~0.5x price in
+  2023/24/25), traded as NO-side-only on mids in (0.05,0.25] at REAL bids
+  with curved fees. +$28.10 over 2025-01→2026-07 (249 trades, 92.4% win,
+  max DD -3.2%); best 2025 OOS Brier of any variant (0.0990). Full audit:
+  `results/audits/nyc_u10_market_debias_audit.md`.
+- **⚠️ NYC edge decay / kill switch (2026-07-09):** the longshot bias decayed
+  monotonically (-5c 2023/24 → -2.5c 2025 → **-0.6c in the 2026-05→07 true-OOS
+  fetch**, where the strategy lost -$14.20 over 44 trades). 2026 books are
+  tight (1c median spread, overround 4.4c). U10's checkpoint
+  (`models/nyc/u10_market_debias.json`) embeds a kill switch — trade only if
+  trailing 120-day zone bias ≤ -1.5c — which is currently **HALTED**. NYC is
+  promoted as a validated pipeline; do NOT deploy capital until the bias
+  signal re-widens. Kalshi purged pre-2026-May market data from the public
+  API (old tickers 404); `scripts/fetch_kalshi_nyc_2026_oos.py` re-fetches
+  the retained window (candlesticks now use `close_dollars` string schema).
 - **Kalshi fee model corrected (2026-06-24):** backtests previously charged a
   flat 7c/contract (payout*(1-0.07)); Kalshi's real general-markets fee is the
   curved `ceil(0.07*P*(1-P))` per contract (~1.3-1.75c), charged on entry. See
